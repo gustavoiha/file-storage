@@ -1,0 +1,45 @@
+import type { APIGatewayProxyEventV2 } from 'aws-lambda';
+import { randomUUID } from 'node:crypto';
+import { z } from 'zod';
+import { getUserIdFromEvent } from '../lib/auth.js';
+import { jsonResponse, safeJsonParse } from '../lib/http.js';
+import { putVault } from '../lib/repository.js';
+import { buildVaultPk, buildVaultSk } from '../domain/keys.js';
+
+const bodySchema = z.object({
+  name: z.string().trim().min(1).max(100)
+});
+
+export const handler = async (event: APIGatewayProxyEventV2) => {
+  try {
+    const userId = getUserIdFromEvent(event);
+    const parsed = bodySchema.safeParse(safeJsonParse(event.body));
+
+    if (!parsed.success) {
+      return jsonResponse(400, { error: 'Invalid request body' });
+    }
+
+    const now = new Date().toISOString();
+    const vaultId = randomUUID();
+
+    await putVault({
+      PK: buildVaultPk(userId),
+      SK: buildVaultSk(vaultId),
+      type: 'VAULT',
+      userId,
+      vaultId,
+      name: parsed.data.name,
+      createdAt: now
+    });
+
+    return jsonResponse(201, {
+      vaultId,
+      name: parsed.data.name,
+      createdAt: now
+    });
+  } catch (error) {
+    return jsonResponse(500, {
+      error: error instanceof Error ? error.message : 'Unknown error'
+    });
+  }
+};

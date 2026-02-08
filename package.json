@@ -1,0 +1,15 @@
+{
+  "name": "articvault",
+  "private": true,
+  "version": "0.1.0",
+  "workspaces": [
+    "apps/*",
+    "packages/*",
+    "infra/*"
+  ],
+  "scripts": {
+    "build": "npm run --workspaces build",
+    "test": "npm run --workspaces test",
+    "typecheck": "npm run --workspaces typecheck"
+  }
+}

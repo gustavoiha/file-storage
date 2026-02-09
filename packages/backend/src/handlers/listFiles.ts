@@ -1,12 +1,12 @@
 import type { APIGatewayProxyEventV2 } from 'aws-lambda';
 import { toFolderPrefix } from '../domain/path.js';
-import { getUserIdFromEvent } from '../lib/auth.js';
-import { jsonResponse } from '../lib/http.js';
+import { requireEntitledUser } from '../lib/auth.js';
+import { errorResponse, jsonResponse } from '../lib/http.js';
 import { listFilesByState } from '../lib/repository.js';
 
 export const handler = async (event: APIGatewayProxyEventV2) => {
   try {
-    const userId = getUserIdFromEvent(event);
+    const { userId } = requireEntitledUser(event);
     const vaultId = event.pathParameters?.vaultId;
     const folder = event.queryStringParameters?.folder ?? '/';
 
@@ -27,8 +27,6 @@ export const handler = async (event: APIGatewayProxyEventV2) => {
       }))
     });
   } catch (error) {
-    return jsonResponse(500, {
-      error: error instanceof Error ? error.message : 'Unknown error'
-    });
+    return errorResponse(error);
   }
 };

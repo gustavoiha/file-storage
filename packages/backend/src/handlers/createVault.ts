@@ -1,8 +1,8 @@
 import type { APIGatewayProxyEventV2 } from 'aws-lambda';
 import { randomUUID } from 'node:crypto';
 import { z } from 'zod';
-import { getUserIdFromEvent } from '../lib/auth.js';
-import { jsonResponse, safeJsonParse } from '../lib/http.js';
+import { requireEntitledUser } from '../lib/auth.js';
+import { errorResponse, jsonResponse, safeJsonParse } from '../lib/http.js';
 import { putVault } from '../lib/repository.js';
 import { buildVaultPk, buildVaultSk } from '../domain/keys.js';
 
@@ -12,7 +12,7 @@ const bodySchema = z.object({
 
 export const handler = async (event: APIGatewayProxyEventV2) => {
   try {
-    const userId = getUserIdFromEvent(event);
+    const { userId } = requireEntitledUser(event);
     const parsed = bodySchema.safeParse(safeJsonParse(event.body));
 
     if (!parsed.success) {
@@ -38,8 +38,6 @@ export const handler = async (event: APIGatewayProxyEventV2) => {
       createdAt: now
     });
   } catch (error) {
-    return jsonResponse(500, {
-      error: error instanceof Error ? error.message : 'Unknown error'
-    });
+    return errorResponse(error);
   }
 };

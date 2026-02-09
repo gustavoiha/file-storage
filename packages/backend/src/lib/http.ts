@@ -1,3 +1,5 @@
+import { isAuthError } from './auth.js';
+
 export interface HttpResponse {
   statusCode: number;
   headers: Record<string, string>;
@@ -32,4 +34,16 @@ export const isoPlusDays = (isoString: string, days: number): string => {
   const next = new Date(base.getTime());
   next.setUTCDate(next.getUTCDate() + days);
   return next.toISOString();
+};
+
+export const errorResponse = (error: unknown): HttpResponse => {
+  if (isAuthError(error)) {
+    return jsonResponse(error.statusCode, {
+      error: error.message
+    });
+  }
+
+  return jsonResponse(500, {
+    error: error instanceof Error ? error.message : 'Unknown error'
+  });
 };

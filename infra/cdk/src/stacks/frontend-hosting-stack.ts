@@ -4,14 +4,21 @@ import { S3BucketOrigin } from 'aws-cdk-lib/aws-cloudfront-origins';
 import { BlockPublicAccess, Bucket } from 'aws-cdk-lib/aws-s3';
 import type { Construct } from 'constructs';
 
+interface FrontendHostingStackProps extends StackProps {
+  deploymentEnvironment: string;
+}
+
 export class FrontendHostingStack extends Stack {
   public readonly siteBucket: Bucket;
   public readonly distribution: Distribution;
 
-  constructor(scope: Construct, id: string, props?: StackProps) {
+  constructor(scope: Construct, id: string, props: FrontendHostingStackProps) {
     super(scope, id, props);
 
+    const siteBucketName = `articvault-site-${this.account}-${this.region}-${props.deploymentEnvironment}`;
+
     this.siteBucket = new Bucket(this, 'SiteBucket', {
+      bucketName: siteBucketName,
       blockPublicAccess: BlockPublicAccess.BLOCK_ALL,
       enforceSSL: true,
       removalPolicy: RemovalPolicy.RETAIN,

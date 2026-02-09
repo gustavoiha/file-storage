@@ -1,5 +1,5 @@
 import 'source-map-support/register.js';
-import { App } from 'aws-cdk-lib';
+import { App, type StackProps } from 'aws-cdk-lib';
 import { BackendStack } from './stacks/backend-stack.js';
 import { FrontendHostingStack } from './stacks/frontend-hosting-stack.js';
 import { IdentityStack } from './stacks/identity-stack.js';
@@ -7,15 +7,32 @@ import { StorageStack } from './stacks/storage-stack.js';
 
 const app = new App();
 
-const env =
-  process.env.CDK_DEFAULT_ACCOUNT && process.env.CDK_DEFAULT_REGION
-    ? {
-        account: process.env.CDK_DEFAULT_ACCOUNT,
-        region: process.env.CDK_DEFAULT_REGION
-      }
-    : undefined;
+const requiredEnv = (key: string): string => {
+  const value = process.env[key];
+  if (!value) {
+    throw new Error(`Missing required environment variable: ${key}`);
+  }
 
-const stackProps = env ? { env } : {};
+  return value;
+};
+
+const deploymentEnvironment = requiredEnv('ENVIRONMENT');
+
+interface BaseStackProps extends StackProps {
+  deploymentEnvironment: string;
+}
+
+const stackProps: BaseStackProps = {
+  ...(process.env.CDK_DEFAULT_ACCOUNT && process.env.CDK_DEFAULT_REGION
+    ? {
+        env: {
+          account: process.env.CDK_DEFAULT_ACCOUNT,
+          region: process.env.CDK_DEFAULT_REGION
+        }
+      }
+    : {}),
+  deploymentEnvironment
+};
 
 const identity = new IdentityStack(app, 'ArticVaultIdentity', stackProps);
 const storage = new StorageStack(app, 'ArticVaultStorage', stackProps);
@@ -24,6 +41,7 @@ new BackendStack(app, 'ArticVaultBackend', {
   ...stackProps,
   userPool: identity.userPool,
   userPoolClient: identity.userPoolClient,
+  entitledGroupName: identity.entitledGroupName,
   table: storage.metadataTable,
   bucket: storage.fileBucket
 });

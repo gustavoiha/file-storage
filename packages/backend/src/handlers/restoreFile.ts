@@ -1,7 +1,7 @@
 import type { APIGatewayProxyEventV2 } from 'aws-lambda';
 import { z } from 'zod';
-import { getUserIdFromEvent } from '../lib/auth.js';
-import { jsonResponse, safeJsonParse } from '../lib/http.js';
+import { requireEntitledUser } from '../lib/auth.js';
+import { errorResponse, jsonResponse, safeJsonParse } from '../lib/http.js';
 import { normalizeFullPath, toRelativePath } from '../domain/path.js';
 import { getFile, updateFileState } from '../lib/repository.js';
 import { buildObjectKey, clearTrashTag, objectExists } from '../lib/s3.js';
@@ -12,7 +12,7 @@ const bodySchema = z.object({
 
 export const handler = async (event: APIGatewayProxyEventV2) => {
   try {
-    const userId = getUserIdFromEvent(event);
+    const { userId } = requireEntitledUser(event);
     const vaultId = event.pathParameters?.vaultId;
 
     if (!vaultId) {
@@ -50,8 +50,6 @@ export const handler = async (event: APIGatewayProxyEventV2) => {
       state: 'ACTIVE'
     });
   } catch (error) {
-    return jsonResponse(500, {
-      error: error instanceof Error ? error.message : 'Unknown error'
-    });
+    return errorResponse(error);
   }
 };

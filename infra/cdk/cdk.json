@@ -1,3 +1,3 @@
 {
-  "app": "node --enable-source-maps dist/app.js"
+  "app": "node --env-file-if-exists=.env --enable-source-maps dist/app.js"
 }

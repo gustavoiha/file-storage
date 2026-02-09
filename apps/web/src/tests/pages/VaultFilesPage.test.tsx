@@ -1,6 +1,16 @@
 import { render, screen } from '@testing-library/react';
 import { describe, expect, it, vi } from 'vitest';
+import { ApiError } from '@/lib/apiClient';
 import { VaultFilesPage } from '@/pages/VaultFilesPage';
+
+const mockState = vi.hoisted(() => ({
+  filesResult: {
+    isLoading: false,
+    data: [] as unknown[],
+    error: null as unknown
+  },
+  moveToTrash: vi.fn(async () => {})
+}));
 
 vi.mock('@tanstack/react-router', () => ({
   useParams: () => ({ vaultId: 'v1' }),
@@ -9,6 +19,10 @@ vi.mock('@tanstack/react-router', () => ({
 
 vi.mock('@/components/auth/RequireAuth', () => ({
   RequireAuth: ({ children }: { children?: unknown }) => <>{children as any}</>
+}));
+
+vi.mock('@/components/auth/UnauthorizedNotice', () => ({
+  UnauthorizedNotice: () => <div>UnauthorizedNotice</div>
 }));
 
 vi.mock('@/components/files/FolderPicker', () => ({
@@ -24,16 +38,30 @@ vi.mock('@/components/files/FileList', () => ({
 }));
 
 vi.mock('@/hooks/useFiles', () => ({
-  useFiles: () => ({ isLoading: false, data: [] }),
-  useMoveToTrash: () => ({ mutateAsync: vi.fn(async () => {}) })
+  useFiles: () => mockState.filesResult,
+  useMoveToTrash: () => ({ mutateAsync: mockState.moveToTrash })
 }));
 
 describe('VaultFilesPage', () => {
   it('renders vault files page', () => {
+    mockState.filesResult = { isLoading: false, data: [], error: null };
+
     render(<VaultFilesPage />);
     expect(screen.getByText('Vault v1')).toBeInTheDocument();
     expect(screen.getByText('FolderPicker')).toBeInTheDocument();
     expect(screen.getByText('UploadForm')).toBeInTheDocument();
     expect(screen.getByText('FileList')).toBeInTheDocument();
+  });
+
+  it('renders unauthorized notice for 403', () => {
+    mockState.filesResult = {
+      isLoading: false,
+      data: [],
+      error: new ApiError('Not authorized for this account', 403)
+    };
+
+    render(<VaultFilesPage />);
+
+    expect(screen.getByText('UnauthorizedNotice')).toBeInTheDocument();
   });
 });

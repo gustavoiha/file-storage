@@ -20,6 +20,27 @@ interface IdTokenClaims {
   sub: string;
 }
 
+const ALLOWLIST_SIGNUP_MESSAGE = 'This email is not permitted to create an account.';
+
+const mapRegisterError = (error: unknown): Error => {
+  if (!(error instanceof Error)) {
+    return new Error('Failed to register');
+  }
+
+  const codedError = error as Error & { code?: string; name?: string };
+  const code = codedError.code ?? codedError.name ?? '';
+  const normalizedMessage = error.message.toLowerCase();
+
+  if (
+    code === 'UserLambdaValidationException' ||
+    normalizedMessage.includes('not permitted to create an account')
+  ) {
+    return new Error(ALLOWLIST_SIGNUP_MESSAGE);
+  }
+
+  return error;
+};
+
 const userPool = new CognitoUserPool({
   UserPoolId: env.cognitoUserPoolId,
   ClientId: env.cognitoClientId
@@ -75,7 +96,7 @@ const register = async (payload: RegisterPayload): Promise<void> => {
       [],
       (error) => {
         if (error) {
-          reject(error);
+          reject(mapRegisterError(error));
           return;
         }
 

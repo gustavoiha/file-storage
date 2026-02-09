@@ -336,3 +336,32 @@ Future sharing can be added via new item types without schema changes.
 * Restore always clears lifecycle-relevant tags
 * `SK` (path) is immutable per item
 * `fullPath` normalization is strict and centralized
+
+---
+
+## 17. Authorization Setup (Allowlist + Entitlement Group)
+
+ArticVault supports signup allowlisting and runtime entitlement checks:
+
+* Signup is allowed only when the email exists in an SSM `StringList` allowlist
+* API access is allowed only for users in the Cognito group `entitled-users`
+
+### Required SSM Parameter
+
+Create this parameter before first production signup:
+
+* Name: `/articvault/auth/allowed-signup-emails`
+* Type: `StringList`
+* Value example: `you@example.com`
+
+### Onboarding a User
+
+1. Add the email to `/articvault/auth/allowed-signup-emails`
+2. User signs up and confirms email
+3. Post-confirmation trigger adds the user to `entitled-users`
+4. User can access vault/file APIs
+
+### Revoking Access
+
+1. Remove user from Cognito group `entitled-users` to block API access
+2. Optionally remove email from SSM allowlist to block future signups

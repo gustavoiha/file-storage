@@ -22,6 +22,7 @@ interface BackendStackProps extends StackProps {
   userPoolClient: UserPoolClient;
   table: Table;
   bucket: Bucket;
+  entitledGroupName: string;
 }
 
 export class BackendStack extends Stack {
@@ -44,7 +45,8 @@ export class BackendStack extends Stack {
         environment: {
           TABLE_NAME: props.table.tableName,
           BUCKET_NAME: props.bucket.bucketName,
-          TRASH_RETENTION_DAYS: '30'
+          TRASH_RETENTION_DAYS: '30',
+          ENTITLED_GROUP_NAME: props.entitledGroupName
         }
       });
 

@@ -1,5 +1,5 @@
-import { fireEvent, render, screen } from '@testing-library/react';
-import { describe, expect, it, vi } from 'vitest';
+import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 import { RegisterForm } from '@/components/auth/RegisterForm';
 
 const register = vi.fn(async () => {});
@@ -14,6 +14,10 @@ vi.mock('@tanstack/react-router', () => ({
   useNavigate: () => navigate
 }));
 
+afterEach(() => {
+  cleanup();
+});
+
 describe('RegisterForm', () => {
   it('submits registration', async () => {
     render(<RegisterForm />);
@@ -23,5 +27,23 @@ describe('RegisterForm', () => {
     fireEvent.submit(screen.getByRole('button', { name: 'Create Account' }));
 
     expect(register).toHaveBeenCalledWith({ email: 'a@a.com', password: 'secret' });
+  });
+
+  it('shows allowlist denial message', async () => {
+    register.mockRejectedValueOnce(
+      new Error('This email is not permitted to create an account.')
+    );
+
+    render(<RegisterForm />);
+
+    fireEvent.change(screen.getByLabelText('Email'), { target: { value: 'blocked@a.com' } });
+    fireEvent.change(screen.getByLabelText('Password'), { target: { value: 'secret' } });
+    fireEvent.submit(screen.getByRole('button', { name: 'Create Account' }));
+
+    await waitFor(() =>
+      expect(
+        screen.getByText('This email is not permitted to create an account.')
+      ).toBeInTheDocument()
+    );
   });
 });

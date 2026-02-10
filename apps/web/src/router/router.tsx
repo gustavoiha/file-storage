@@ -8,6 +8,7 @@ import {
 import { TopNav } from '@/components/ui/TopNav';
 import { authStore } from '@/lib/authStore';
 import { ChangePasswordPage } from '@/pages/ChangePasswordPage';
+import { ConfirmSignUpPage } from '@/pages/ConfirmSignUpPage';
 import { ForgotPasswordPage } from '@/pages/ForgotPasswordPage';
 import { LoginPage } from '@/pages/LoginPage';
 import { PurgedPage } from '@/pages/PurgedPage';
@@ -47,6 +48,16 @@ const registerRoute = createRoute({
   getParentRoute: () => rootRoute,
   path: '/register',
   component: RegisterPage
+});
+
+const confirmSignUpRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: '/confirm-signup',
+  validateSearch: (search: Record<string, unknown>) => ({
+    email: typeof search.email === 'string' ? search.email : '',
+    message: typeof search.message === 'string' ? search.message : ''
+  }),
+  component: ConfirmSignUpPage
 });
 
 const forgotPasswordRoute = createRoute({
@@ -98,6 +109,7 @@ const routeTree = rootRoute.addChildren([
   indexRoute,
   loginRoute,
   registerRoute,
+  confirmSignUpRoute,
   forgotPasswordRoute,
   resetPasswordRoute,
   vaultsRoute,

@@ -39,7 +39,8 @@ export const isoPlusDays = (isoString: string, days: number): string => {
 export const errorResponse = (error: unknown): HttpResponse => {
   if (isAuthError(error)) {
     return jsonResponse(error.statusCode, {
-      error: error.message
+      error: error.message,
+      ...(error.context ? { context: error.context } : {})
     });
   }
 

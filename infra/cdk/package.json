@@ -7,7 +7,7 @@
     "build": "tsc -p tsconfig.json",
     "typecheck": "tsc -p tsconfig.json --noEmit",
     "test": "echo 'No tests for CDK package'",
-    "cdk": "cdk"
+    "cdk": "node --env-file-if-exists=.env ../../node_modules/aws-cdk/bin/cdk"
   },
   "dependencies": {
     "aws-cdk-lib": "^2.0.0",

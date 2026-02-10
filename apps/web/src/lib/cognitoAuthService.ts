@@ -1,24 +1,27 @@
 import {
-  AuthenticationDetails,
-  CognitoUser,
-  CognitoUserAttribute,
-  CognitoUserSession,
-  CognitoUserPool
-} from 'amazon-cognito-identity-js';
-import { jwtDecode } from 'jwt-decode';
-import { env } from './env';
+  confirmSignIn,
+  confirmSignUp,
+  confirmResetPassword,
+  fetchAuthSession,
+  resetPassword,
+  resendSignUpCode,
+  signIn,
+  signOut,
+  signUp,
+  updatePassword
+} from 'aws-amplify/auth';
+import type { SignInOutput, SignUpOutput } from 'aws-amplify/auth';
+import { configureAmplify } from './amplify';
 import type {
   AuthService,
-  AuthSession,
+  ConfirmSignUpPayload,
+  LoginResult,
   ConfirmResetPayload,
   LoginPayload,
-  RegisterPayload
+  RegisterPayload,
+  RegisterResult,
+  SignUpConfirmationRequiredResult
 } from './authTypes';
-
-interface IdTokenClaims {
-  email?: string;
-  sub: string;
-}
 
 const ALLOWLIST_SIGNUP_MESSAGE = 'This email is not permitted to create an account.';
 
@@ -41,97 +44,190 @@ const mapRegisterError = (error: unknown): Error => {
   return error;
 };
 
-const userPool = new CognitoUserPool({
-  UserPoolId: env.cognitoUserPoolId,
-  ClientId: env.cognitoClientId
+const toSignUpConfirmationResult = (
+  email: string,
+  destination?: string
+): SignUpConfirmationRequiredResult => ({
+  status: 'SIGN_UP_CONFIRMATION_REQUIRED',
+  email,
+  message: destination
+    ? `Enter the confirmation code sent to ${destination}.`
+    : 'Enter the confirmation code sent to your email.'
 });
 
-const createCognitoUser = (email: string): CognitoUser =>
-  new CognitoUser({
-    Username: email,
-    Pool: userPool
-  });
+const buildSessionFromCurrentTokens = async (): Promise<LoginResult> => {
+  const session = await fetchAuthSession();
+  const accessToken = session.tokens?.accessToken?.toString();
+  const idToken = session.tokens?.idToken?.toString();
+  const claims = session.tokens?.idToken?.payload;
 
-const buildSession = (idToken: string, accessToken: string): AuthSession => {
-  const claims = jwtDecode<IdTokenClaims>(idToken);
+  if (!accessToken || !idToken || !claims?.sub) {
+    throw new Error('Authenticated session is missing required tokens');
+  }
 
   return {
-    idToken,
-    accessToken,
-    email: claims.email ?? '',
-    userId: claims.sub
+    status: 'SIGNED_IN',
+    session: {
+      accessToken,
+      idToken,
+      email: typeof claims.email === 'string' ? claims.email : '',
+      userId: claims.sub
+    }
   };
 };
 
-const login = async (payload: LoginPayload): Promise<AuthSession> => {
-  const user = createCognitoUser(payload.email);
+const toChallengeResult = (output: SignInOutput, email: string): LoginResult => {
+  const step = output.nextStep.signInStep;
+  const destination =
+    'codeDeliveryDetails' in output.nextStep
+      ? output.nextStep.codeDeliveryDetails?.destination
+      : undefined;
 
-  return new Promise((resolve, reject) => {
-    user.authenticateUser(
-      new AuthenticationDetails({
-        Username: payload.email,
-        Password: payload.password
-      }),
-      {
-        onSuccess: (session) => {
-          resolve(
-            buildSession(
-              session.getIdToken().getJwtToken(),
-              session.getAccessToken().getJwtToken()
-            )
-          );
-        },
-        onFailure: reject
+  if (step === 'CONFIRM_SIGN_UP') {
+    return toSignUpConfirmationResult(email, destination);
+  }
+
+  if (step === 'CONFIRM_SIGN_IN_WITH_EMAIL_CODE') {
+    return {
+      status: 'CONFIRMATION_REQUIRED',
+      challengeType: 'EMAIL_CODE',
+      message: destination
+        ? `Enter the verification code sent to ${destination}.`
+        : 'Enter the verification code sent to your email.'
+    };
+  }
+
+  if (step === 'CONFIRM_SIGN_IN_WITH_SMS_CODE') {
+    return {
+      status: 'CONFIRMATION_REQUIRED',
+      challengeType: 'SMS_CODE',
+      message: destination
+        ? `Enter the verification code sent to ${destination}.`
+        : 'Enter the verification code sent by SMS.'
+    };
+  }
+
+  if (step === 'CONFIRM_SIGN_IN_WITH_TOTP_CODE') {
+    return {
+      status: 'CONFIRMATION_REQUIRED',
+      challengeType: 'TOTP_CODE',
+      message: 'Enter the verification code from your authenticator app.'
+    };
+  }
+
+  throw new Error(`Unsupported sign-in challenge: ${step}`);
+};
+
+const mapSignUpOutput = (
+  output: SignUpOutput,
+  email: string
+): RegisterResult => {
+  const step = output.nextStep.signUpStep;
+  const destination =
+    'codeDeliveryDetails' in output.nextStep
+      ? output.nextStep.codeDeliveryDetails?.destination
+      : undefined;
+
+  if (step === 'CONFIRM_SIGN_UP') {
+    return toSignUpConfirmationResult(email, destination);
+  }
+
+  if (output.isSignUpComplete || step === 'DONE' || step === 'COMPLETE_AUTO_SIGN_IN') {
+    return {
+      status: 'REGISTERED'
+    };
+  }
+
+  throw new Error(`Unsupported sign-up step: ${step}`);
+};
+
+const mapSignInOutput = async (
+  output: SignInOutput,
+  email = ''
+): Promise<LoginResult> => {
+  if (output.isSignedIn) {
+    return buildSessionFromCurrentTokens();
+  }
+
+  return toChallengeResult(output, email);
+};
+
+const login = async (payload: LoginPayload): Promise<LoginResult> => {
+  configureAmplify();
+
+  const output = await signIn({
+    username: payload.email,
+    password: payload.password
+  });
+
+  return mapSignInOutput(output, payload.email);
+};
+
+const confirmLogin = async (code: string): Promise<LoginResult> => {
+  configureAmplify();
+
+  const output = await confirmSignIn({
+    challengeResponse: code
+  });
+
+  return mapSignInOutput(output);
+};
+
+const register = async (payload: RegisterPayload): Promise<RegisterResult> => {
+  configureAmplify();
+
+  try {
+    const output = await signUp({
+      username: payload.email,
+      password: payload.password,
+      options: {
+        userAttributes: {
+          email: payload.email
+        }
       }
-    );
+    });
+
+    return mapSignUpOutput(output, payload.email);
+  } catch (error) {
+    throw mapRegisterError(error);
+  }
+};
+
+const confirmSignUpRegistration = async (
+  payload: ConfirmSignUpPayload
+): Promise<void> => {
+  configureAmplify();
+  await confirmSignUp({
+    username: payload.email,
+    confirmationCode: payload.code
   });
 };
 
-const register = async (payload: RegisterPayload): Promise<void> => {
-  await new Promise<void>((resolve, reject) => {
-    userPool.signUp(
-      payload.email,
-      payload.password,
-      [new CognitoUserAttribute({ Name: 'email', Value: payload.email })],
-      [],
-      (error) => {
-        if (error) {
-          reject(mapRegisterError(error));
-          return;
-        }
-
-        resolve();
-      }
-    );
+const resendSignUpConfirmationCode = async (email: string): Promise<void> => {
+  configureAmplify();
+  await resendSignUpCode({
+    username: email
   });
 };
 
 const logout = async (): Promise<void> => {
-  const current = userPool.getCurrentUser();
-  current?.signOut();
+  configureAmplify();
+  await signOut();
 };
 
 const forgotPassword = async (email: string): Promise<void> => {
-  const user = createCognitoUser(email);
-
-  await new Promise<void>((resolve, reject) => {
-    user.forgotPassword({
-      onSuccess: () => resolve(),
-      onFailure: reject
-    });
-  });
+  configureAmplify();
+  await resetPassword({ username: email });
 };
 
 const confirmForgotPassword = async (
   payload: ConfirmResetPayload
 ): Promise<void> => {
-  const user = createCognitoUser(payload.email);
-
-  await new Promise<void>((resolve, reject) => {
-    user.confirmPassword(payload.code, payload.newPassword, {
-      onSuccess: () => resolve(),
-      onFailure: reject
-    });
+  configureAmplify();
+  await confirmResetPassword({
+    username: payload.email,
+    confirmationCode: payload.code,
+    newPassword: payload.newPassword
   });
 };
 
@@ -139,33 +235,19 @@ const changePassword = async (
   currentPassword: string,
   newPassword: string
 ): Promise<void> => {
-  const currentUser = userPool.getCurrentUser();
-  if (!currentUser) {
-    throw new Error('No active authenticated user');
-  }
-
-  await new Promise<void>((resolve, reject) => {
-    currentUser.getSession((sessionError: Error | null, session: CognitoUserSession | null) => {
-      if (sessionError || !session || !session.isValid()) {
-        reject(sessionError ?? new Error('Invalid Cognito session'));
-        return;
-      }
-
-      currentUser.changePassword(currentPassword, newPassword, (error) => {
-        if (error) {
-          reject(error);
-          return;
-        }
-
-        resolve();
-      });
-    });
+  configureAmplify();
+  await updatePassword({
+    oldPassword: currentPassword,
+    newPassword
   });
 };
 
 export const cognitoAuthService: AuthService = {
   login,
+  confirmLogin,
   register,
+  confirmSignUp: confirmSignUpRegistration,
+  resendSignUpCode: resendSignUpConfirmationCode,
   logout,
   forgotPassword,
   confirmForgotPassword,

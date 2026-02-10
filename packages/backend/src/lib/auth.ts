@@ -1,9 +1,9 @@
 interface EventClaims {
   sub?: string;
-  username?: string;
   email?: string;
   email_verified?: string;
   'cognito:groups'?: string | string[];
+  groups?: string | string[];
 }
 
 interface AuthorizerEvent {
@@ -25,16 +25,54 @@ export interface AuthIdentity {
 
 export class AuthError extends Error {
   public readonly statusCode: 401 | 403;
+  public readonly context?: Record<string, unknown>;
 
-  constructor(message: string, statusCode: 401 | 403) {
+  constructor(
+    message: string,
+    statusCode: 401 | 403,
+    context?: Record<string, unknown>
+  ) {
     super(message);
     this.name = 'AuthError';
     this.statusCode = statusCode;
+    this.context = context;
   }
 }
 
 export const isAuthError = (error: unknown): error is AuthError =>
   error instanceof AuthError;
+
+const parseGroupsFromString = (value: string): string[] => {
+  const trimmed = value.trim();
+  if (!trimmed) {
+    return [];
+  }
+
+  try {
+    const parsed = JSON.parse(trimmed) as unknown;
+    if (Array.isArray(parsed)) {
+      return parsed
+        .filter((entry): entry is string => typeof entry === 'string')
+        .flatMap((entry) => parseGroupsFromString(entry));
+    }
+
+    if (typeof parsed === 'string') {
+      return parseGroupsFromString(parsed);
+    }
+  } catch {
+    // Fallback to non-JSON claim formats.
+  }
+
+  const withoutBrackets =
+    trimmed.startsWith('[') && trimmed.endsWith(']')
+      ? trimmed.slice(1, -1).trim()
+      : trimmed;
+
+  return withoutBrackets
+    .split(',')
+    .map((group) => group.trim().replace(/^['"]|['"]$/g, ''))
+    .filter(Boolean);
+};
 
 const normalizeGroups = (rawGroups: string | string[] | undefined): string[] => {
   if (!rawGroups) {
@@ -42,32 +80,10 @@ const normalizeGroups = (rawGroups: string | string[] | undefined): string[] => 
   }
 
   if (Array.isArray(rawGroups)) {
-    return rawGroups.filter(Boolean).map((group) => group.trim()).filter(Boolean);
+    return rawGroups.flatMap((group) => parseGroupsFromString(group));
   }
 
-  const trimmed = rawGroups.trim();
-  if (!trimmed) {
-    return [];
-  }
-
-  if (trimmed.startsWith('[')) {
-    try {
-      const parsed = JSON.parse(trimmed) as unknown;
-      if (Array.isArray(parsed)) {
-        return parsed
-          .filter((entry): entry is string => typeof entry === 'string')
-          .map((group) => group.trim())
-          .filter(Boolean);
-      }
-    } catch {
-      // Fall back to comma-split parsing.
-    }
-  }
-
-  return trimmed
-    .split(',')
-    .map((group) => group.trim())
-    .filter(Boolean);
+  return parseGroupsFromString(rawGroups);
 };
 
 export const getAuthIdentityFromEvent = (event: unknown): AuthIdentity => {
@@ -77,7 +93,7 @@ export const getAuthIdentityFromEvent = (event: unknown): AuthIdentity => {
     throw new AuthError('Unauthenticated request', 401);
   }
 
-  const userId = claims.sub ?? claims.username;
+  const userId = claims.sub;
   if (!userId) {
     throw new AuthError('Unauthenticated request', 401);
   }
@@ -85,7 +101,7 @@ export const getAuthIdentityFromEvent = (event: unknown): AuthIdentity => {
   const identity: AuthIdentity = {
     userId,
     emailVerified: claims.email_verified === 'true',
-    groups: normalizeGroups(claims['cognito:groups'])
+    groups: normalizeGroups(claims['cognito:groups'] ?? claims.groups)
   };
 
   if (claims.email) {
@@ -109,7 +125,12 @@ export const requireEntitledUser = (event: unknown): AuthIdentity => {
   const entitledGroupName = requiredEntitledGroupName();
 
   if (!identity.groups.includes(entitledGroupName)) {
-    throw new AuthError('Not authorized for this account', 403);
+    throw new AuthError('Not authorized for this account', 403, {
+      expectedGroup: entitledGroupName,
+      tokenGroups: identity.groups,
+      userId: identity.userId,
+      email: identity.email ?? null
+    });
   }
 
   return identity;

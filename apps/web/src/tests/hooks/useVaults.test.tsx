@@ -1,6 +1,7 @@
 import { renderHook, waitFor } from '@testing-library/react';
-import { describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { useCreateVault, useVaults } from '@/hooks/useVaults';
+import { clearSession, setSession } from '@/lib/authStore';
 import { createTestQueryClient, QueryWrapper } from '@/tests/testUtils';
 
 const { listVaults, createVault } = vi.hoisted(() => ({
@@ -22,6 +23,19 @@ vi.mock('@/lib/vaultApi', () => ({
   listVaults,
   createVault
 }));
+
+beforeEach(() => {
+  setSession({
+    accessToken: 'a',
+    idToken: 'i',
+    email: 'a@a.com',
+    userId: 'u1'
+  });
+});
+
+afterEach(() => {
+  clearSession();
+});
 
 describe('useVaults', () => {
   it('loads vaults', async () => {

@@ -1,6 +1,6 @@
 import { CfnOutput, Duration, RemovalPolicy, Stack, type StackProps } from 'aws-cdk-lib';
 import { AttributeType, BillingMode, Table } from 'aws-cdk-lib/aws-dynamodb';
-import { BlockPublicAccess, Bucket } from 'aws-cdk-lib/aws-s3';
+import { BlockPublicAccess, Bucket, StorageClass } from 'aws-cdk-lib/aws-s3';
 import type { Construct } from 'constructs';
 
 interface StorageStackProps extends StackProps {
@@ -24,6 +24,15 @@ export class StorageStack extends Stack {
       removalPolicy: RemovalPolicy.RETAIN,
       autoDeleteObjects: false,
       lifecycleRules: [
+        {
+          id: 'DefaultIntelligentTiering',
+          transitions: [
+            {
+              storageClass: StorageClass.INTELLIGENT_TIERING,
+              transitionAfter: Duration.days(0)
+            }
+          ]
+        },
         {
           id: 'TrashPurgeLifecycle',
           tagFilters: {

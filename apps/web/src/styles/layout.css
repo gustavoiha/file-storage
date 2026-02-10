@@ -53,6 +53,12 @@
   margin-top: 1rem;
 }
 
+.auth-note {
+  margin: 0.4rem 0 0.8rem;
+  color: var(--text-muted);
+  font-size: 0.9rem;
+}
+
 .resource-list {
   list-style: none;
   margin: 0;

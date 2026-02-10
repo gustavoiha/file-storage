@@ -11,17 +11,25 @@ export const RegisterForm = () => {
 
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
-  const [status, setStatus] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
 
   const onSubmit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
-    setStatus(null);
     setError(null);
 
     try {
-      await register({ email, password });
-      setStatus('Account created. Confirm your email if your pool requires verification.');
+      const result = await register({ email, password });
+      if (result.status === 'SIGN_UP_CONFIRMATION_REQUIRED') {
+        await navigate({
+          to: '/confirm-signup',
+          search: {
+            email: result.email,
+            message: result.message
+          }
+        });
+        return;
+      }
+
       await navigate({ to: '/login' });
     } catch (submitError) {
       setError(submitError instanceof Error ? submitError.message : 'Failed to register');
@@ -47,7 +55,6 @@ export const RegisterForm = () => {
         required
       />
       {error ? <Alert message={error} /> : null}
-      {status ? <Alert message={status} tone="info" /> : null}
       <Button type="submit">Create Account</Button>
       <div className="auth-links">
         <Link to="/login">Back to login</Link>

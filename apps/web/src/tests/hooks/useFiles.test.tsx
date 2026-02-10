@@ -1,6 +1,7 @@
 import { renderHook, waitFor } from '@testing-library/react';
-import { describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { useFiles, useMoveToTrash, useUploadFile } from '@/hooks/useFiles';
+import { clearSession, setSession } from '@/lib/authStore';
 import { createTestQueryClient, QueryWrapper } from '@/tests/testUtils';
 
 const { listFiles, uploadFile, moveToTrash } = vi.hoisted(() => ({
@@ -23,6 +24,19 @@ vi.mock('@/lib/vaultApi', () => ({
   moveToTrash,
   restoreFile: vi.fn(async () => {})
 }));
+
+beforeEach(() => {
+  setSession({
+    accessToken: 'a',
+    idToken: 'i',
+    email: 'a@a.com',
+    userId: 'u1'
+  });
+});
+
+afterEach(() => {
+  clearSession();
+});
 
 describe('useFiles', () => {
   it('loads files', async () => {

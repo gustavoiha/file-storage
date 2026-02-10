@@ -1,4 +1,4 @@
-import { describe, expect, it, beforeEach } from 'vitest';
+import { beforeEach, describe, expect, it } from 'vitest';
 import {
   AuthError,
   getAuthIdentityFromEvent,
@@ -79,5 +79,27 @@ describe('auth identity and entitlement guard', () => {
     );
 
     expect(identity.userId).toBe('user-1');
+  });
+
+  it('supports bracket-wrapped group claim string format', () => {
+    const identity = requireEntitledUser(
+      withClaims({
+        sub: 'user-1',
+        'cognito:groups': '[entitled-users]'
+      })
+    );
+
+    expect(identity.groups).toEqual(['entitled-users']);
+  });
+
+  it('supports bracket-wrapped values inside group claim arrays', () => {
+    const identity = requireEntitledUser(
+      withClaims({
+        sub: 'user-1',
+        'cognito:groups': ['[entitled-users]']
+      })
+    );
+
+    expect(identity.groups).toEqual(['entitled-users']);
   });
 });

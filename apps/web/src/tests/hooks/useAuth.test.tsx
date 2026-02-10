@@ -5,12 +5,28 @@ import { useAuth } from '@/hooks/useAuth';
 
 const authService = {
   login: vi.fn(async () => ({
-    accessToken: 'a',
-    idToken: 'i',
-    email: 'a@a.com',
-    userId: 'u1'
+    status: 'SIGNED_IN' as const,
+    session: {
+      accessToken: 'a',
+      idToken: 'i',
+      email: 'a@a.com',
+      userId: 'u1'
+    }
   })),
-  register: vi.fn(async () => {}),
+  confirmLogin: vi.fn(async () => ({
+    status: 'SIGNED_IN' as const,
+    session: {
+      accessToken: 'a',
+      idToken: 'i',
+      email: 'a@a.com',
+      userId: 'u1'
+    }
+  })),
+  register: vi.fn(async () => ({
+    status: 'REGISTERED' as const
+  })),
+  confirmSignUp: vi.fn(async () => {}),
+  resendSignUpCode: vi.fn(async () => {}),
   logout: vi.fn(async () => {}),
   forgotPassword: vi.fn(async () => {}),
   confirmForgotPassword: vi.fn(async () => {}),

@@ -13,7 +13,7 @@ describe('keys', () => {
     expect(buildFilePk('u1', 'v1')).toBe('U#u1#V#v1');
     expect(buildFileSk('/a/b')).toBe('P#/a/b');
     expect(buildVaultPk('u1')).toBe('U#u1');
-    expect(buildVaultSk('v1')).toBe('VAULT#v1');
+    expect(buildVaultSk('v1')).toBe('V#v1');
     expect(buildGsi1Pk('u1', 'v1')).toBe('U#u1#V#v1');
   });
 

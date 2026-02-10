@@ -134,7 +134,7 @@ purgedAt            (PURGED only)
 
 ```
 PK = U#{userId}
-SK = VAULT#{vaultId}
+SK = V#{vaultId}
 
 type: "VAULT"
 name

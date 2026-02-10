@@ -33,7 +33,7 @@ export const listVaults = async (userId: string): Promise<VaultItem[]> => {
       KeyConditionExpression: 'PK = :pk AND begins_with(SK, :skPrefix)',
       ExpressionAttributeValues: {
         ':pk': buildVaultPk(userId),
-        ':skPrefix': 'VAULT#'
+        ':skPrefix': 'V#'
       }
     })
   );

@@ -7,7 +7,7 @@ export const buildFileSk = (fullPath: string): string => `P#${fullPath}`;
 
 export const buildVaultPk = (userId: string): string => `U#${userId}`;
 
-export const buildVaultSk = (vaultId: string): string => `VAULT#${vaultId}`;
+export const buildVaultSk = (vaultId: string): string => `V#${vaultId}`;
 
 export const buildGsi1Pk = (userId: string, vaultId: string): string =>
   `U#${userId}#V#${vaultId}`;

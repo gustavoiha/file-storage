@@ -41,7 +41,7 @@ export const useTrash = (vaultId: string) => {
   return useQuery({
     queryKey: trashQueryKey(userId, vaultId),
     queryFn: () => listTrash(vaultId),
-    enabled: Boolean(userId)
+    enabled: Boolean(userId && vaultId)
   });
 };
 
@@ -52,7 +52,7 @@ export const usePurged = (vaultId: string) => {
   return useQuery({
     queryKey: purgedQueryKey(userId, vaultId),
     queryFn: () => listPurged(vaultId),
-    enabled: Boolean(userId)
+    enabled: Boolean(userId && vaultId)
   });
 };
 

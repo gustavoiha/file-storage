@@ -1,7 +1,7 @@
-import { useMemo, useState, type FormEvent } from 'react';
+import { useMemo } from 'react';
+import { Folder } from 'lucide-react';
 import { Button } from '@/components/ui/Button';
 import type { FileRecord, FolderRecord } from '@/lib/apiTypes';
-import { buildPathInFolder, isValidFileName } from './pathHelpers';
 
 interface FileListProps {
   files: FileRecord[];
@@ -10,7 +10,6 @@ interface FileListProps {
   pendingFolderPaths?: string[];
   actionLabel: string;
   onOpenFolder?: (folderPath: string) => void;
-  onCreateFolder?: (folderPath: string) => void;
   onAction: (fullPath: string) => void;
 }
 
@@ -76,10 +75,9 @@ export const FileList = ({
   pendingFolderPaths = [],
   actionLabel,
   onOpenFolder,
-  onCreateFolder,
   onAction
 }: FileListProps) => {
-  if (!onOpenFolder || !onCreateFolder) {
+  if (!onOpenFolder) {
     if (!files.length) {
       return <p>No files found.</p>;
     }
@@ -109,7 +107,6 @@ export const FileList = ({
       pendingFolderPaths={pendingFolderPaths}
       actionLabel={actionLabel}
       onOpenFolder={onOpenFolder}
-      onCreateFolder={onCreateFolder}
       onAction={onAction}
     />
   );
@@ -122,7 +119,6 @@ interface FolderModeListProps {
   pendingFolderPaths: string[];
   actionLabel: string;
   onOpenFolder: (folderPath: string) => void;
-  onCreateFolder: (folderPath: string) => void;
   onAction: (fullPath: string) => void;
 }
 
@@ -133,13 +129,9 @@ const FolderModeList = ({
   pendingFolderPaths,
   actionLabel,
   onOpenFolder,
-  onCreateFolder,
   onAction
 }: FolderModeListProps) => {
   const normalizedCurrentFolder = normalizeFolderPath(currentFolder);
-  const [folderNameInput, setFolderNameInput] = useState('');
-  const [folderError, setFolderError] = useState<string | null>(null);
-  const [isAddingFolder, setIsAddingFolder] = useState(false);
 
   const directFiles = useMemo(
     () =>
@@ -187,22 +179,6 @@ const FolderModeList = ({
 
   const crumbs = breadcrumbItems(normalizedCurrentFolder);
 
-  const onSubmitFolder = (event: FormEvent<HTMLFormElement>) => {
-    event.preventDefault();
-    const trimmedName = folderNameInput.trim();
-
-    if (!isValidFileName(trimmedName)) {
-      setFolderError('Folder name cannot be empty and cannot include slashes.');
-      return;
-    }
-
-    const nextFolderPath = buildPathInFolder(normalizedCurrentFolder, trimmedName);
-    onCreateFolder(nextFolderPath);
-    setFolderError(null);
-    setFolderNameInput('');
-    setIsAddingFolder(false);
-  };
-
   const hasEntries = folderEntries.length > 0 || directFiles.length > 0;
 
   return (
@@ -244,7 +220,15 @@ const FolderModeList = ({
                 className="resource-list__item vault-browser__folder-item vault-browser__folder-item--pending"
               >
                 <div className="vault-browser__folder-pending">
-                  <span className="vault-browser__item-name">{folderEntry.name}</span>
+                  <span className="vault-browser__item-main">
+                    <Folder
+                      className="vault-browser__folder-icon"
+                      size={16}
+                      strokeWidth={1.5}
+                      aria-hidden="true"
+                    />
+                    <span className="vault-browser__item-name">{folderEntry.name}</span>
+                  </span>
                   <span className="vault-browser__item-meta">
                     <span className="vault-browser__spinner" aria-hidden="true" />
                     Creating...
@@ -264,7 +248,15 @@ const FolderModeList = ({
                 className="vault-browser__folder-button"
                 onClick={() => onOpenFolder(folderEntry.fullPath)}
               >
-                <span className="vault-browser__item-name">{folderEntry.name}</span>
+                <span className="vault-browser__item-main">
+                  <Folder
+                    className="vault-browser__folder-icon"
+                    size={16}
+                    strokeWidth={1.5}
+                    aria-hidden="true"
+                  />
+                  <span className="vault-browser__item-name">{folderEntry.name}</span>
+                </span>
                 <span className="vault-browser__item-meta">Folder</span>
               </button>
             </li>
@@ -283,48 +275,6 @@ const FolderModeList = ({
           </li>
         ))}
 
-        <li className="resource-list__item vault-browser__add-folder-row">
-          {isAddingFolder ? (
-            <form className="vault-browser__add-folder-form" onSubmit={onSubmitFolder}>
-              <label className="ui-field" htmlFor="new-folder-name">
-                <span className="ui-field__label">Folder name</span>
-                <input
-                  id="new-folder-name"
-                  className="ui-input"
-                  value={folderNameInput}
-                  onChange={(event) => {
-                    setFolderNameInput(event.target.value);
-                    setFolderError(null);
-                  }}
-                  autoFocus
-                />
-              </label>
-              {folderError ? <p className="vault-browser__error">{folderError}</p> : null}
-              <div className="vault-browser__add-folder-actions">
-                <Button type="submit">Create</Button>
-                <Button
-                  type="button"
-                  variant="secondary"
-                  onClick={() => {
-                    setIsAddingFolder(false);
-                    setFolderError(null);
-                    setFolderNameInput('');
-                  }}
-                >
-                  Cancel
-                </Button>
-              </div>
-            </form>
-          ) : (
-            <button
-              type="button"
-              className="vault-browser__add-folder-button"
-              onClick={() => setIsAddingFolder(true)}
-            >
-              + Add folder
-            </button>
-          )}
-        </li>
       </ul>
     </div>
   );

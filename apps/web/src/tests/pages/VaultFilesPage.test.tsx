@@ -1,4 +1,4 @@
-import { render, screen } from '@testing-library/react';
+import { fireEvent, render, screen } from '@testing-library/react';
 import { describe, expect, it, vi } from 'vitest';
 import { ApiError } from '@/lib/apiClient';
 import { VaultFilesPage } from '@/pages/VaultFilesPage';
@@ -28,10 +28,6 @@ vi.mock('@/components/auth/UnauthorizedNotice', () => ({
   UnauthorizedNotice: () => <div>UnauthorizedNotice</div>
 }));
 
-vi.mock('@/components/files/UploadForm', () => ({
-  UploadForm: () => <div>UploadForm</div>
-}));
-
 vi.mock('@/components/files/FileList', () => ({
   FileList: () => <div>FileList</div>
 }));
@@ -39,7 +35,19 @@ vi.mock('@/components/files/FileList', () => ({
 vi.mock('@/hooks/useFiles', () => ({
   useFiles: () => mockState.filesResult,
   useMoveToTrash: () => ({ mutateAsync: mockState.moveToTrash }),
-  useCreateFolder: () => ({ mutateAsync: vi.fn(async () => ({})) })
+  useCreateFolder: () => ({ mutateAsync: vi.fn(async () => ({})), isPending: false, error: null }),
+  useUploadFile: () => ({ mutateAsync: vi.fn(async () => ({})), isPending: false, error: null })
+}));
+
+vi.mock('@/hooks/useVaults', () => ({
+  useVaults: () => ({
+    data: [
+      {
+        vaultId: 'v1',
+        name: 'My Vault'
+      }
+    ]
+  })
 }));
 
 describe('VaultFilesPage', () => {
@@ -54,8 +62,11 @@ describe('VaultFilesPage', () => {
     };
 
     render(<VaultFilesPage />);
-    expect(screen.getByText('Vault v1')).toBeInTheDocument();
-    expect(screen.getByText('UploadForm')).toBeInTheDocument();
+    expect(screen.getByText('My Vault')).toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: 'Vault options' }));
+    expect(screen.getByRole('button', { name: '+ Add folder' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Upload files' })).toBeInTheDocument();
+    expect(screen.getByText('Trash')).toBeInTheDocument();
     expect(screen.getByText('FileList')).toBeInTheDocument();
   });
 

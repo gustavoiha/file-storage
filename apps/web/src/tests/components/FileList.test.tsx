@@ -10,7 +10,6 @@ describe('FileList', () => {
   it('calls action', () => {
     const onAction = vi.fn();
     const onOpenFolder = vi.fn();
-    const onCreateFolder = vi.fn();
 
     render(
       <FileList
@@ -26,7 +25,6 @@ describe('FileList', () => {
         pendingFolderPaths={[]}
         actionLabel="Trash"
         onOpenFolder={onOpenFolder}
-        onCreateFolder={onCreateFolder}
         onAction={onAction}
       />
     );
@@ -35,10 +33,9 @@ describe('FileList', () => {
     expect(onAction).toHaveBeenCalledWith('/x.txt');
   });
 
-  it('opens a folder and creates a folder', () => {
+  it('opens a folder', () => {
     const onAction = vi.fn();
     const onOpenFolder = vi.fn();
-    const onCreateFolder = vi.fn();
 
     render(
       <FileList
@@ -57,25 +54,17 @@ describe('FileList', () => {
         pendingFolderPaths={[]}
         actionLabel="Trash"
         onOpenFolder={onOpenFolder}
-        onCreateFolder={onCreateFolder}
         onAction={onAction}
       />
     );
 
     fireEvent.click(screen.getByRole('button', { name: /docs/i }));
     expect(onOpenFolder).toHaveBeenCalledWith('/docs');
-
-    fireEvent.click(screen.getByRole('button', { name: '+ Add folder' }));
-    fireEvent.change(screen.getByLabelText('Folder name'), { target: { value: 'photos' } });
-    fireEvent.click(screen.getByRole('button', { name: 'Create' }));
-
-    expect(onCreateFolder).toHaveBeenCalledWith('/photos');
   });
 
   it('shows pending folder placeholder', () => {
     const onAction = vi.fn();
     const onOpenFolder = vi.fn();
-    const onCreateFolder = vi.fn();
 
     render(
       <FileList
@@ -85,7 +74,6 @@ describe('FileList', () => {
         pendingFolderPaths={['/photos']}
         actionLabel="Trash"
         onOpenFolder={onOpenFolder}
-        onCreateFolder={onCreateFolder}
         onAction={onAction}
       />
     );

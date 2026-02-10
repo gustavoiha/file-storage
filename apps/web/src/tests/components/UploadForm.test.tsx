@@ -1,4 +1,4 @@
-import { fireEvent, render, screen } from '@testing-library/react';
+import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { describe, expect, it, vi } from 'vitest';
 import { UploadForm } from '@/components/files/UploadForm';
 
@@ -12,16 +12,27 @@ vi.mock('@/hooks/useFiles', () => ({
 }));
 
 describe('UploadForm', () => {
-  it('submits path and file', async () => {
-    render(<UploadForm vaultId="v1" folder="/" />);
+  it('stages multiple files and uploads them with editable names', async () => {
+    render(<UploadForm vaultId="v1" folder="/photos/2026" />);
 
-    const input = screen.getByLabelText('File') as HTMLInputElement;
-    const file = new File(['hello'], 'x.txt', { type: 'text/plain' });
+    const input = screen.getByLabelText('Files') as HTMLInputElement;
+    const firstFile = new File(['hello'], 'x.txt', { type: 'text/plain' });
+    const secondFile = new File(['world'], 'report.pdf', { type: 'application/pdf' });
 
-    fireEvent.change(screen.getByLabelText('Full path'), { target: { value: '/x.txt' } });
-    fireEvent.change(input, { target: { files: [file] } });
-    fireEvent.submit(screen.getByRole('button', { name: 'Upload' }));
+    fireEvent.change(input, { target: { files: [firstFile, secondFile] } });
+    fireEvent.change(screen.getByDisplayValue('report.pdf'), {
+      target: { value: 'report-final.pdf' }
+    });
+    fireEvent.submit(screen.getByRole('button', { name: 'Upload Files' }));
 
-    expect(mutateAsync).toHaveBeenCalledWith({ fullPath: '/x.txt', file });
+    await waitFor(() => expect(mutateAsync).toHaveBeenCalledTimes(2));
+    expect(mutateAsync).toHaveBeenNthCalledWith(1, {
+      fullPath: '/photos/2026/x.txt',
+      file: firstFile
+    });
+    expect(mutateAsync).toHaveBeenNthCalledWith(2, {
+      fullPath: '/photos/2026/report-final.pdf',
+      file: secondFile
+    });
   });
 });

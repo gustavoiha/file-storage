@@ -1,9 +1,9 @@
 import type { EventBridgeEvent } from 'aws-lambda';
 import { ScanCommand } from '@aws-sdk/lib-dynamodb';
-import { buildObjectKey, objectExists } from '../lib/s3.js';
+import { objectExists } from '../lib/s3.js';
 import { dynamoDoc } from '../lib/clients.js';
 import { env } from '../lib/env.js';
-import { listFilesByState, updateFileState } from '../lib/repository.js';
+import { listTrashedFileNodes, markFileNodePurged } from '../lib/repository.js';
 import type { VaultItem } from '../types/models.js';
 
 export const handler = async (_event: EventBridgeEvent<string, unknown>) => {
@@ -26,18 +26,22 @@ export const handler = async (_event: EventBridgeEvent<string, unknown>) => {
   let processed = 0;
 
   for (const vault of vaults) {
-    const trashItems = await listFilesByState(vault.userId, vault.vaultId, 'TRASH');
+    const trashItems = await listTrashedFileNodes(vault.userId, vault.vaultId);
 
     for (const item of trashItems) {
       if (!item.flaggedForDeleteAt || item.flaggedForDeleteAt > now) {
         continue;
       }
 
-      const key = buildObjectKey(vault.userId, vault.vaultId, item.fullPath.slice(1));
-      const exists = await objectExists(key);
+      const exists = await objectExists(item.s3Key);
 
       if (!exists) {
-        await updateFileState(item, 'PURGED', now);
+        await markFileNodePurged({
+          userId: vault.userId,
+          vaultId: vault.vaultId,
+          fileNode: item,
+          nowIso: now
+        });
         processed += 1;
       }
     }

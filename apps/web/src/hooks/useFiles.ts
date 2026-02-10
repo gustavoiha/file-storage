@@ -1,8 +1,10 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useStore } from '@tanstack/react-store';
 import { authStore } from '@/lib/authStore';
+import type { DirectoryChildrenRecord } from '@/lib/apiTypes';
 import {
-  listFiles,
+  createFolder,
+  listFolderChildren,
   listPurged,
   listTrash,
   moveToTrash,
@@ -10,8 +12,10 @@ import {
   uploadFile
 } from '@/lib/vaultApi';
 
-export const filesQueryKey = (userId: string, vaultId: string, folder: string) =>
-  ['files', userId, vaultId, folder] as const;
+const ROOT_FOLDER_NODE_ID = 'root';
+
+export const filesQueryKey = (userId: string, vaultId: string, parentFolderNodeId: string) =>
+  ['files', userId, vaultId, parentFolderNodeId] as const;
 
 export const trashQueryKey = (userId: string, vaultId: string) =>
   ['trash', userId, vaultId] as const;
@@ -19,13 +23,13 @@ export const trashQueryKey = (userId: string, vaultId: string) =>
 export const purgedQueryKey = (userId: string, vaultId: string) =>
   ['purged', userId, vaultId] as const;
 
-export const useFiles = (vaultId: string, folder: string) => {
+export const useFiles = (vaultId: string, parentFolderNodeId: string) => {
   const { session } = useStore(authStore);
   const userId = session?.userId ?? '';
 
-  return useQuery({
-    queryKey: filesQueryKey(userId, vaultId, folder),
-    queryFn: () => listFiles(vaultId, folder),
+  return useQuery<DirectoryChildrenRecord>({
+    queryKey: filesQueryKey(userId, vaultId, parentFolderNodeId),
+    queryFn: () => listFolderChildren(vaultId, parentFolderNodeId),
     enabled: Boolean(userId)
   });
 };
@@ -56,6 +60,7 @@ export const useUploadFile = (vaultId: string, folder: string) => {
   const queryClient = useQueryClient();
   const { session } = useStore(authStore);
   const userId = session?.userId ?? '';
+  void folder;
 
   return useMutation({
     mutationFn: ({ fullPath, file }: { fullPath: string; file: File }) =>
@@ -65,9 +70,25 @@ export const useUploadFile = (vaultId: string, folder: string) => {
         return;
       }
 
-      await queryClient.invalidateQueries({
-        queryKey: filesQueryKey(userId, vaultId, folder)
-      });
+      await queryClient.invalidateQueries({ queryKey: ['files', userId, vaultId] });
+    }
+  });
+};
+
+export const useCreateFolder = (vaultId: string) => {
+  const queryClient = useQueryClient();
+  const { session } = useStore(authStore);
+  const userId = session?.userId ?? '';
+
+  return useMutation({
+    mutationFn: (folderPath: string) => createFolder(vaultId, folderPath),
+    onSuccess: async (_response, folderPath) => {
+      if (!userId) {
+        return;
+      }
+
+      void folderPath;
+      await queryClient.invalidateQueries({ queryKey: ['files', userId, vaultId] });
     }
   });
 };
@@ -76,6 +97,7 @@ export const useMoveToTrash = (vaultId: string, folder: string) => {
   const queryClient = useQueryClient();
   const { session } = useStore(authStore);
   const userId = session?.userId ?? '';
+  void folder;
 
   return useMutation({
     mutationFn: (fullPath: string) => moveToTrash(vaultId, fullPath),
@@ -85,9 +107,7 @@ export const useMoveToTrash = (vaultId: string, folder: string) => {
       }
 
       await Promise.all([
-        queryClient.invalidateQueries({
-          queryKey: filesQueryKey(userId, vaultId, folder)
-        }),
+        queryClient.invalidateQueries({ queryKey: ['files', userId, vaultId] }),
         queryClient.invalidateQueries({ queryKey: trashQueryKey(userId, vaultId) })
       ]);
     }
@@ -109,7 +129,7 @@ export const useRestoreFile = (vaultId: string) => {
       await Promise.all([
         queryClient.invalidateQueries({ queryKey: trashQueryKey(userId, vaultId) }),
         queryClient.invalidateQueries({
-          queryKey: filesQueryKey(userId, vaultId, '/')
+          queryKey: filesQueryKey(userId, vaultId, ROOT_FOLDER_NODE_ID)
         })
       ]);
     }

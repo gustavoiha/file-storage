@@ -102,33 +102,75 @@ Lifecycle timing is approximate; correctness is enforced via reconciliation.
 
 Single table, on-demand capacity.
 
-### Primary Key (Files)
+### Key Identifier Mapping
+
+* `U` = user
+* `V` = vault
+* `F` = folder node
+* `L` = file node
+* `D` = directory
+
+### File Node Record
 
 ```
 PK = U#{userId}#V#{vaultId}
-SK = P#{fullPath}
+SK = L#{fileNodeId}
 ```
 
-* `fullPath` always starts with `/`
-* `SK` is immutable
+Attributes:
 
-### File Item Attributes
+* `type = FILE_NODE`
+* `parentFolderNodeId`
+* `s3Key`
+* `name`
+* `size`
+* `createdAt`
+* `updatedAt`
+* `contentType`
+* `etag`
+* `deletedAt`
+* `flaggedForDeleteAt`
+* `purgedAt`
+
+Each file node gets a UUID at creation. PK/SK is path-agnostic.
+
+### Folder Node Record
 
 ```
-type: "FILE"
-state: "ACTIVE" | "TRASH" | "PURGED"
-
-createdAt
-updatedAt
-
-size
-contentType
-etag
-
-deletedAt           (TRASH only)
-flaggedForDeleteAt  (deletedAt + 30 days)
-purgedAt            (PURGED only)
+PK = U#{userId}#V#{vaultId}
+SK = F#{folderNodeId}
 ```
+
+Attributes:
+
+* `type = FOLDER_NODE`
+* `parentFolderNodeId`
+* `name`
+* `createdAt`
+* `updatedAt`
+
+### Directory Record
+
+```
+PK = U#{userId}#V#{vaultId}
+SK = D#{folderNodeId}#{kind}#{normalizedName}#{id}
+```
+
+Where:
+
+* `kind` = `L` (file) or `F` (folder)
+* `id` = `fileNodeId` or `folderNodeId`
+
+Attributes:
+
+* `type = DIRECTORY`
+* `name`
+* `normalizedName`
+* `childId`
+* `childType` (`file` or `folder`)
+* `parentFolderNodeId`
+* `createdAt`
+* `updatedAt`
 
 ### Vault Items (Same Table)
 
@@ -143,31 +185,15 @@ createdAt
 
 ---
 
-## 6. Global Secondary Index (Single GSI)
+## 6. Directory-Driven Listing
 
-### Purpose
+Folder and file listing is resolved through `D#...` records.
 
-* List files by state
-* Folder browsing
-* Trash view
-* Efficient purge reconciliation
-
-### Index Definition
-
-```
-GSI1PK = U#{userId}#V#{vaultId}
-
-GSI1SK:
-  ACTIVE → S#ACTIVE#P#{fullPath}
-  PURGED → S#PURGED#P#{fullPath}
-  TRASH  → S#TRASH#T#{flaggedForDeleteAt}#P#{fullPath}
-```
-
-Rationale:
-
-* ACTIVE and PURGED sorted by path
-* TRASH sorted by scheduled deletion time, then path
-* Enables time-ordered purge queries without extra indexes
+* Listing a folder queries:
+  * `PK = U#{userId}#V#{vaultId}`
+  * `begins_with(SK, D#{folderNodeId}#L#)`
+* Resolving nested folders traverses:
+  * `D#{folderNodeId}#F#{normalizedName}#{childId}`
 
 ---
 
@@ -175,29 +201,28 @@ Rationale:
 
 ### List Active Files in a Folder
 
-Query GSI1:
-
-* `GSI1PK = U#{userId}#V#{vaultId}`
-* `begins_with(GSI1SK, S#ACTIVE#P#{folderPrefix})`
+1. Resolve folder path to `folderNodeId` by walking directory folder entries (`kind=F`)
+2. Query `D#{folderNodeId}#L#...`
+3. Load `L#{fileNodeId}` records
 
 ### Trash View
 
-Query GSI1:
+Query file nodes (`L#`) under vault PK and filter where:
 
-* `begins_with(GSI1SK, S#TRASH#)`
+* `deletedAt` exists
+* `purgedAt` does not exist
 
 ### Purged History
 
-Query GSI1:
+Query file nodes (`L#`) under vault PK and filter where:
 
-* `begins_with(GSI1SK, S#PURGED#)`
+* `purgedAt` exists
 
-### Get File Metadata by Path
+### Get File Metadata by Path (Active)
 
-GetItem:
-
-* `PK = U#{userId}#V#{vaultId}`
-* `SK = P#{fullPath}`
+1. Resolve parent folder path to `folderNodeId`
+2. Resolve directory entry by normalized file name (`kind=L`)
+3. Read `L#{fileNodeId}`
 
 ---
 
@@ -286,14 +311,21 @@ Guarantee:
 
 ## 12. Rename / Move
 
-Because `SK` is immutable:
+Use DynamoDB `TransactWriteItems` so node and directory records remain consistent.
 
-1. Copy S3 object to new key
-2. Create new DynamoDB item with new `SK`
-3. Soft-delete old item (TRASH) or mark redirected
-4. Tag old S3 object as needed
+### Rename File Node (authoritative `L#{fileNodeId}`)
 
-Atomic rename is not required.
+* Delete `D#rootFolderNodeId#L#fileNormalizedName.txt#{fileNodeId}`
+* Put `D#rootFolderNodeId#L#newFileNormalizedName.txt#{fileNodeId}`
+* Update `L#{fileNodeId}` name
+
+### Move `rio.jpg` from `f_2026` to `f_photos`
+
+* Update `L#file_1` `parentFolderNodeId`
+* Delete `D#f_2026#L#rio.jpg#file_1`
+* Put `D#f_photos#L#rio.jpg#file_1`
+
+The same transaction pattern is used for upload-confirm, trash, and restore flows.
 
 ---
 
@@ -334,7 +366,7 @@ Future sharing can be added via new item types without schema changes.
 * `PURGED` implies object absence (verified)
 * `ACTIVE` implies no TRASH lifecycle tag
 * Restore always clears lifecycle-relevant tags
-* `SK` (path) is immutable per item
+* File node keys are path-agnostic (`L#{fileNodeId}`)
 * `fullPath` normalization is strict and centralized
 
 ---

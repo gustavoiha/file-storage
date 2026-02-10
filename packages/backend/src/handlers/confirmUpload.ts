@@ -1,10 +1,9 @@
 import type { APIGatewayProxyEventV2 } from 'aws-lambda';
 import { z } from 'zod';
-import { buildFilePk, buildFileSk, buildGsi1Pk, buildGsi1Sk } from '../domain/keys.js';
 import { normalizeFullPath, toRelativePath } from '../domain/path.js';
 import { requireEntitledUser } from '../lib/auth.js';
 import { errorResponse, jsonResponse, safeJsonParse } from '../lib/http.js';
-import { putFile } from '../lib/repository.js';
+import { upsertActiveFileByPath } from '../lib/repository.js';
 import { buildObjectKey, objectExists } from '../lib/s3.js';
 
 const bodySchema = z.object({
@@ -37,22 +36,15 @@ export const handler = async (event: APIGatewayProxyEventV2) => {
     }
 
     const now = new Date().toISOString();
-
-    await putFile({
-      PK: buildFilePk(userId, vaultId),
-      SK: buildFileSk(fullPath),
-      type: 'FILE',
+    await upsertActiveFileByPath({
       userId,
       vaultId,
       fullPath,
-      state: 'ACTIVE',
-      createdAt: now,
-      updatedAt: now,
+      s3Key: objectKey,
       size: parsed.data.size,
       contentType: parsed.data.contentType,
       etag: parsed.data.etag,
-      GSI1PK: buildGsi1Pk(userId, vaultId),
-      GSI1SK: buildGsi1Sk('ACTIVE', fullPath)
+      nowIso: now
     });
 
     return jsonResponse(201, {

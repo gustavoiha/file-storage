@@ -3,7 +3,7 @@ import { randomUUID } from 'node:crypto';
 import { z } from 'zod';
 import { requireEntitledUser } from '../lib/auth.js';
 import { errorResponse, jsonResponse, safeJsonParse } from '../lib/http.js';
-import { putVault } from '../lib/repository.js';
+import { putVaultWithRootFolder } from '../lib/repository.js';
 import { buildVaultPk, buildVaultSk } from '../domain/keys.js';
 
 const bodySchema = z.object({
@@ -22,15 +22,18 @@ export const handler = async (event: APIGatewayProxyEventV2) => {
     const now = new Date().toISOString();
     const vaultId = randomUUID();
 
-    await putVault({
-      PK: buildVaultPk(userId),
-      SK: buildVaultSk(vaultId),
-      type: 'VAULT',
-      userId,
-      vaultId,
-      name: parsed.data.name,
-      createdAt: now
-    });
+    await putVaultWithRootFolder(
+      {
+        PK: buildVaultPk(userId),
+        SK: buildVaultSk(vaultId),
+        type: 'VAULT',
+        userId,
+        vaultId,
+        name: parsed.data.name,
+        createdAt: now
+      },
+      now
+    );
 
     return jsonResponse(201, {
       vaultId,

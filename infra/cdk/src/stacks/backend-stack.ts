@@ -53,9 +53,10 @@ export class BackendStack extends Stack {
     const handlers = {
       createVault: createHandler('createVault'),
       listVaults: createHandler('listVaults'),
+      createFolder: createHandler('createFolder'),
       createUploadSession: createHandler('createUploadSession'),
       confirmUpload: createHandler('confirmUpload'),
-      listFiles: createHandler('listFiles'),
+      listFolderChildren: createHandler('listFolderChildren'),
       moveToTrash: createHandler('moveToTrash'),
       restoreFile: createHandler('restoreFile'),
       listTrash: createHandler('listTrash'),
@@ -66,9 +67,10 @@ export class BackendStack extends Stack {
 
     props.table.grantReadWriteData(handlers.createVault);
     props.table.grantReadWriteData(handlers.listVaults);
+    props.table.grantReadWriteData(handlers.createFolder);
     props.table.grantReadWriteData(handlers.createUploadSession);
     props.table.grantReadWriteData(handlers.confirmUpload);
-    props.table.grantReadWriteData(handlers.listFiles);
+    props.table.grantReadWriteData(handlers.listFolderChildren);
     props.table.grantReadWriteData(handlers.moveToTrash);
     props.table.grantReadWriteData(handlers.restoreFile);
     props.table.grantReadWriteData(handlers.listTrash);
@@ -83,8 +85,15 @@ export class BackendStack extends Stack {
 
     this.api = new HttpApi(this, 'HttpApi', {
       corsPreflight: {
-        allowHeaders: ['authorization', 'content-type'],
-        allowMethods: [CorsHttpMethod.ANY],
+        allowHeaders: ['*'],
+        allowMethods: [
+          CorsHttpMethod.GET,
+          CorsHttpMethod.POST,
+          CorsHttpMethod.PUT,
+          CorsHttpMethod.PATCH,
+          CorsHttpMethod.DELETE,
+          CorsHttpMethod.OPTIONS
+        ],
         allowOrigins: ['*']
       }
     });
@@ -108,9 +117,19 @@ export class BackendStack extends Stack {
     });
 
     this.api.addRoutes({
-      path: '/vaults/{vaultId}/files',
+      path: '/vaults/{vaultId}/folders/{parentFolderNodeId}/children',
       methods: [HttpMethod.GET],
-      integration: new HttpLambdaIntegration('ListFilesIntegration', handlers.listFiles),
+      integration: new HttpLambdaIntegration(
+        'ListFolderChildrenIntegration',
+        handlers.listFolderChildren
+      ),
+      authorizer
+    });
+
+    this.api.addRoutes({
+      path: '/vaults/{vaultId}/folders',
+      methods: [HttpMethod.POST],
+      integration: new HttpLambdaIntegration('CreateFolderIntegration', handlers.createFolder),
       authorizer
     });
 

@@ -1,11 +1,12 @@
 import type { APIGatewayProxyEventV2 } from 'aws-lambda';
 import { z } from 'zod';
 import { requireEntitledUser } from '../lib/auth.js';
-import { normalizeFullPath, toRelativePath } from '../domain/path.js';
+import { normalizeFullPath } from '../domain/path.js';
 import { env } from '../lib/env.js';
 import { errorResponse, isoPlusDays, jsonResponse, safeJsonParse } from '../lib/http.js';
-import { getFile, updateFileState } from '../lib/repository.js';
-import { buildObjectKey, tagObjectTrash } from '../lib/s3.js';
+import { fileStateFromNode } from '../types/models.js';
+import { markResolvedFileNodeTrashed, resolveFileByFullPath } from '../lib/repository.js';
+import { tagObjectTrash } from '../lib/s3.js';
 
 const bodySchema = z.object({
   fullPath: z.string().trim().min(2)
@@ -26,17 +27,17 @@ export const handler = async (event: APIGatewayProxyEventV2) => {
     }
 
     const fullPath = normalizeFullPath(parsed.data.fullPath);
-    const file = await getFile(userId, vaultId, fullPath);
+    const resolved = await resolveFileByFullPath(userId, vaultId, fullPath);
 
-    if (!file || file.state !== 'ACTIVE') {
+    if (!resolved || fileStateFromNode(resolved.fileNode) !== 'ACTIVE') {
       return jsonResponse(404, { error: 'Active file not found' });
     }
 
     const now = new Date().toISOString();
     const flaggedForDeleteAt = isoPlusDays(now, env.trashRetentionDays);
-    const objectKey = buildObjectKey(userId, vaultId, toRelativePath(fullPath));
+    const objectKey = resolved.fileNode.s3Key;
 
-    await updateFileState(file, 'TRASH', now, flaggedForDeleteAt);
+    await markResolvedFileNodeTrashed(userId, vaultId, resolved, now, flaggedForDeleteAt);
     await tagObjectTrash(objectKey);
 
     return jsonResponse(200, {

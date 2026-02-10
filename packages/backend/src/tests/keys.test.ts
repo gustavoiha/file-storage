@@ -1,27 +1,34 @@
 import { describe, expect, it } from 'vitest';
 import {
+  buildDirectoryNamePrefix,
+  buildDirectoryPrefix,
+  buildDirectorySk,
   buildFilePk,
-  buildFileSk,
-  buildGsi1Pk,
-  buildGsi1Sk,
+  buildFileNodeSk,
+  buildFolderNodeSk,
+  ROOT_FOLDER_NODE_ID,
   buildVaultPk,
   buildVaultSk
 } from '../domain/keys.js';
 
 describe('keys', () => {
-  it('builds file and vault keys', () => {
+  it('builds node and vault keys', () => {
     expect(buildFilePk('u1', 'v1')).toBe('U#u1#V#v1');
-    expect(buildFileSk('/a/b')).toBe('P#/a/b');
+    expect(buildFileNodeSk('file_1')).toBe('L#file_1');
+    expect(buildFolderNodeSk('folder_1')).toBe('F#folder_1');
     expect(buildVaultPk('u1')).toBe('U#u1');
     expect(buildVaultSk('v1')).toBe('V#v1');
-    expect(buildGsi1Pk('u1', 'v1')).toBe('U#u1#V#v1');
+    expect(ROOT_FOLDER_NODE_ID).toBe('root');
   });
 
-  it('builds sortable gsi keys', () => {
-    expect(buildGsi1Sk('ACTIVE', '/x')).toBe('S#ACTIVE#P#/x');
-    expect(buildGsi1Sk('PURGED', '/x')).toBe('S#PURGED#P#/x');
-    expect(buildGsi1Sk('TRASH', '/x', '2026-01-01T00:00:00.000Z')).toBe(
-      'S#TRASH#T#2026-01-01T00:00:00.000Z#P#/x'
+  it('builds directory keys', () => {
+    expect(buildDirectorySk('root', 'L', 'photo.jpg', 'file_1')).toBe(
+      'D#root#L#photo.jpg#file_1'
+    );
+    expect(buildDirectoryPrefix('root')).toBe('D#root#');
+    expect(buildDirectoryPrefix('root', 'F')).toBe('D#root#F#');
+    expect(buildDirectoryNamePrefix('root', 'L', 'photo.jpg')).toBe(
+      'D#root#L#photo.jpg#'
     );
   });
 });

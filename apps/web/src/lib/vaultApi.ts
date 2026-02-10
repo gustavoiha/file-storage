@@ -1,5 +1,5 @@
 import { apiRequest } from './apiClient';
-import type { FileRecord, Vault } from './apiTypes';
+import type { DirectoryChildrenRecord, FileRecord, Vault } from './apiTypes';
 
 export const listVaults = async (): Promise<Vault[]> => {
   const response = await apiRequest<{ items: Vault[] }>('/vaults');
@@ -12,16 +12,25 @@ export const createVault = async (name: string): Promise<Vault> =>
     body: JSON.stringify({ name })
   });
 
-export const listFiles = async (
+export const listFolderChildren = async (
   vaultId: string,
-  folder = '/'
-): Promise<FileRecord[]> => {
-  const response = await apiRequest<{ items: FileRecord[] }>(
-    `/vaults/${vaultId}/files?folder=${encodeURIComponent(folder)}`
+  parentFolderNodeId: string
+): Promise<DirectoryChildrenRecord> => {
+  const response = await apiRequest<DirectoryChildrenRecord>(
+    `/vaults/${vaultId}/folders/${encodeURIComponent(parentFolderNodeId)}/children`
   );
 
-  return response.items;
+  return response;
 };
+
+export const createFolder = async (
+  vaultId: string,
+  folderPath: string
+): Promise<{ folderPath: string; folderNodeId: string; created: boolean }> =>
+  apiRequest(`/vaults/${vaultId}/folders`, {
+    method: 'POST',
+    body: JSON.stringify({ folderPath })
+  });
 
 export const listTrash = async (vaultId: string): Promise<FileRecord[]> => {
   const response = await apiRequest<{ items: FileRecord[] }>(`/vaults/${vaultId}/trash`);

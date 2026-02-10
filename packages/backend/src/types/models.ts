@@ -1,13 +1,12 @@
 export type FileState = 'ACTIVE' | 'TRASH' | 'PURGED';
 
-export interface FileItem {
+export interface FileNodeItem {
   PK: string;
   SK: string;
-  type: 'FILE';
-  userId: string;
-  vaultId: string;
-  fullPath: string;
-  state: FileState;
+  type: 'FILE_NODE';
+  parentFolderNodeId: string;
+  s3Key: string;
+  name: string;
   createdAt: string;
   updatedAt: string;
   size: number;
@@ -16,8 +15,29 @@ export interface FileItem {
   deletedAt?: string;
   flaggedForDeleteAt?: string;
   purgedAt?: string;
-  GSI1PK: string;
-  GSI1SK: string;
+}
+
+export interface FolderNodeItem {
+  PK: string;
+  SK: string;
+  type: 'FOLDER_NODE';
+  parentFolderNodeId?: string;
+  name: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface DirectoryItem {
+  PK: string;
+  SK: string;
+  type: 'DIRECTORY';
+  name: string;
+  normalizedName: string;
+  childId: string;
+  childType: 'file' | 'folder';
+  parentFolderNodeId: string;
+  createdAt: string;
+  updatedAt: string;
 }
 
 export interface VaultItem {
@@ -30,4 +50,16 @@ export interface VaultItem {
   createdAt: string;
 }
 
-export type TableItem = FileItem | VaultItem;
+export const fileStateFromNode = (file: FileNodeItem): FileState => {
+  if (file.purgedAt) {
+    return 'PURGED';
+  }
+
+  if (file.deletedAt) {
+    return 'TRASH';
+  }
+
+  return 'ACTIVE';
+};
+
+export type TableItem = FileNodeItem | FolderNodeItem | DirectoryItem | VaultItem;

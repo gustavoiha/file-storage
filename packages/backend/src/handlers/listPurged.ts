@@ -1,7 +1,7 @@
 import type { APIGatewayProxyEventV2 } from 'aws-lambda';
 import { requireEntitledUser } from '../lib/auth.js';
 import { errorResponse, jsonResponse } from '../lib/http.js';
-import { listFilesByState } from '../lib/repository.js';
+import { fullPathFromS3Key, listPurgedFileNodes } from '../lib/repository.js';
 
 export const handler = async (event: APIGatewayProxyEventV2) => {
   try {
@@ -12,13 +12,13 @@ export const handler = async (event: APIGatewayProxyEventV2) => {
       return jsonResponse(400, { error: 'vaultId is required' });
     }
 
-    const files = await listFilesByState(userId, vaultId, 'PURGED');
+    const files = await listPurgedFileNodes(userId, vaultId);
 
     return jsonResponse(200, {
       items: files.map((file) => ({
-        fullPath: file.fullPath,
+        fullPath: fullPathFromS3Key(userId, vaultId, file.s3Key),
         purgedAt: file.purgedAt,
-        state: file.state
+        state: 'PURGED'
       }))
     });
   } catch (error) {

@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
+import { useEffect, useMemo, useRef, useState, type CSSProperties, type ReactNode } from 'react';
 import { Folder } from 'lucide-react';
 import { Button } from '@/components/ui/Button';
 import { useFileIconForPath } from '@/hooks/useFileIconForPath';
@@ -184,8 +184,22 @@ interface FileRowProps {
 const FileRow = ({ actionLabel, file, onAction }: FileRowProps) => {
   const FileIcon = useFileIconForPath(file.fullPath);
   const [isMenuOpen, setIsMenuOpen] = useState(false);
+  const [menuAnchor, setMenuAnchor] = useState<{ x: number; y: number } | null>(null);
   const actionsRef = useRef<HTMLDivElement>(null);
   const fileName = fileNameFromPath(file.fullPath);
+  const menuStyle: CSSProperties | undefined = menuAnchor
+    ? {
+        position: 'fixed',
+        left: menuAnchor.x + 4,
+        top: menuAnchor.y + 4,
+        right: 'auto'
+      }
+    : undefined;
+
+  const closeMenu = () => {
+    setIsMenuOpen(false);
+    setMenuAnchor(null);
+  };
 
   useEffect(() => {
     if (!isMenuOpen) {
@@ -194,13 +208,13 @@ const FileRow = ({ actionLabel, file, onAction }: FileRowProps) => {
 
     const onDocumentPointerDown = (event: PointerEvent) => {
       if (!actionsRef.current?.contains(event.target as Node)) {
-        setIsMenuOpen(false);
+        closeMenu();
       }
     };
 
     const onDocumentKeyDown = (event: KeyboardEvent) => {
       if (event.key === 'Escape') {
-        setIsMenuOpen(false);
+        closeMenu();
       }
     };
 
@@ -218,6 +232,7 @@ const FileRow = ({ actionLabel, file, onAction }: FileRowProps) => {
       className="resource-list__item vault-browser__file-item"
       onContextMenu={(event) => {
         event.preventDefault();
+        setMenuAnchor({ x: event.clientX, y: event.clientY });
         setIsMenuOpen(true);
       }}
     >
@@ -242,18 +257,26 @@ const FileRow = ({ actionLabel, file, onAction }: FileRowProps) => {
             className="vault-browser__file-actions-trigger"
             aria-label={`Actions for ${fileName}`}
             aria-expanded={isMenuOpen}
-            onClick={() => setIsMenuOpen((previous) => !previous)}
+            onClick={() => {
+              setMenuAnchor(null);
+              setIsMenuOpen((previous) => !previous);
+            }}
           >
             ⋯
           </button>
           {isMenuOpen ? (
-            <div className="vault-browser__file-actions-menu" role="menu" aria-label={`Actions for ${fileName}`}>
+            <div
+              className="vault-browser__file-actions-menu"
+              role="menu"
+              aria-label={`Actions for ${fileName}`}
+              style={menuStyle}
+            >
               <button
                 type="button"
                 role="menuitem"
                 className="vault-browser__file-actions-item"
                 onClick={() => {
-                  setIsMenuOpen(false);
+                  closeMenu();
                   onAction(file.fullPath);
                 }}
               >

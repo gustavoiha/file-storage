@@ -1,4 +1,4 @@
-import { useMemo, type ReactNode } from 'react';
+import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import { Folder } from 'lucide-react';
 import { Button } from '@/components/ui/Button';
 import { useFileIconForPath } from '@/hooks/useFileIconForPath';
@@ -183,14 +183,45 @@ interface FileRowProps {
 
 const FileRow = ({ actionLabel, file, onAction }: FileRowProps) => {
   const FileIcon = useFileIconForPath(file.fullPath);
+  const [isMenuOpen, setIsMenuOpen] = useState(false);
+  const actionsRef = useRef<HTMLDivElement>(null);
+  const fileName = fileNameFromPath(file.fullPath);
+
+  useEffect(() => {
+    if (!isMenuOpen) {
+      return;
+    }
+
+    const onDocumentPointerDown = (event: PointerEvent) => {
+      if (!actionsRef.current?.contains(event.target as Node)) {
+        setIsMenuOpen(false);
+      }
+    };
+
+    const onDocumentKeyDown = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') {
+        setIsMenuOpen(false);
+      }
+    };
+
+    document.addEventListener('pointerdown', onDocumentPointerDown);
+    document.addEventListener('keydown', onDocumentKeyDown);
+
+    return () => {
+      document.removeEventListener('pointerdown', onDocumentPointerDown);
+      document.removeEventListener('keydown', onDocumentKeyDown);
+    };
+  }, [isMenuOpen]);
 
   return (
-    <li className="resource-list__item vault-browser__file-item">
-      <button
-        type="button"
-        className="vault-browser__file-button"
-        onClick={() => onAction(file.fullPath)}
-      >
+    <li
+      className="resource-list__item vault-browser__file-item"
+      onContextMenu={(event) => {
+        event.preventDefault();
+        setIsMenuOpen(true);
+      }}
+    >
+      <div className="vault-browser__file-row">
         <span className="vault-browser__file-summary">
           <span className="vault-browser__file-main">
             <FileIcon
@@ -199,14 +230,39 @@ const FileRow = ({ actionLabel, file, onAction }: FileRowProps) => {
               strokeWidth={1.5}
               aria-hidden="true"
             />
-            <span className="vault-browser__file-name">{fileNameFromPath(file.fullPath)}</span>
+            <span className="vault-browser__file-name">{fileName}</span>
           </span>
           {typeof file.size === 'number' ? (
             <span className="vault-browser__file-size">{file.size} bytes</span>
           ) : null}
         </span>
-        <span className="vault-browser__item-action">{actionLabel}</span>
-      </button>
+        <div ref={actionsRef} className="vault-browser__file-actions">
+          <button
+            type="button"
+            className="vault-browser__file-actions-trigger"
+            aria-label={`Actions for ${fileName}`}
+            aria-expanded={isMenuOpen}
+            onClick={() => setIsMenuOpen((previous) => !previous)}
+          >
+            ⋯
+          </button>
+          {isMenuOpen ? (
+            <div className="vault-browser__file-actions-menu" role="menu" aria-label={`Actions for ${fileName}`}>
+              <button
+                type="button"
+                role="menuitem"
+                className="vault-browser__file-actions-item"
+                onClick={() => {
+                  setIsMenuOpen(false);
+                  onAction(file.fullPath);
+                }}
+              >
+                {actionLabel}
+              </button>
+            </div>
+          ) : null}
+        </div>
+      </div>
     </li>
   );
 };

@@ -29,7 +29,8 @@ describe('FileList', () => {
       />
     );
 
-    fireEvent.click(screen.getByRole('button', { name: /Trash/i }));
+    fireEvent.click(screen.getByRole('button', { name: /actions for x.txt/i }));
+    fireEvent.click(screen.getByRole('menuitem', { name: /trash/i }));
     expect(onAction).toHaveBeenCalledWith('/x.txt');
   });
 

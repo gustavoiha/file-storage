@@ -1,13 +1,13 @@
 import { Link } from '@tanstack/react-router';
 import type { ChangeEventHandler, RefObject } from 'react';
+import { DropdownMenu } from '@/components/ui/DropdownMenu';
 
 interface VaultFilesHeaderActionsProps {
   fileInputRef: RefObject<HTMLInputElement>;
   isMenuOpen: boolean;
+  onMenuOpenChange: (nextOpen: boolean) => void;
   vaultId: string;
   onAddFolder: () => void;
-  onCloseMenu: () => void;
-  onToggleMenu: () => void;
   onUploadFiles: () => void;
   onUploadSelection: ChangeEventHandler<HTMLInputElement>;
 }
@@ -15,14 +15,13 @@ interface VaultFilesHeaderActionsProps {
 export const VaultFilesHeaderActions = ({
   fileInputRef,
   isMenuOpen,
+  onMenuOpenChange,
   vaultId,
   onAddFolder,
-  onCloseMenu,
-  onToggleMenu,
   onUploadFiles,
   onUploadSelection
 }: VaultFilesHeaderActionsProps) => (
-  <div className="vault-page-menu">
+  <DropdownMenu className="vault-page-menu" isOpen={isMenuOpen} onOpenChange={onMenuOpenChange}>
     <input
       ref={fileInputRef}
       className="vault-files__hidden-input"
@@ -30,40 +29,31 @@ export const VaultFilesHeaderActions = ({
       multiple
       onChange={onUploadSelection}
     />
-    <button
-      type="button"
+    <DropdownMenu.Trigger
       className="vault-page-menu__trigger"
       aria-label="Vault options"
-      aria-expanded={isMenuOpen}
-      onClick={onToggleMenu}
     >
       ⋯
-    </button>
-    {isMenuOpen ? (
-      <div className="vault-page-menu__dropdown" role="menu" aria-label="Vault actions">
-        <button
-          type="button"
-          className="vault-page-menu__item vault-page-menu__item--button"
-          onClick={onAddFolder}
-        >
-          Create folder
-        </button>
-        <button
-          type="button"
-          className="vault-page-menu__item vault-page-menu__item--button"
-          onClick={onUploadFiles}
-        >
-          Upload files
-        </button>
-        <Link
-          to="/vaults/$vaultId/trash"
-          params={{ vaultId }}
-          className="vault-page-menu__item"
-          onClick={onCloseMenu}
-        >
+    </DropdownMenu.Trigger>
+    <DropdownMenu.Content className="vault-page-menu__dropdown" label="Vault actions">
+      <DropdownMenu.Button
+        className="vault-page-menu__item vault-page-menu__item--button"
+        onClick={onAddFolder}
+      >
+        Create folder
+      </DropdownMenu.Button>
+      <DropdownMenu.Button
+        className="vault-page-menu__item vault-page-menu__item--button"
+        onClick={onUploadFiles}
+      >
+        Upload files
+      </DropdownMenu.Button>
+      <DropdownMenu.Separator />
+      <DropdownMenu.Link asChild className="vault-page-menu__item">
+        <Link to="/vaults/$vaultId/trash" params={{ vaultId }}>
           Trash
         </Link>
-      </div>
-    ) : null}
-  </div>
+      </DropdownMenu.Link>
+    </DropdownMenu.Content>
+  </DropdownMenu>
 );

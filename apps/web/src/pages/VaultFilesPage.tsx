@@ -188,15 +188,12 @@ export const VaultFilesPage = () => {
                     <VaultFilesHeaderActions
                       fileInputRef={fileInputRef}
                       isMenuOpen={isVaultMenuOpen}
+                      onMenuOpenChange={setIsVaultMenuOpen}
                       vaultId={vaultId}
                       onAddFolder={() => {
                         addFolderDialog.openDialog();
-                        setIsVaultMenuOpen(false);
                       }}
-                      onCloseMenu={() => setIsVaultMenuOpen(false)}
-                      onToggleMenu={() => setIsVaultMenuOpen((previous) => !previous)}
                       onUploadFiles={() => {
-                        setIsVaultMenuOpen(false);
                         openFilePicker();
                       }}
                       onUploadSelection={onUploadSelection}

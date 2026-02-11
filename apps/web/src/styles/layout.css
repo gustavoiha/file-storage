@@ -164,6 +164,12 @@
   background: var(--bg-soft);
 }
 
+.dropdown-menu__separator {
+  height: 1px;
+  margin: 0.3rem 0.4rem;
+  background: var(--border);
+}
+
 .vault-browser__breadcrumbs {
   display: flex;
   flex-wrap: wrap;

@@ -1,6 +1,7 @@
-import { useEffect, useMemo, useRef, useState, type CSSProperties, type ReactNode } from 'react';
+import { useMemo, useState, type CSSProperties, type ReactNode } from 'react';
 import { Folder } from 'lucide-react';
 import { Button } from '@/components/ui/Button';
+import { DropdownMenu } from '@/components/ui/DropdownMenu';
 import { useFileIconForPath } from '@/hooks/useFileIconForPath';
 import type { FileRecord, FolderRecord } from '@/lib/apiTypes';
 
@@ -185,7 +186,6 @@ const FileRow = ({ actionLabel, file, onAction }: FileRowProps) => {
   const FileIcon = useFileIconForPath(file.fullPath);
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const [menuAnchor, setMenuAnchor] = useState<{ x: number; y: number } | null>(null);
-  const actionsRef = useRef<HTMLDivElement>(null);
   const fileName = fileNameFromPath(file.fullPath);
   const menuStyle: CSSProperties | undefined = menuAnchor
     ? {
@@ -195,37 +195,6 @@ const FileRow = ({ actionLabel, file, onAction }: FileRowProps) => {
         right: 'auto'
       }
     : undefined;
-
-  const closeMenu = () => {
-    setIsMenuOpen(false);
-    setMenuAnchor(null);
-  };
-
-  useEffect(() => {
-    if (!isMenuOpen) {
-      return;
-    }
-
-    const onDocumentPointerDown = (event: PointerEvent) => {
-      if (!actionsRef.current?.contains(event.target as Node)) {
-        closeMenu();
-      }
-    };
-
-    const onDocumentKeyDown = (event: KeyboardEvent) => {
-      if (event.key === 'Escape') {
-        closeMenu();
-      }
-    };
-
-    document.addEventListener('pointerdown', onDocumentPointerDown);
-    document.addEventListener('keydown', onDocumentKeyDown);
-
-    return () => {
-      document.removeEventListener('pointerdown', onDocumentPointerDown);
-      document.removeEventListener('keydown', onDocumentKeyDown);
-    };
-  }, [isMenuOpen]);
 
   return (
     <li
@@ -251,40 +220,39 @@ const FileRow = ({ actionLabel, file, onAction }: FileRowProps) => {
             <span className="vault-browser__file-size">{file.size} bytes</span>
           ) : null}
         </span>
-        <div ref={actionsRef} className="vault-browser__file-actions">
-          <button
-            type="button"
+        <DropdownMenu
+          className="vault-browser__file-actions"
+          isOpen={isMenuOpen}
+          onOpenChange={(nextOpen) => {
+            if (!nextOpen) {
+              setMenuAnchor(null);
+            }
+
+            setIsMenuOpen(nextOpen);
+          }}
+        >
+          <DropdownMenu.Trigger
             className="vault-browser__file-actions-trigger"
             aria-label={`Actions for ${fileName}`}
-            aria-expanded={isMenuOpen}
             onClick={() => {
               setMenuAnchor(null);
-              setIsMenuOpen((previous) => !previous);
             }}
           >
             ⋯
-          </button>
-          {isMenuOpen ? (
-            <div
-              className="vault-browser__file-actions-menu"
-              role="menu"
-              aria-label={`Actions for ${fileName}`}
-              style={menuStyle}
+          </DropdownMenu.Trigger>
+          <DropdownMenu.Content
+            label={`Actions for ${fileName}`}
+            className="vault-browser__file-actions-menu"
+            style={menuStyle}
+          >
+            <DropdownMenu.Button
+              className="vault-browser__file-actions-item"
+              onClick={() => onAction(file.fullPath)}
             >
-              <button
-                type="button"
-                role="menuitem"
-                className="vault-browser__file-actions-item"
-                onClick={() => {
-                  closeMenu();
-                  onAction(file.fullPath);
-                }}
-              >
-                {actionLabel}
-              </button>
-            </div>
-          ) : null}
-        </div>
+              {actionLabel}
+            </DropdownMenu.Button>
+          </DropdownMenu.Content>
+        </DropdownMenu>
       </div>
     </li>
   );

@@ -168,32 +168,12 @@ export const VaultFilesPage = () => {
 
   return (
     <RequireAuth>
-      <Page
-        title={vaultName}
-        headerActions={
-          <VaultFilesHeaderActions
-            fileInputRef={fileInputRef}
-            isMenuOpen={isVaultMenuOpen}
-            vaultId={vaultId}
-            onAddFolder={() => {
-              addFolderDialog.openDialog();
-              setIsVaultMenuOpen(false);
-            }}
-            onCloseMenu={() => setIsVaultMenuOpen(false)}
-            onToggleMenu={() => setIsVaultMenuOpen((previous) => !previous)}
-            onUploadFiles={() => {
-              setIsVaultMenuOpen(false);
-              openFilePicker();
-            }}
-            onUploadSelection={onUploadSelection}
-          />
-        }
-      >
+      <Page>
         {unauthorized ? (
           <UnauthorizedNotice />
         ) : (
           <>
-            <Card title="Files">
+            <Card>
               {filesQuery.isLoading ? (
                 <p>Loading...</p>
               ) : (
@@ -203,6 +183,25 @@ export const VaultFilesPage = () => {
                   currentFolder={currentFolder.fullPath}
                   pendingFolderPaths={addFolderDialog.pendingFolderPaths}
                   actionLabel="Move to Trash"
+                  rootBreadcrumbLabel={vaultName}
+                  toolbarActions={
+                    <VaultFilesHeaderActions
+                      fileInputRef={fileInputRef}
+                      isMenuOpen={isVaultMenuOpen}
+                      vaultId={vaultId}
+                      onAddFolder={() => {
+                        addFolderDialog.openDialog();
+                        setIsVaultMenuOpen(false);
+                      }}
+                      onCloseMenu={() => setIsVaultMenuOpen(false)}
+                      onToggleMenu={() => setIsVaultMenuOpen((previous) => !previous)}
+                      onUploadFiles={() => {
+                        setIsVaultMenuOpen(false);
+                        openFilePicker();
+                      }}
+                      onUploadSelection={onUploadSelection}
+                    />
+                  }
                   onOpenFolder={onOpenFolder}
                   onAction={onMoveToTrash}
                 />

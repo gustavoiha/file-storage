@@ -1,4 +1,4 @@
-import { useMemo } from 'react';
+import { useMemo, type ReactNode } from 'react';
 import { Folder } from 'lucide-react';
 import { Button } from '@/components/ui/Button';
 import type { FileRecord, FolderRecord } from '@/lib/apiTypes';
@@ -8,6 +8,8 @@ interface FileListProps {
   folders?: FolderRecord[];
   currentFolder?: string;
   pendingFolderPaths?: string[];
+  rootBreadcrumbLabel?: string;
+  toolbarActions?: ReactNode;
   actionLabel: string;
   onOpenFolder?: (folderPath: string) => void;
   onAction: (fullPath: string) => void;
@@ -60,10 +62,10 @@ const folderName = (folderPath: string): string => {
   return segments[segments.length - 1] ?? folderPath;
 };
 
-const breadcrumbItems = (folderPath: string): BreadcrumbItem[] => {
+const breadcrumbItems = (folderPath: string, rootLabel: string): BreadcrumbItem[] => {
   const normalized = normalizeFolderPath(folderPath);
   const segments = normalized.split('/').filter(Boolean);
-  const items: BreadcrumbItem[] = [{ label: 'Root', fullPath: '/' }];
+  const items: BreadcrumbItem[] = [{ label: rootLabel, fullPath: '/' }];
 
   let runningPath = '';
   for (const segment of segments) {
@@ -168,7 +170,6 @@ const FolderRow = ({ folderEntry, onOpenFolder }: FolderRowProps) => (
         <Folder className="vault-browser__folder-icon" size={16} strokeWidth={1.5} aria-hidden="true" />
         <span className="vault-browser__item-name">{folderEntry.name}</span>
       </span>
-      <span className="vault-browser__item-meta">Folder</span>
     </button>
   </li>
 );
@@ -200,6 +201,8 @@ interface FolderModeListProps {
   onAction: (fullPath: string) => void;
   onOpenFolder: (folderPath: string) => void;
   pendingFolderPaths: string[];
+  rootBreadcrumbLabel: string;
+  toolbarActions?: ReactNode;
 }
 
 const FolderModeList = ({
@@ -209,7 +212,9 @@ const FolderModeList = ({
   folders,
   onAction,
   onOpenFolder,
-  pendingFolderPaths
+  pendingFolderPaths,
+  rootBreadcrumbLabel,
+  toolbarActions
 }: FolderModeListProps) => {
   const normalizedCurrentFolder = normalizeFolderPath(currentFolder);
 
@@ -252,19 +257,24 @@ const FolderModeList = ({
   }, [folders, normalizedCurrentFolder, pendingFolderPaths]);
 
   const crumbs = useMemo(
-    () => breadcrumbItems(normalizedCurrentFolder),
-    [normalizedCurrentFolder]
+    () => breadcrumbItems(normalizedCurrentFolder, rootBreadcrumbLabel),
+    [normalizedCurrentFolder, rootBreadcrumbLabel]
   );
 
   const hasEntries = folderEntries.length > 0 || directFiles.length > 0;
 
   return (
     <div className="vault-browser">
-      <FolderBreadcrumbs
-        crumbs={crumbs}
-        currentFolder={normalizedCurrentFolder}
-        onOpenFolder={onOpenFolder}
-      />
+      <div className="vault-browser__toolbar">
+        <FolderBreadcrumbs
+          crumbs={crumbs}
+          currentFolder={normalizedCurrentFolder}
+          onOpenFolder={onOpenFolder}
+        />
+        {toolbarActions ? (
+          <div className="vault-browser__toolbar-actions">{toolbarActions}</div>
+        ) : null}
+      </div>
 
       <ul className="resource-list vault-browser__list">
         {!hasEntries ? (
@@ -300,7 +310,9 @@ export const FileList = ({
   folders = [],
   onAction,
   onOpenFolder,
-  pendingFolderPaths = []
+  pendingFolderPaths = [],
+  rootBreadcrumbLabel = 'Root',
+  toolbarActions
 }: FileListProps) => {
   if (!onOpenFolder) {
     return <FlatFileList actionLabel={actionLabel} files={files} onAction={onAction} />;
@@ -315,6 +327,8 @@ export const FileList = ({
       onAction={onAction}
       onOpenFolder={onOpenFolder}
       pendingFolderPaths={pendingFolderPaths}
+      rootBreadcrumbLabel={rootBreadcrumbLabel}
+      toolbarActions={toolbarActions}
     />
   );
 };

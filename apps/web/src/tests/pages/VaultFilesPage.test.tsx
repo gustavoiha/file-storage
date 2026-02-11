@@ -29,7 +29,12 @@ vi.mock('@/components/auth/UnauthorizedNotice', () => ({
 }));
 
 vi.mock('@/components/files/FileList', () => ({
-  FileList: () => <div>FileList</div>
+  FileList: ({ toolbarActions }: { toolbarActions?: unknown }) => (
+    <div>
+      {toolbarActions as any}
+      FileList
+    </div>
+  )
 }));
 
 vi.mock('@/hooks/useFiles', () => ({
@@ -62,7 +67,6 @@ describe('VaultFilesPage', () => {
     };
 
     render(<VaultFilesPage />);
-    expect(screen.getByText('My Vault')).toBeInTheDocument();
     fireEvent.click(screen.getByRole('button', { name: 'Vault options' }));
     expect(screen.getByRole('button', { name: '+ Add folder' })).toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'Upload files' })).toBeInTheDocument();

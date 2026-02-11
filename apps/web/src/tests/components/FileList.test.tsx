@@ -81,4 +81,24 @@ describe('FileList', () => {
     expect(screen.getByText('photos')).toBeInTheDocument();
     expect(screen.getByText('Creating...')).toBeInTheDocument();
   });
+
+  it('uses custom root breadcrumb label', () => {
+    const onAction = vi.fn();
+    const onOpenFolder = vi.fn();
+
+    render(
+      <FileList
+        files={[]}
+        folders={[]}
+        currentFolder="/"
+        pendingFolderPaths={[]}
+        rootBreadcrumbLabel="My Vault"
+        actionLabel="Trash"
+        onOpenFolder={onOpenFolder}
+        onAction={onAction}
+      />
+    );
+
+    expect(screen.getByRole('button', { name: 'My Vault' })).toBeInTheDocument();
+  });
 });

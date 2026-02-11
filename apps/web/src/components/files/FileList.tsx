@@ -181,15 +181,21 @@ interface FileRowProps {
 }
 
 const FileRow = ({ actionLabel, file, onAction }: FileRowProps) => (
-  <li className="resource-list__item resource-list__item--spaced">
-    <div>
-      <strong>{fileNameFromPath(file.fullPath)}</strong>
-      <p className="auth-note">{file.fullPath}</p>
-      {typeof file.size === 'number' ? <p>{file.size} bytes</p> : null}
-    </div>
-    <Button variant="secondary" onClick={() => onAction(file.fullPath)}>
-      {actionLabel}
-    </Button>
+  <li className="resource-list__item vault-browser__file-item">
+    <button
+      type="button"
+      className="vault-browser__file-button"
+      onClick={() => onAction(file.fullPath)}
+    >
+      <span className="vault-browser__file-summary">
+        <span className="vault-browser__file-name">{fileNameFromPath(file.fullPath)}</span>
+        <span className="vault-browser__file-path">{file.fullPath}</span>
+        {typeof file.size === 'number' ? (
+          <span className="vault-browser__file-size">{file.size} bytes</span>
+        ) : null}
+      </span>
+      <span className="vault-browser__item-action">{actionLabel}</span>
+    </button>
   </li>
 );
 

@@ -29,7 +29,7 @@ describe('FileList', () => {
       />
     );
 
-    fireEvent.click(screen.getByRole('button', { name: 'Trash' }));
+    fireEvent.click(screen.getByRole('button', { name: /Trash/i }));
     expect(onAction).toHaveBeenCalledWith('/x.txt');
   });
 

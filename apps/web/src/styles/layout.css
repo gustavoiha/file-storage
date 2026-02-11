@@ -169,7 +169,7 @@
   flex-wrap: wrap;
   gap: 0.3rem;
   align-items: center;
-  color: var(--text-muted);
+  color: var(--text);
   min-width: 0;
 }
 
@@ -182,14 +182,23 @@
 .vault-browser__crumb-button {
   border: 0;
   background: transparent;
-  color: var(--text-muted);
-  padding: 0.15rem 0.2rem;
+  color: var(--text);
+  padding: 0.28rem 0.62rem;
   font-size: 0.9rem;
+  font-weight: 500;
   cursor: pointer;
+  border-radius: 999px;
+  transition: background-color 0.16s ease;
+}
+
+.vault-browser__crumb-button:hover,
+.vault-browser__crumb-button:focus-visible {
+  background: rgba(211, 0, 107, 0.16);
 }
 
 .vault-browser__crumb-button:disabled {
-  color: var(--text-muted);
+  color: var(--text);
+  font-weight: 500;
   cursor: default;
 }
 
@@ -207,7 +216,7 @@
   border-radius: 0;
   border-bottom: 1px solid var(--border);
   background: transparent;
-  padding: 0.75rem 0;
+  padding: 0.5rem 0.65rem;
   transition: background-color 0.18s ease, border-color 0.18s ease, box-shadow 0.18s ease;
 }
 
@@ -226,7 +235,7 @@
 }
 
 .vault-browser__folder-item--pending {
-  padding: 0.75rem 0;
+  padding: 0.5rem 0.65rem;
 }
 
 .vault-browser__folder-button {
@@ -238,12 +247,57 @@
   justify-content: space-between;
   align-items: center;
   text-align: left;
-  padding: 0;
+  padding: 0.5rem 0.65rem;
   cursor: pointer;
 }
 
 .vault-browser__folder-button:focus-visible {
   outline: none;
+}
+
+.vault-browser__file-item {
+  padding: 0;
+}
+
+.vault-browser__file-button {
+  width: 100%;
+  border: 0;
+  background: transparent;
+  color: var(--text);
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  text-align: left;
+  padding: 0.5rem 0.65rem;
+  cursor: pointer;
+  gap: 0.8rem;
+}
+
+.vault-browser__file-button:focus-visible {
+  outline: none;
+}
+
+.vault-browser__file-summary {
+  min-width: 0;
+}
+
+.vault-browser__file-name {
+  font-weight: 600;
+  display: block;
+}
+
+.vault-browser__file-path,
+.vault-browser__file-size {
+  margin-top: 0.35rem;
+  color: var(--text-muted);
+  display: block;
+  font-size: 0.9rem;
+}
+
+.vault-browser__item-action {
+  color: var(--text-muted);
+  font-size: 0.85rem;
+  flex-shrink: 0;
 }
 
 .vault-browser__folder-pending {

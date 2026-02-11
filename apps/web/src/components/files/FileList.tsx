@@ -10,11 +10,13 @@ interface FileListProps {
   folders?: FolderRecord[];
   currentFolder?: string;
   pendingFolderPaths?: string[];
+  downloadActionLabel?: string | undefined;
   folderRenameActionLabel?: string | undefined;
   renameActionLabel?: string | undefined;
   rootBreadcrumbLabel?: string;
   toolbarActions?: ReactNode;
   actionLabel: string;
+  onDownload?: ((file: FileRecord) => void) | undefined;
   onRename?: ((fullPath: string) => void) | undefined;
   onRenameFolder?: ((folderPath: string) => void) | undefined;
   onOpenFile?: ((file: FileRecord) => void) | undefined;
@@ -251,7 +253,9 @@ const FolderRow = ({ folderEntry, onOpenFolder, onRenameFolder, renameActionLabe
 
 interface FileRowProps {
   actionLabel: string;
+  downloadActionLabel?: string | undefined;
   file: FileRecord;
+  onDownload?: ((file: FileRecord) => void) | undefined;
   onOpenFile?: ((file: FileRecord) => void) | undefined;
   onRename?: ((fullPath: string) => void) | undefined;
   onAction: (fullPath: string) => void;
@@ -260,7 +264,9 @@ interface FileRowProps {
 
 const FileRow = ({
   actionLabel,
+  downloadActionLabel,
   file,
+  onDownload,
   onOpenFile,
   onAction,
   onRename,
@@ -342,7 +348,18 @@ const FileRow = ({
                 {renameActionLabel}
               </DropdownMenu.Button>
             ) : null}
+            {onDownload && downloadActionLabel ? (
+              <DropdownMenu.Button
+                className="vault-browser__file-actions-item"
+                onClick={() => onDownload(file)}
+              >
+                {downloadActionLabel}
+              </DropdownMenu.Button>
+            ) : null}
             {onRename && renameActionLabel ? <DropdownMenu.Separator /> : null}
+            {onDownload && downloadActionLabel && !(onRename && renameActionLabel) ? (
+              <DropdownMenu.Separator />
+            ) : null}
             <DropdownMenu.Button
               className="vault-browser__file-actions-item"
               onClick={() => onAction(file.fullPath)}
@@ -359,9 +376,11 @@ const FileRow = ({
 interface FolderModeListProps {
   actionLabel: string;
   currentFolder: string;
+  downloadActionLabel?: string | undefined;
   files: FileRecord[];
   folderRenameActionLabel?: string | undefined;
   folders: FolderRecord[];
+  onDownload?: ((file: FileRecord) => void) | undefined;
   onOpenFile?: ((file: FileRecord) => void) | undefined;
   onRename?: ((fullPath: string) => void) | undefined;
   onRenameFolder?: ((folderPath: string) => void) | undefined;
@@ -376,9 +395,11 @@ interface FolderModeListProps {
 const FolderModeList = ({
   actionLabel,
   currentFolder,
+  downloadActionLabel,
   files,
   folderRenameActionLabel,
   folders,
+  onDownload,
   onOpenFile,
   onRename,
   onRenameFolder,
@@ -474,7 +495,9 @@ const FolderModeList = ({
           <FileRow
             key={file.fullPath}
             actionLabel={actionLabel}
+            downloadActionLabel={downloadActionLabel}
             file={file}
+            onDownload={onDownload}
             onOpenFile={onOpenFile}
             onRename={onRename}
             onAction={onAction}
@@ -489,9 +512,11 @@ const FolderModeList = ({
 export const FileList = ({
   actionLabel,
   currentFolder = '/',
+  downloadActionLabel,
   files,
   folderRenameActionLabel,
   folders = [],
+  onDownload,
   onOpenFile,
   onRename,
   onRenameFolder,
@@ -510,9 +535,11 @@ export const FileList = ({
     <FolderModeList
       actionLabel={actionLabel}
       currentFolder={currentFolder}
+      downloadActionLabel={downloadActionLabel}
       files={files}
       folderRenameActionLabel={folderRenameActionLabel}
       folders={folders}
+      onDownload={onDownload}
       onOpenFile={onOpenFile}
       onRename={onRename}
       onRenameFolder={onRenameFolder}

@@ -10,6 +10,21 @@ import { getSignedUrl } from '@aws-sdk/s3-request-presigner';
 import { s3Client } from './clients.js';
 import { env } from './env.js';
 
+interface CreateDownloadUrlOptions {
+  asAttachment?: boolean;
+  fileName?: string;
+}
+
+const attachmentContentDisposition = (fileName?: string): string => {
+  if (!fileName) {
+    return 'attachment';
+  }
+
+  // Use RFC 5987 filename* to safely handle spaces and non-ASCII characters.
+  const encoded = encodeURIComponent(fileName).replace(/\*/g, '%2A');
+  return `attachment; filename*=UTF-8''${encoded}`;
+};
+
 export const buildObjectKey = (
   vaultId: string,
   fileNodeId: string
@@ -45,10 +60,16 @@ export const createUploadUrl = async (
   return getSignedUrl(s3Client, command, { expiresIn: 900 });
 };
 
-export const createDownloadUrl = async (key: string): Promise<string> => {
+export const createDownloadUrl = async (
+  key: string,
+  options?: CreateDownloadUrlOptions
+): Promise<string> => {
   const command = new GetObjectCommand({
     Bucket: env.bucketName,
-    Key: key
+    Key: key,
+    ResponseContentDisposition: options?.asAttachment
+      ? attachmentContentDisposition(options.fileName)
+      : undefined
   });
 
   return getSignedUrl(s3Client, command, { expiresIn: 900 });

@@ -27,7 +27,12 @@ export const handler = async (event: APIGatewayProxyEventV2) => {
       return jsonResponse(409, { error: 'Object not found in storage' });
     }
 
-    const downloadUrl = await createDownloadUrl(fileNode.s3Key);
+    const disposition = event.queryStringParameters?.disposition;
+    const asAttachment = disposition === 'attachment';
+    const downloadUrl = await createDownloadUrl(fileNode.s3Key, {
+      asAttachment,
+      fileName: fileNode.name
+    });
 
     return jsonResponse(200, {
       downloadUrl,

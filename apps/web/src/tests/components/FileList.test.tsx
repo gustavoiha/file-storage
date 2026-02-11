@@ -98,6 +98,42 @@ describe('FileList', () => {
     expect(onRename).toHaveBeenCalledWith('/x.txt');
   });
 
+  it('calls download action when provided', () => {
+    const onAction = vi.fn();
+    const onOpenFolder = vi.fn();
+    const onDownload = vi.fn();
+
+    render(
+      <FileList
+        files={[
+          {
+            fileNodeId: 'file-123',
+            fullPath: '/x.txt',
+            size: 1,
+            state: 'ACTIVE'
+          }
+        ]}
+        folders={[]}
+        currentFolder="/"
+        pendingFolderPaths={[]}
+        actionLabel="Trash"
+        downloadActionLabel="Download"
+        onDownload={onDownload}
+        onOpenFolder={onOpenFolder}
+        onAction={onAction}
+      />
+    );
+
+    fireEvent.click(screen.getByRole('button', { name: /actions for x.txt/i }));
+    fireEvent.click(screen.getByRole('menuitem', { name: /download/i }));
+    expect(onDownload).toHaveBeenCalledWith(
+      expect.objectContaining({
+        fileNodeId: 'file-123',
+        fullPath: '/x.txt'
+      })
+    );
+  });
+
   it('opens actions menu on right click', () => {
     const onAction = vi.fn();
     const onOpenFolder = vi.fn();

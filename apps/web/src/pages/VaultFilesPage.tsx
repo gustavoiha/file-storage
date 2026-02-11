@@ -25,6 +25,7 @@ import { useVaultUploadDialog } from '@/hooks/useVaultUploadDialog';
 import { useVaults } from '@/hooks/useVaults';
 import { ApiError } from '@/lib/apiClient';
 import type { FileRecord } from '@/lib/apiTypes';
+import { createFileDownloadSession } from '@/lib/vaultApi';
 
 interface FolderTrailEntry {
   folderNodeId: string;
@@ -193,6 +194,31 @@ export const VaultFilesPage = () => {
     setViewerFile(file);
   }, []);
 
+  const onDownloadFile = useCallback(
+    (file: FileRecord) => {
+      const fileNodeId = file.fileNodeId;
+      if (!fileNodeId) {
+        return;
+      }
+
+      void (async () => {
+        try {
+          const session = await createFileDownloadSession(vaultId, fileNodeId, {
+            disposition: 'attachment'
+          });
+          const link = document.createElement('a');
+          link.href = session.downloadUrl;
+          document.body.appendChild(link);
+          link.click();
+          link.remove();
+        } catch {
+          // Errors are intentionally silent in this action-only flow.
+        }
+      })();
+    },
+    [vaultId]
+  );
+
   const openRenameFileDialog = useCallback((fullPath: string) => {
     setRenameFileDialogFullPath(fullPath);
     setRenameFileDialogFileName(fileNameFromPath(fullPath));
@@ -311,6 +337,7 @@ export const VaultFilesPage = () => {
                   currentFolder={currentFolder.fullPath}
                   pendingFolderPaths={addFolderDialog.pendingFolderPaths}
                   actionLabel="Move to Trash"
+                  downloadActionLabel="Download"
                   renameActionLabel="Rename"
                   folderRenameActionLabel="Rename"
                   rootBreadcrumbLabel={vaultName}
@@ -332,6 +359,7 @@ export const VaultFilesPage = () => {
                   onRename={openRenameFileDialog}
                   onRenameFolder={openRenameFolderDialog}
                   onOpenFile={openFileViewer}
+                  onDownload={onDownloadFile}
                   onOpenFolder={onOpenFolder}
                   onAction={onMoveToTrash}
                 />

@@ -118,9 +118,12 @@ export const moveToTrash = async (vaultId: string, fullPath: string): Promise<vo
 
 export const createFileDownloadSession = async (
   vaultId: string,
-  fileNodeId: string
-): Promise<FileDownloadSessionResponse> =>
-  apiRequest(`/vaults/${vaultId}/files/${encodeURIComponent(fileNodeId)}/download-session`);
+  fileNodeId: string,
+  options?: { disposition?: 'inline' | 'attachment' }
+): Promise<FileDownloadSessionResponse> => {
+  const query = options?.disposition ? `?disposition=${options.disposition}` : '';
+  return apiRequest(`/vaults/${vaultId}/files/${encodeURIComponent(fileNodeId)}/download-session${query}`);
+};
 
 export const renameFile = async (
   vaultId: string,

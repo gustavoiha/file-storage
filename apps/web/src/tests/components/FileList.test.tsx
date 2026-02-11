@@ -34,6 +34,34 @@ describe('FileList', () => {
     expect(onAction).toHaveBeenCalledWith('/x.txt');
   });
 
+  it('opens actions menu on right click', () => {
+    const onAction = vi.fn();
+    const onOpenFolder = vi.fn();
+
+    render(
+      <FileList
+        files={[
+          {
+            fullPath: '/x.txt',
+            size: 1,
+            state: 'ACTIVE'
+          }
+        ]}
+        folders={[]}
+        currentFolder="/"
+        pendingFolderPaths={[]}
+        actionLabel="Trash"
+        onOpenFolder={onOpenFolder}
+        onAction={onAction}
+      />
+    );
+
+    fireEvent.contextMenu(screen.getByText('x.txt'));
+    fireEvent.click(screen.getByRole('menuitem', { name: /trash/i }));
+
+    expect(onAction).toHaveBeenCalledWith('/x.txt');
+  });
+
   it('opens a folder', () => {
     const onAction = vi.fn();
     const onOpenFolder = vi.fn();

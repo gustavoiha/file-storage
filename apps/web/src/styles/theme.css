@@ -5,11 +5,11 @@
   --bg-elevated: #1a1a1f;
   --text: #efefef;
   --text-muted: #9d9dac;
-  --accent: #d3006b;
-  --accent-soft: #8f0048;
+  --accent: #4da8ff;
+  --accent-soft: #2f79c9;
   --border: #3a3a42;
   --error: #ff5f7f;
-  --info: #d3006b;
+  --info: #4da8ff;
 }
 
 * {
@@ -21,14 +21,14 @@ body {
   min-height: 100vh;
   font-family: 'Space Grotesk', 'Segoe UI', sans-serif;
   background:
-    radial-gradient(circle at 5% 10%, rgba(211, 0, 107, 0.22), transparent 40%),
-    radial-gradient(circle at 95% 90%, rgba(143, 0, 72, 0.28), transparent 35%),
+    radial-gradient(circle at 5% 10%, rgba(77, 168, 255, 0.26), transparent 40%),
+    radial-gradient(circle at 95% 90%, rgba(47, 121, 201, 0.3), transparent 35%),
     var(--bg);
   color: var(--text);
 }
 
 a {
-  color: #f45ba3;
+  color: #9bcfff;
   text-decoration: none;
 }
 

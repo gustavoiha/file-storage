@@ -281,12 +281,22 @@
   min-width: 0;
 }
 
+.vault-browser__file-main {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.vault-browser__file-icon {
+  color: var(--text-muted);
+  flex-shrink: 0;
+}
+
 .vault-browser__file-name {
   font-weight: 600;
   display: block;
 }
 
-.vault-browser__file-path,
 .vault-browser__file-size {
   margin-top: 0.35rem;
   color: var(--text-muted);

@@ -1,6 +1,7 @@
 import { useMemo, type ReactNode } from 'react';
 import { Folder } from 'lucide-react';
 import { Button } from '@/components/ui/Button';
+import { useFileIconForPath } from '@/hooks/useFileIconForPath';
 import type { FileRecord, FolderRecord } from '@/lib/apiTypes';
 
 interface FileListProps {
@@ -180,24 +181,35 @@ interface FileRowProps {
   onAction: (fullPath: string) => void;
 }
 
-const FileRow = ({ actionLabel, file, onAction }: FileRowProps) => (
-  <li className="resource-list__item vault-browser__file-item">
-    <button
-      type="button"
-      className="vault-browser__file-button"
-      onClick={() => onAction(file.fullPath)}
-    >
-      <span className="vault-browser__file-summary">
-        <span className="vault-browser__file-name">{fileNameFromPath(file.fullPath)}</span>
-        <span className="vault-browser__file-path">{file.fullPath}</span>
-        {typeof file.size === 'number' ? (
-          <span className="vault-browser__file-size">{file.size} bytes</span>
-        ) : null}
-      </span>
-      <span className="vault-browser__item-action">{actionLabel}</span>
-    </button>
-  </li>
-);
+const FileRow = ({ actionLabel, file, onAction }: FileRowProps) => {
+  const FileIcon = useFileIconForPath(file.fullPath);
+
+  return (
+    <li className="resource-list__item vault-browser__file-item">
+      <button
+        type="button"
+        className="vault-browser__file-button"
+        onClick={() => onAction(file.fullPath)}
+      >
+        <span className="vault-browser__file-summary">
+          <span className="vault-browser__file-main">
+            <FileIcon
+              className="vault-browser__file-icon"
+              size={16}
+              strokeWidth={1.5}
+              aria-hidden="true"
+            />
+            <span className="vault-browser__file-name">{fileNameFromPath(file.fullPath)}</span>
+          </span>
+          {typeof file.size === 'number' ? (
+            <span className="vault-browser__file-size">{file.size} bytes</span>
+          ) : null}
+        </span>
+        <span className="vault-browser__item-action">{actionLabel}</span>
+      </button>
+    </li>
+  );
+};
 
 interface FolderModeListProps {
   actionLabel: string;

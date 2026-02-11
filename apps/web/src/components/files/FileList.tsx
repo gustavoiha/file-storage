@@ -18,6 +18,15 @@ interface FolderEntry {
   name: string;
 }
 
+interface FolderListEntry extends FolderEntry {
+  isPending: boolean;
+}
+
+interface BreadcrumbItem {
+  label: string;
+  fullPath: string;
+}
+
 const normalizeFolderPath = (folderPath: string): string => {
   const trimmed = folderPath.trim();
   if (!trimmed || trimmed === '/') {
@@ -51,10 +60,10 @@ const folderName = (folderPath: string): string => {
   return segments[segments.length - 1] ?? folderPath;
 };
 
-const breadcrumbItems = (folderPath: string): Array<{ label: string; fullPath: string }> => {
+const breadcrumbItems = (folderPath: string): BreadcrumbItem[] => {
   const normalized = normalizeFolderPath(folderPath);
   const segments = normalized.split('/').filter(Boolean);
-  const items: Array<{ label: string; fullPath: string }> = [{ label: 'Root', fullPath: '/' }];
+  const items: BreadcrumbItem[] = [{ label: 'Root', fullPath: '/' }];
 
   let runningPath = '';
   for (const segment of segments) {
@@ -68,68 +77,139 @@ const breadcrumbItems = (folderPath: string): Array<{ label: string; fullPath: s
   return items;
 };
 
-export const FileList = ({
-  files,
-  folders = [],
-  currentFolder = '/',
-  pendingFolderPaths = [],
-  actionLabel,
-  onOpenFolder,
-  onAction
-}: FileListProps) => {
-  if (!onOpenFolder) {
-    if (!files.length) {
-      return <p>No files found.</p>;
-    }
-
-    return (
-      <ul className="resource-list">
-        {files.map((file) => (
-          <li key={file.fullPath} className="resource-list__item resource-list__item--spaced">
-            <div>
-              <strong>{file.fullPath}</strong>
-              {typeof file.size === 'number' ? <p>{file.size} bytes</p> : null}
-            </div>
-            <Button variant="secondary" onClick={() => onAction(file.fullPath)}>
-              {actionLabel}
-            </Button>
-          </li>
-        ))}
-      </ul>
-    );
-  }
-
-  return (
-    <FolderModeList
-      files={files}
-      folders={folders}
-      currentFolder={currentFolder}
-      pendingFolderPaths={pendingFolderPaths}
-      actionLabel={actionLabel}
-      onOpenFolder={onOpenFolder}
-      onAction={onAction}
-    />
-  );
-};
-
-interface FolderModeListProps {
-  files: FileRecord[];
-  folders: FolderRecord[];
-  currentFolder: string;
-  pendingFolderPaths: string[];
+interface FlatFileListProps {
   actionLabel: string;
-  onOpenFolder: (folderPath: string) => void;
+  files: FileRecord[];
   onAction: (fullPath: string) => void;
 }
 
+const FlatFileList = ({ actionLabel, files, onAction }: FlatFileListProps) => {
+  if (!files.length) {
+    return <p>No files found.</p>;
+  }
+
+  return (
+    <ul className="resource-list">
+      {files.map((file) => (
+        <li key={file.fullPath} className="resource-list__item resource-list__item--spaced">
+          <div>
+            <strong>{file.fullPath}</strong>
+            {typeof file.size === 'number' ? <p>{file.size} bytes</p> : null}
+          </div>
+          <Button variant="secondary" onClick={() => onAction(file.fullPath)}>
+            {actionLabel}
+          </Button>
+        </li>
+      ))}
+    </ul>
+  );
+};
+
+interface FolderBreadcrumbsProps {
+  crumbs: BreadcrumbItem[];
+  currentFolder: string;
+  onOpenFolder: (folderPath: string) => void;
+}
+
+const FolderBreadcrumbs = ({ crumbs, currentFolder, onOpenFolder }: FolderBreadcrumbsProps) => (
+  <nav className="vault-browser__breadcrumbs" aria-label="Folder breadcrumb">
+    {crumbs.map((crumb, index) => {
+      const isCurrent = crumb.fullPath === currentFolder;
+
+      return (
+        <span key={crumb.fullPath} className="vault-browser__crumb-segment">
+          <button
+            type="button"
+            className="vault-browser__crumb-button"
+            disabled={isCurrent}
+            onClick={() => onOpenFolder(crumb.fullPath)}
+          >
+            {crumb.label}
+          </button>
+          {index < crumbs.length - 1 ? <span className="vault-browser__crumb-divider">/</span> : null}
+        </span>
+      );
+    })}
+  </nav>
+);
+
+interface PendingFolderRowProps {
+  name: string;
+}
+
+const PendingFolderRow = ({ name }: PendingFolderRowProps) => (
+  <li className="resource-list__item vault-browser__folder-item vault-browser__folder-item--pending">
+    <div className="vault-browser__folder-pending">
+      <span className="vault-browser__item-main">
+        <Folder className="vault-browser__folder-icon" size={16} strokeWidth={1.5} aria-hidden="true" />
+        <span className="vault-browser__item-name">{name}</span>
+      </span>
+      <span className="vault-browser__item-meta">
+        <span className="vault-browser__spinner" aria-hidden="true" />
+        Creating...
+      </span>
+    </div>
+  </li>
+);
+
+interface FolderRowProps {
+  folderEntry: FolderEntry;
+  onOpenFolder: (folderPath: string) => void;
+}
+
+const FolderRow = ({ folderEntry, onOpenFolder }: FolderRowProps) => (
+  <li className="resource-list__item vault-browser__folder-item">
+    <button
+      type="button"
+      className="vault-browser__folder-button"
+      onClick={() => onOpenFolder(folderEntry.fullPath)}
+    >
+      <span className="vault-browser__item-main">
+        <Folder className="vault-browser__folder-icon" size={16} strokeWidth={1.5} aria-hidden="true" />
+        <span className="vault-browser__item-name">{folderEntry.name}</span>
+      </span>
+      <span className="vault-browser__item-meta">Folder</span>
+    </button>
+  </li>
+);
+
+interface FileRowProps {
+  actionLabel: string;
+  file: FileRecord;
+  onAction: (fullPath: string) => void;
+}
+
+const FileRow = ({ actionLabel, file, onAction }: FileRowProps) => (
+  <li className="resource-list__item resource-list__item--spaced">
+    <div>
+      <strong>{fileNameFromPath(file.fullPath)}</strong>
+      <p className="auth-note">{file.fullPath}</p>
+      {typeof file.size === 'number' ? <p>{file.size} bytes</p> : null}
+    </div>
+    <Button variant="secondary" onClick={() => onAction(file.fullPath)}>
+      {actionLabel}
+    </Button>
+  </li>
+);
+
+interface FolderModeListProps {
+  actionLabel: string;
+  currentFolder: string;
+  files: FileRecord[];
+  folders: FolderRecord[];
+  onAction: (fullPath: string) => void;
+  onOpenFolder: (folderPath: string) => void;
+  pendingFolderPaths: string[];
+}
+
 const FolderModeList = ({
+  actionLabel,
+  currentFolder,
   files,
   folders,
-  currentFolder,
-  pendingFolderPaths,
-  actionLabel,
+  onAction,
   onOpenFolder,
-  onAction
+  pendingFolderPaths
 }: FolderModeListProps) => {
   const normalizedCurrentFolder = normalizeFolderPath(currentFolder);
 
@@ -144,11 +224,12 @@ const FolderModeList = ({
   );
 
   const folderEntries = useMemo(() => {
-    const nextFolders = new Map<string, { entry: FolderEntry; isPending: boolean }>();
+    const nextFolders = new Map<string, FolderListEntry>();
 
     for (const folder of folders) {
       nextFolders.set(folder.fullPath, {
-        entry: { fullPath: folder.fullPath, name: folder.name },
+        fullPath: folder.fullPath,
+        name: folder.name,
         isPending: false
       });
     }
@@ -160,50 +241,30 @@ const FolderModeList = ({
 
       if (!nextFolders.has(pendingPath)) {
         nextFolders.set(pendingPath, {
-          entry: {
-            fullPath: pendingPath,
-            name: folderName(pendingPath)
-          },
+          fullPath: pendingPath,
+          name: folderName(pendingPath),
           isPending: true
         });
       }
     }
 
-    return Array.from(nextFolders.values())
-      .sort((left, right) => left.entry.name.localeCompare(right.entry.name))
-      .map((value) => ({
-        ...value.entry,
-        isPending: value.isPending
-      }));
-  }, [folders, pendingFolderPaths, normalizedCurrentFolder]);
+    return Array.from(nextFolders.values()).sort((left, right) => left.name.localeCompare(right.name));
+  }, [folders, normalizedCurrentFolder, pendingFolderPaths]);
 
-  const crumbs = breadcrumbItems(normalizedCurrentFolder);
+  const crumbs = useMemo(
+    () => breadcrumbItems(normalizedCurrentFolder),
+    [normalizedCurrentFolder]
+  );
 
   const hasEntries = folderEntries.length > 0 || directFiles.length > 0;
 
   return (
     <div className="vault-browser">
-      <nav className="vault-browser__breadcrumbs" aria-label="Folder breadcrumb">
-        {crumbs.map((crumb, index) => {
-          const isCurrent = crumb.fullPath === normalizedCurrentFolder;
-
-          return (
-            <span key={crumb.fullPath} className="vault-browser__crumb-segment">
-              <button
-                type="button"
-                className="vault-browser__crumb-button"
-                disabled={isCurrent}
-                onClick={() => onOpenFolder(crumb.fullPath)}
-              >
-                {crumb.label}
-              </button>
-              {index < crumbs.length - 1 ? (
-                <span className="vault-browser__crumb-divider">/</span>
-              ) : null}
-            </span>
-          );
-        })}
-      </nav>
+      <FolderBreadcrumbs
+        crumbs={crumbs}
+        currentFolder={normalizedCurrentFolder}
+        onOpenFolder={onOpenFolder}
+      />
 
       <ul className="resource-list vault-browser__list">
         {!hasEntries ? (
@@ -212,70 +273,48 @@ const FolderModeList = ({
           </li>
         ) : null}
 
-        {folderEntries.map((folderEntry) => {
-          if (folderEntry.isPending) {
-            return (
-              <li
-                key={folderEntry.fullPath}
-                className="resource-list__item vault-browser__folder-item vault-browser__folder-item--pending"
-              >
-                <div className="vault-browser__folder-pending">
-                  <span className="vault-browser__item-main">
-                    <Folder
-                      className="vault-browser__folder-icon"
-                      size={16}
-                      strokeWidth={1.5}
-                      aria-hidden="true"
-                    />
-                    <span className="vault-browser__item-name">{folderEntry.name}</span>
-                  </span>
-                  <span className="vault-browser__item-meta">
-                    <span className="vault-browser__spinner" aria-hidden="true" />
-                    Creating...
-                  </span>
-                </div>
-              </li>
-            );
-          }
-
-          return (
-            <li
+        {folderEntries.map((folderEntry) =>
+          folderEntry.isPending ? (
+            <PendingFolderRow key={folderEntry.fullPath} name={folderEntry.name} />
+          ) : (
+            <FolderRow
               key={folderEntry.fullPath}
-              className="resource-list__item vault-browser__folder-item"
-            >
-              <button
-                type="button"
-                className="vault-browser__folder-button"
-                onClick={() => onOpenFolder(folderEntry.fullPath)}
-              >
-                <span className="vault-browser__item-main">
-                  <Folder
-                    className="vault-browser__folder-icon"
-                    size={16}
-                    strokeWidth={1.5}
-                    aria-hidden="true"
-                  />
-                  <span className="vault-browser__item-name">{folderEntry.name}</span>
-                </span>
-                <span className="vault-browser__item-meta">Folder</span>
-              </button>
-            </li>
-          );
-        })}
+              folderEntry={folderEntry}
+              onOpenFolder={onOpenFolder}
+            />
+          )
+        )}
 
         {directFiles.map((file) => (
-          <li key={file.fullPath} className="resource-list__item resource-list__item--spaced">
-            <div>
-              <strong>{fileNameFromPath(file.fullPath)}</strong>
-              {typeof file.size === 'number' ? <p>{file.size} bytes</p> : null}
-            </div>
-            <Button variant="secondary" onClick={() => onAction(file.fullPath)}>
-              {actionLabel}
-            </Button>
-          </li>
+          <FileRow key={file.fullPath} actionLabel={actionLabel} file={file} onAction={onAction} />
         ))}
-
       </ul>
     </div>
+  );
+};
+
+export const FileList = ({
+  actionLabel,
+  currentFolder = '/',
+  files,
+  folders = [],
+  onAction,
+  onOpenFolder,
+  pendingFolderPaths = []
+}: FileListProps) => {
+  if (!onOpenFolder) {
+    return <FlatFileList actionLabel={actionLabel} files={files} onAction={onAction} />;
+  }
+
+  return (
+    <FolderModeList
+      actionLabel={actionLabel}
+      currentFolder={currentFolder}
+      files={files}
+      folders={folders}
+      onAction={onAction}
+      onOpenFolder={onOpenFolder}
+      pendingFolderPaths={pendingFolderPaths}
+    />
   );
 };

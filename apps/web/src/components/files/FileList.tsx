@@ -17,6 +17,7 @@ interface FileListProps {
   actionLabel: string;
   onRename?: ((fullPath: string) => void) | undefined;
   onRenameFolder?: ((folderPath: string) => void) | undefined;
+  onOpenFile?: ((file: FileRecord) => void) | undefined;
   onOpenFolder?: (folderPath: string) => void;
   onAction: (fullPath: string) => void;
 }
@@ -251,12 +252,20 @@ const FolderRow = ({ folderEntry, onOpenFolder, onRenameFolder, renameActionLabe
 interface FileRowProps {
   actionLabel: string;
   file: FileRecord;
+  onOpenFile?: ((file: FileRecord) => void) | undefined;
   onRename?: ((fullPath: string) => void) | undefined;
   onAction: (fullPath: string) => void;
   renameActionLabel?: string | undefined;
 }
 
-const FileRow = ({ actionLabel, file, onAction, onRename, renameActionLabel }: FileRowProps) => {
+const FileRow = ({
+  actionLabel,
+  file,
+  onOpenFile,
+  onAction,
+  onRename,
+  renameActionLabel
+}: FileRowProps) => {
   const FileIcon = useFileIconForPath(file.fullPath);
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const [menuAnchor, setMenuAnchor] = useState<{ x: number; y: number } | null>(null);
@@ -280,20 +289,26 @@ const FileRow = ({ actionLabel, file, onAction, onRename, renameActionLabel }: F
       }}
     >
       <div className="vault-browser__file-row">
-        <span className="vault-browser__file-summary">
-          <span className="vault-browser__file-main">
-            <FileIcon
-              className="vault-browser__file-icon"
-              size={16}
-              strokeWidth={1.5}
-              aria-hidden="true"
-            />
-            <span className="vault-browser__file-name">{fileName}</span>
+        <button
+          type="button"
+          className="vault-browser__file-open"
+          onClick={() => onOpenFile?.(file)}
+        >
+          <span className="vault-browser__file-summary">
+            <span className="vault-browser__file-main">
+              <FileIcon
+                className="vault-browser__file-icon"
+                size={16}
+                strokeWidth={1.5}
+                aria-hidden="true"
+              />
+              <span className="vault-browser__file-name">{fileName}</span>
+            </span>
+            {typeof file.size === 'number' ? (
+              <span className="vault-browser__file-size">{file.size} bytes</span>
+            ) : null}
           </span>
-          {typeof file.size === 'number' ? (
-            <span className="vault-browser__file-size">{file.size} bytes</span>
-          ) : null}
-        </span>
+        </button>
         <DropdownMenu
           className="vault-browser__file-actions"
           isOpen={isMenuOpen}
@@ -347,6 +362,7 @@ interface FolderModeListProps {
   files: FileRecord[];
   folderRenameActionLabel?: string | undefined;
   folders: FolderRecord[];
+  onOpenFile?: ((file: FileRecord) => void) | undefined;
   onRename?: ((fullPath: string) => void) | undefined;
   onRenameFolder?: ((folderPath: string) => void) | undefined;
   onAction: (fullPath: string) => void;
@@ -363,6 +379,7 @@ const FolderModeList = ({
   files,
   folderRenameActionLabel,
   folders,
+  onOpenFile,
   onRename,
   onRenameFolder,
   onAction,
@@ -458,6 +475,7 @@ const FolderModeList = ({
             key={file.fullPath}
             actionLabel={actionLabel}
             file={file}
+            onOpenFile={onOpenFile}
             onRename={onRename}
             onAction={onAction}
             renameActionLabel={renameActionLabel}
@@ -474,6 +492,7 @@ export const FileList = ({
   files,
   folderRenameActionLabel,
   folders = [],
+  onOpenFile,
   onRename,
   onRenameFolder,
   onAction,
@@ -494,6 +513,7 @@ export const FileList = ({
       files={files}
       folderRenameActionLabel={folderRenameActionLabel}
       folders={folders}
+      onOpenFile={onOpenFile}
       onRename={onRename}
       onRenameFolder={onRenameFolder}
       onAction={onAction}

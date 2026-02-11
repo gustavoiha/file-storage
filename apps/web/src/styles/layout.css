@@ -285,6 +285,23 @@
   gap: 0.65rem;
 }
 
+.vault-browser__file-open {
+  width: 100%;
+  border: 0;
+  background: transparent;
+  color: var(--text);
+  text-align: left;
+  display: block;
+  padding: 0;
+  flex: 1;
+  min-width: 0;
+  cursor: pointer;
+}
+
+.vault-browser__file-open:focus-visible {
+  outline: none;
+}
+
 .vault-browser__file-summary {
   min-width: 0;
 }
@@ -443,11 +460,100 @@
   width: min(100%, 680px);
 }
 
+.vault-dialog--viewer {
+  width: min(96vw, 1180px);
+  max-height: calc(100vh - 2rem);
+  display: grid;
+  grid-template-rows: auto 1fr auto;
+  gap: 0.8rem;
+}
+
 .vault-dialog__title {
   margin: 0 0 0.75rem;
   text-transform: uppercase;
   letter-spacing: 0.08em;
   font-size: 1rem;
+}
+
+.vault-file-viewer__header {
+  min-width: 0;
+}
+
+.vault-file-viewer__file-name {
+  margin: -0.3rem 0 0;
+  color: var(--text-muted);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.vault-file-viewer__content {
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: rgba(5, 8, 15, 0.62);
+  padding: 0.7rem;
+  min-height: min(72vh, 760px);
+  overflow: auto;
+}
+
+.vault-file-viewer__frame {
+  width: 100%;
+  min-height: min(68vh, 700px);
+  border: 0;
+  border-radius: 6px;
+  background: #fff;
+}
+
+.vault-file-viewer__image-wrap {
+  min-height: min(68vh, 700px);
+  display: grid;
+  place-items: center;
+}
+
+.vault-file-viewer__image {
+  max-width: 100%;
+  max-height: min(68vh, 700px);
+  object-fit: contain;
+  border-radius: 6px;
+}
+
+.vault-file-viewer__text {
+  margin: 0;
+  width: 100%;
+  min-height: min(68vh, 700px);
+  font: 500 0.86rem/1.42 'SFMono-Regular', Menlo, Monaco, Consolas, monospace;
+  white-space: pre-wrap;
+  word-break: break-word;
+  color: var(--text);
+}
+
+.vault-file-viewer__media {
+  width: 100%;
+  min-height: 3rem;
+}
+
+.vault-file-viewer__fallback {
+  display: grid;
+  gap: 0.6rem;
+}
+
+.vault-file-viewer__fallback p {
+  margin: 0;
+  color: var(--text-muted);
+}
+
+.vault-file-viewer__open-link {
+  display: inline-block;
+  color: var(--text);
+  text-decoration: none;
+  border: 1px solid var(--border);
+  border-radius: 7px;
+  padding: 0.42rem 0.65rem;
+  width: fit-content;
+}
+
+.vault-file-viewer__open-link:hover {
+  background: var(--bg-soft);
 }
 
 .vault-dialog__actions {
@@ -619,6 +725,23 @@
 
   .vault-browser__toolbar {
     align-items: flex-start;
+  }
+
+  .vault-dialog--viewer {
+    width: min(100%, 96vw);
+    padding: 0.85rem;
+  }
+
+  .vault-file-viewer__content {
+    min-height: min(64vh, 560px);
+  }
+
+  .vault-file-viewer__frame,
+  .vault-file-viewer__image-wrap,
+  .vault-file-viewer__image,
+  .vault-file-viewer__text {
+    min-height: min(60vh, 520px);
+    max-height: min(60vh, 520px);
   }
 
   .vaults-empty-state {

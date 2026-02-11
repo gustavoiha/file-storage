@@ -34,6 +34,40 @@ describe('FileList', () => {
     expect(onAction).toHaveBeenCalledWith('/x.txt');
   });
 
+  it('opens file viewer callback when clicking a file row', () => {
+    const onAction = vi.fn();
+    const onOpenFolder = vi.fn();
+    const onOpenFile = vi.fn();
+
+    render(
+      <FileList
+        files={[
+          {
+            fileNodeId: 'f_1',
+            fullPath: '/x.txt',
+            size: 1,
+            state: 'ACTIVE'
+          }
+        ]}
+        folders={[]}
+        currentFolder="/"
+        pendingFolderPaths={[]}
+        actionLabel="Trash"
+        onOpenFile={onOpenFile}
+        onOpenFolder={onOpenFolder}
+        onAction={onAction}
+      />
+    );
+
+    fireEvent.click(screen.getByText('x.txt'));
+    expect(onOpenFile).toHaveBeenCalledWith(
+      expect.objectContaining({
+        fileNodeId: 'f_1',
+        fullPath: '/x.txt'
+      })
+    );
+  });
+
   it('calls rename action when provided', () => {
     const onAction = vi.fn();
     const onOpenFolder = vi.fn();

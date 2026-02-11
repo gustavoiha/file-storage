@@ -56,6 +56,7 @@ export class BackendStack extends Stack {
       createFolder: createHandler('createFolder'),
       renameFolder: createHandler('renameFolder'),
       createUploadSession: createHandler('createUploadSession'),
+      createDownloadSession: createHandler('createDownloadSession'),
       confirmUpload: createHandler('confirmUpload'),
       listFolderChildren: createHandler('listFolderChildren'),
       renameFile: createHandler('renameFile'),
@@ -72,6 +73,7 @@ export class BackendStack extends Stack {
     props.table.grantReadWriteData(handlers.createFolder);
     props.table.grantReadWriteData(handlers.renameFolder);
     props.table.grantReadWriteData(handlers.createUploadSession);
+    props.table.grantReadData(handlers.createDownloadSession);
     props.table.grantReadWriteData(handlers.confirmUpload);
     props.table.grantReadWriteData(handlers.listFolderChildren);
     props.table.grantReadWriteData(handlers.renameFile);
@@ -82,6 +84,7 @@ export class BackendStack extends Stack {
     props.table.grantReadWriteData(purgeReconciliation);
 
     props.bucket.grantReadWrite(handlers.createUploadSession);
+    props.bucket.grantRead(handlers.createDownloadSession);
     props.bucket.grantReadWrite(handlers.confirmUpload);
     props.bucket.grantReadWrite(handlers.moveToTrash);
     props.bucket.grantReadWrite(handlers.restoreFile);
@@ -150,6 +153,16 @@ export class BackendStack extends Stack {
       integration: new HttpLambdaIntegration(
         'CreateUploadSessionIntegration',
         handlers.createUploadSession
+      ),
+      authorizer
+    });
+
+    this.api.addRoutes({
+      path: '/vaults/{vaultId}/files/{fileNodeId}/download-session',
+      methods: [HttpMethod.GET],
+      integration: new HttpLambdaIntegration(
+        'CreateDownloadSessionIntegration',
+        handlers.createDownloadSession
       ),
       authorizer
     });

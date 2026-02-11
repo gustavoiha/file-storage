@@ -1,5 +1,6 @@
 import {
   DeleteObjectTaggingCommand,
+  GetObjectCommand,
   GetObjectTaggingCommand,
   HeadObjectCommand,
   PutObjectCommand,
@@ -39,6 +40,15 @@ export const createUploadUrl = async (
     Bucket: env.bucketName,
     Key: key,
     ContentType: contentType
+  });
+
+  return getSignedUrl(s3Client, command, { expiresIn: 900 });
+};
+
+export const createDownloadUrl = async (key: string): Promise<string> => {
+  const command = new GetObjectCommand({
+    Bucket: env.bucketName,
+    Key: key
   });
 
   return getSignedUrl(s3Client, command, { expiresIn: 900 });

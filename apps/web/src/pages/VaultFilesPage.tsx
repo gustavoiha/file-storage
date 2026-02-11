@@ -4,6 +4,7 @@ import { RequireAuth } from '@/components/auth/RequireAuth';
 import { UnauthorizedNotice } from '@/components/auth/UnauthorizedNotice';
 import { AddFolderDialog } from '@/components/files/AddFolderDialog';
 import { FileList } from '@/components/files/FileList';
+import { FileViewerDialog } from '@/components/files/FileViewerDialog';
 import { RenameFileDialog } from '@/components/files/RenameFileDialog';
 import { RenameFolderDialog } from '@/components/files/RenameFolderDialog';
 import { UploadFilesDialog } from '@/components/files/UploadFilesDialog';
@@ -23,6 +24,7 @@ import {
 import { useVaultUploadDialog } from '@/hooks/useVaultUploadDialog';
 import { useVaults } from '@/hooks/useVaults';
 import { ApiError } from '@/lib/apiClient';
+import type { FileRecord } from '@/lib/apiTypes';
 
 interface FolderTrailEntry {
   folderNodeId: string;
@@ -60,6 +62,7 @@ export const VaultFilesPage = () => {
   const [renameFolderDialogValidationError, setRenameFolderDialogValidationError] = useState<
     string | null
   >(null);
+  const [viewerFile, setViewerFile] = useState<FileRecord | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const currentFolder = folderTrail[folderTrail.length - 1] ?? ROOT_FOLDER;
 
@@ -185,6 +188,10 @@ export const VaultFilesPage = () => {
     },
     [moveToTrash]
   );
+
+  const openFileViewer = useCallback((file: FileRecord) => {
+    setViewerFile(file);
+  }, []);
 
   const openRenameFileDialog = useCallback((fullPath: string) => {
     setRenameFileDialogFullPath(fullPath);
@@ -324,6 +331,7 @@ export const VaultFilesPage = () => {
                   }
                   onRename={openRenameFileDialog}
                   onRenameFolder={openRenameFolderDialog}
+                  onOpenFile={openFileViewer}
                   onOpenFolder={onOpenFolder}
                   onAction={onMoveToTrash}
                 />
@@ -377,6 +385,14 @@ export const VaultFilesPage = () => {
               }}
               onSubmit={onRenameFolderSubmit}
             />
+            {viewerFile ? (
+              <FileViewerDialog
+                file={viewerFile}
+                isOpen
+                onClose={() => setViewerFile(null)}
+                vaultId={vaultId}
+              />
+            ) : null}
           </>
         )}
       </Page>

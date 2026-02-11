@@ -59,6 +59,14 @@ interface UploadSessionResponse {
   expiresInSeconds: number;
 }
 
+export interface FileDownloadSessionResponse {
+  downloadUrl: string;
+  contentType?: string;
+  fileName?: string;
+  size?: number;
+  expiresInSeconds: number;
+}
+
 export const uploadFile = async (
   vaultId: string,
   fullPath: string,
@@ -107,6 +115,12 @@ export const moveToTrash = async (vaultId: string, fullPath: string): Promise<vo
     body: JSON.stringify({ fullPath })
   });
 };
+
+export const createFileDownloadSession = async (
+  vaultId: string,
+  fileNodeId: string
+): Promise<FileDownloadSessionResponse> =>
+  apiRequest(`/vaults/${vaultId}/files/${encodeURIComponent(fileNodeId)}/download-session`);
 
 export const renameFile = async (
   vaultId: string,

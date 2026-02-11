@@ -268,6 +268,23 @@ export const findDirectoryFileByName = async (
 ): Promise<DirectoryItem | null> =>
   findDirectoryEntryByNameInternal(userId, vaultId, parentFolderNodeId, 'L', name);
 
+export const findDownloadableFileByNodeId = async (
+  userId: string,
+  vaultId: string,
+  fileNodeId: string
+): Promise<FileNodeItem | null> => {
+  const fileNode = await getFileNodeById(userId, vaultId, fileNodeId);
+  if (!fileNode) {
+    return null;
+  }
+
+  if (fileStateFromNode(fileNode) === 'PURGED') {
+    return null;
+  }
+
+  return fileNode;
+};
+
 const resolveFolderNodeId = async (
   userId: string,
   vaultId: string,

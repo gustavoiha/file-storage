@@ -68,7 +68,7 @@ describe('VaultFilesPage', () => {
 
     render(<VaultFilesPage />);
     fireEvent.click(screen.getByRole('button', { name: 'Vault options' }));
-    expect(screen.getByRole('button', { name: '+ Add folder' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Create folder' })).toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'Upload files' })).toBeInTheDocument();
     expect(screen.getByText('Trash')).toBeInTheDocument();
     expect(screen.getByText('FileList')).toBeInTheDocument();

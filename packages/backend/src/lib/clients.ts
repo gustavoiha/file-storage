@@ -11,6 +11,10 @@ export const dynamoDoc = DynamoDBDocumentClient.from(dynamo, {
   }
 });
 
-export const s3Client = new S3Client({});
+export const s3Client = new S3Client({
+  // Avoid optional checksum query params on presigned PUT URLs; browser uploads
+  // can fail with 403 when a presigned checksum is present but not matched.
+  requestChecksumCalculation: 'WHEN_REQUIRED'
+});
 export const ssmClient = new SSMClient({});
 export const cognitoIdentityProviderClient = new CognitoIdentityProviderClient({});

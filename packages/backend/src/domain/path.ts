@@ -59,7 +59,7 @@ export const normalizeNodeName = (name: string): string => {
     throw new Error('Name cannot be empty');
   }
 
-  return cleaned.toLocaleLowerCase();
+  return cleaned.replace(/\s+/g, '-').toLocaleLowerCase();
 };
 
 export const splitFullPath = (

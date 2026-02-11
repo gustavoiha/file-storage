@@ -46,7 +46,7 @@ export const VaultFilesHeaderActions = ({
           className="vault-page-menu__item vault-page-menu__item--button"
           onClick={onAddFolder}
         >
-          + Add folder
+          Create folder
         </button>
         <button
           type="button"

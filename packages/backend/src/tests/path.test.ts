@@ -1,5 +1,10 @@
 import { describe, expect, it } from 'vitest';
-import { normalizeFullPath, toFolderPrefix, toRelativePath } from '../domain/path.js';
+import {
+  normalizeFullPath,
+  normalizeNodeName,
+  toFolderPrefix,
+  toRelativePath
+} from '../domain/path.js';
 
 describe('path normalization', () => {
   it('normalizes and prepends slash', () => {
@@ -20,5 +25,9 @@ describe('path normalization', () => {
 
   it('builds relative path', () => {
     expect(toRelativePath('/docs/x.txt')).toBe('docs/x.txt');
+  });
+
+  it('normalizes node names with dash-separated whitespace', () => {
+    expect(normalizeNodeName('My Folder Name')).toBe('my-folder-name');
   });
 });

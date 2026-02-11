@@ -13,7 +13,7 @@ const loadAllowlistModule = async () => import('../lib/allowlist.js');
 describe('allowlist helper', () => {
   beforeEach(async () => {
     vi.clearAllMocks();
-    process.env.ALLOWLIST_SSM_PARAMETER_NAME = '/articvault/auth/allowed-signup-emails';
+    process.env.ALLOWLIST_SSM_PARAMETER_NAME = '/dockspace/auth/allowed-signup-emails';
     const mod = await loadAllowlistModule();
     mod.resetAllowlistCache();
   });

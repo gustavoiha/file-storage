@@ -1,7 +1,7 @@
 import { Store } from '@tanstack/store';
 import type { AuthSession } from './authTypes';
 
-const STORAGE_KEY = 'articvault_auth_session';
+const STORAGE_KEY = 'dockspace_auth_session';
 
 export interface AuthState {
   session: AuthSession | null;

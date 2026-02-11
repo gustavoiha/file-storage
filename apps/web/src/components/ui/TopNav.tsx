@@ -11,7 +11,7 @@ export const TopNav = () => {
 
   return (
     <header className="top-nav">
-      <div className="top-nav__brand">ArticVault</div>
+      <div className="top-nav__brand">Dockspace</div>
       <nav className="top-nav__links">
         <Link to="/vaults">Vaults</Link>
         <Link to="/settings/password">Change Password</Link>

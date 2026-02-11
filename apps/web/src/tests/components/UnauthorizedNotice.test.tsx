@@ -8,7 +8,7 @@ describe('UnauthorizedNotice', () => {
 
     expect(screen.getByText('Not Authorized')).toBeInTheDocument();
     expect(
-      screen.getByText('This account is authenticated but not entitled to use ArticVault.')
+      screen.getByText('This account is authenticated but not entitled to use Dockspace.')
     ).toBeInTheDocument();
   });
 });

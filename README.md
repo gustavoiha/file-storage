@@ -1,4 +1,4 @@
-# ArticVault - File Storage - System Design
+# Dockspace - File Storage - System Design
 
 **Single-Tenant, Multi-Vault Cloud File Storage**
 
@@ -6,7 +6,7 @@
 
 ## 1. Purpose
 
-ArticVault is a self-hosted, single-tenant cloud file storage system comparable to a minimal Google Drive. It supports:
+Dockspace is a self-hosted, single-tenant cloud file storage system comparable to a minimal Google Drive. It supports:
 
 * Multiple vaults per user
 * Folder-based organization
@@ -373,7 +373,7 @@ Future sharing can be added via new item types without schema changes.
 
 ## 17. Authorization Setup (Allowlist + Entitlement Group)
 
-ArticVault supports signup allowlisting and runtime entitlement checks:
+Dockspace supports signup allowlisting and runtime entitlement checks:
 
 * Signup is allowed only when the email exists in an SSM `StringList` allowlist
 * API access is allowed only for users in the Cognito group `entitled-users`
@@ -382,13 +382,13 @@ ArticVault supports signup allowlisting and runtime entitlement checks:
 
 Create this parameter before first production signup:
 
-* Name: `/articvault/auth/allowed-signup-emails`
+* Name: `/dockspace/auth/allowed-signup-emails`
 * Type: `StringList`
 * Value example: `you@example.com`
 
 ### Onboarding a User
 
-1. Add the email to `/articvault/auth/allowed-signup-emails`
+1. Add the email to `/dockspace/auth/allowed-signup-emails`
 2. User signs up and confirms email
 3. Post-confirmation trigger adds the user to `entitled-users`
 4. User can access vault/file APIs

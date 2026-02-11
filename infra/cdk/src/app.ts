@@ -34,10 +34,10 @@ const stackProps: BaseStackProps = {
   deploymentEnvironment
 };
 
-const identity = new IdentityStack(app, 'ArticVaultIdentity', stackProps);
-const storage = new StorageStack(app, 'ArticVaultStorage', stackProps);
+const identity = new IdentityStack(app, 'DockspaceIdentity', stackProps);
+const storage = new StorageStack(app, 'DockspaceStorage', stackProps);
 
-new BackendStack(app, 'ArticVaultBackend', {
+new BackendStack(app, 'DockspaceBackend', {
   ...stackProps,
   userPool: identity.userPool,
   userPoolClient: identity.userPoolClient,
@@ -46,4 +46,4 @@ new BackendStack(app, 'ArticVaultBackend', {
   bucket: storage.fileBucket
 });
 
-new FrontendHostingStack(app, 'ArticVaultFrontendHosting', stackProps);
+new FrontendHostingStack(app, 'DockspaceFrontendHosting', stackProps);

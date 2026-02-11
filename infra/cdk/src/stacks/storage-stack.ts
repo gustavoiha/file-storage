@@ -14,8 +14,8 @@ export class StorageStack extends Stack {
   constructor(scope: Construct, id: string, props: StorageStackProps) {
     super(scope, id, props);
 
-    const fileBucketName = `articvault-files-${this.account}-${this.region}-${props.deploymentEnvironment}`;
-    const metadataTableName = `articvault-metadata-${props.deploymentEnvironment}`;
+    const fileBucketName = `dockspace-files-${this.account}-${this.region}-${props.deploymentEnvironment}`;
+    const metadataTableName = `dockspace-metadata-${props.deploymentEnvironment}`;
 
     this.fileBucket = new Bucket(this, 'FileBucket', {
       bucketName: fileBucketName,

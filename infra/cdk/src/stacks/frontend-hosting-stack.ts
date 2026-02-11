@@ -15,7 +15,7 @@ export class FrontendHostingStack extends Stack {
   constructor(scope: Construct, id: string, props: FrontendHostingStackProps) {
     super(scope, id, props);
 
-    const siteBucketName = `articvault-site-${this.account}-${this.region}-${props.deploymentEnvironment}`;
+    const siteBucketName = `dockspace-site-${this.account}-${this.region}-${props.deploymentEnvironment}`;
 
     this.siteBucket = new Bucket(this, 'SiteBucket', {
       bucketName: siteBucketName,

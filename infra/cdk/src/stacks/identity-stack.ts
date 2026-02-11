@@ -13,7 +13,7 @@ import { Runtime } from 'aws-cdk-lib/aws-lambda';
 import { NodejsFunction } from 'aws-cdk-lib/aws-lambda-nodejs';
 import type { Construct } from 'constructs';
 
-const DEFAULT_ALLOWLIST_PARAMETER_NAME = '/articvault/auth/allowed-signup-emails';
+const DEFAULT_ALLOWLIST_PARAMETER_NAME = '/dockspace/auth/allowed-signup-emails';
 const DEFAULT_ENTITLED_GROUP_NAME = 'entitled-users';
 
 export class IdentityStack extends Stack {
@@ -60,8 +60,8 @@ export class IdentityStack extends Stack {
       autoVerify: { email: true },
       accountRecovery: AccountRecovery.EMAIL_ONLY,
       userVerification: {
-        emailSubject: 'ArticVault verification code',
-        emailBody: 'Your ArticVault code is {####}',
+        emailSubject: 'Dockspace verification code',
+        emailBody: 'Your Dockspace code is {####}',
         emailStyle: VerificationEmailStyle.CODE
       },
       passwordPolicy: {
@@ -88,7 +88,7 @@ export class IdentityStack extends Stack {
     new CfnUserPoolGroup(this, 'EntitledUsersGroup', {
       userPoolId: this.userPool.userPoolId,
       groupName: this.entitledGroupName,
-      description: 'Entitled users allowed to access ArticVault APIs.'
+      description: 'Entitled users allowed to access Dockspace APIs.'
     });
 
     const allowlistParameterArn = this.formatArn({

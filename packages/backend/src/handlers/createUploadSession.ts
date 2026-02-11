@@ -1,9 +1,11 @@
+import { randomUUID } from 'node:crypto';
 import type { APIGatewayProxyEventV2 } from 'aws-lambda';
 import { z } from 'zod';
 import { requireEntitledUser } from '../lib/auth.js';
-import { toRelativePath } from '../domain/path.js';
+import { normalizeFullPath } from '../domain/path.js';
 import { errorResponse, jsonResponse, safeJsonParse } from '../lib/http.js';
 import { buildObjectKey, createUploadUrl } from '../lib/s3.js';
+import { resolveFileByFullPath } from '../lib/repository.js';
 
 const bodySchema = z.object({
   fullPath: z.string().trim().min(2),
@@ -24,8 +26,10 @@ export const handler = async (event: APIGatewayProxyEventV2) => {
       return jsonResponse(400, { error: 'Invalid request body' });
     }
 
-    const relativePath = toRelativePath(parsed.data.fullPath);
-    const objectKey = buildObjectKey(userId, vaultId, relativePath);
+    const normalizedFullPath = normalizeFullPath(parsed.data.fullPath);
+    const existingFile = await resolveFileByFullPath(userId, vaultId, normalizedFullPath);
+    const fileNodeId = existingFile?.fileNode.SK.replace(/^L#/, '') ?? randomUUID();
+    const objectKey = buildObjectKey(vaultId, fileNodeId);
     const uploadUrl = await createUploadUrl(objectKey, parsed.data.contentType);
 
     return jsonResponse(200, {

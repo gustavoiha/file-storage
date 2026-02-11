@@ -1,13 +1,14 @@
 import type { APIGatewayProxyEventV2 } from 'aws-lambda';
 import { z } from 'zod';
-import { normalizeFullPath, toRelativePath } from '../domain/path.js';
+import { normalizeFullPath } from '../domain/path.js';
 import { requireEntitledUser } from '../lib/auth.js';
 import { errorResponse, jsonResponse, safeJsonParse } from '../lib/http.js';
-import { upsertActiveFileByPath } from '../lib/repository.js';
-import { buildObjectKey, objectExists } from '../lib/s3.js';
+import { resolveFileByFullPath, upsertActiveFileByPath } from '../lib/repository.js';
+import { buildObjectKey, objectExists, parseObjectKey } from '../lib/s3.js';
 
 const bodySchema = z.object({
   fullPath: z.string().trim().min(2),
+  objectKey: z.string().trim().min(3),
   size: z.number().nonnegative(),
   etag: z.string().trim().min(1),
   contentType: z.string().trim().min(1)
@@ -28,10 +29,22 @@ export const handler = async (event: APIGatewayProxyEventV2) => {
     }
 
     const fullPath = normalizeFullPath(parsed.data.fullPath);
-    const relativePath = toRelativePath(fullPath);
-    const objectKey = buildObjectKey(userId, vaultId, relativePath);
+    const objectKeyInfo = parseObjectKey(vaultId, parsed.data.objectKey);
+    if (!objectKeyInfo) {
+      return jsonResponse(400, { error: 'Invalid objectKey' });
+    }
 
-    if (!(await objectExists(objectKey))) {
+    const existingFile = await resolveFileByFullPath(userId, vaultId, fullPath);
+    const existingFileNodeId = existingFile?.fileNode.SK.replace(/^L#/, '');
+    const expectedObjectKey = existingFileNodeId
+      ? buildObjectKey(vaultId, existingFileNodeId)
+      : parsed.data.objectKey;
+
+    if (expectedObjectKey !== parsed.data.objectKey) {
+      return jsonResponse(409, { error: 'Upload key does not match target file path' });
+    }
+
+    if (!(await objectExists(parsed.data.objectKey))) {
       return jsonResponse(409, { error: 'Object not found in S3' });
     }
 
@@ -40,7 +53,8 @@ export const handler = async (event: APIGatewayProxyEventV2) => {
       userId,
       vaultId,
       fullPath,
-      s3Key: objectKey,
+      s3Key: parsed.data.objectKey,
+      preferredFileNodeId: existingFileNodeId ?? objectKeyInfo.fileNodeId,
       size: parsed.data.size,
       contentType: parsed.data.contentType,
       etag: parsed.data.etag,

@@ -1,6 +1,6 @@
 import { CfnOutput, Duration, RemovalPolicy, Stack, type StackProps } from 'aws-cdk-lib';
 import { AttributeType, BillingMode, Table } from 'aws-cdk-lib/aws-dynamodb';
-import { BlockPublicAccess, Bucket, StorageClass } from 'aws-cdk-lib/aws-s3';
+import { BlockPublicAccess, Bucket, HttpMethods, StorageClass } from 'aws-cdk-lib/aws-s3';
 import type { Construct } from 'constructs';
 
 interface StorageStackProps extends StackProps {
@@ -23,6 +23,15 @@ export class StorageStack extends Stack {
       enforceSSL: true,
       removalPolicy: RemovalPolicy.RETAIN,
       autoDeleteObjects: false,
+      cors: [
+        {
+          allowedMethods: [HttpMethods.PUT, HttpMethods.GET, HttpMethods.HEAD],
+          allowedOrigins: ['*'],
+          allowedHeaders: ['*'],
+          exposedHeaders: ['ETag'],
+          maxAge: 3000
+        }
+      ],
       lifecycleRules: [
         {
           id: 'DefaultIntelligentTiering',

@@ -1,7 +1,7 @@
 import type { APIGatewayProxyEventV2 } from 'aws-lambda';
 import { requireEntitledUser } from '../lib/auth.js';
 import { errorResponse, jsonResponse } from '../lib/http.js';
-import { fullPathFromS3Key, listTrashedFileNodes } from '../lib/repository.js';
+import { fullPathFromFileNode, listTrashedFileNodes } from '../lib/repository.js';
 
 export const handler = async (event: APIGatewayProxyEventV2) => {
   try {
@@ -14,15 +14,17 @@ export const handler = async (event: APIGatewayProxyEventV2) => {
 
     const files = await listTrashedFileNodes(userId, vaultId);
 
-    return jsonResponse(200, {
-      items: files.map((file) => ({
-        fullPath: fullPathFromS3Key(userId, vaultId, file.s3Key),
+    const items = await Promise.all(
+      files.map(async (file) => ({
+        fullPath: await fullPathFromFileNode(userId, vaultId, file),
         size: file.size,
         deletedAt: file.deletedAt,
         flaggedForDeleteAt: file.flaggedForDeleteAt,
-        state: 'TRASH'
+        state: 'TRASH' as const
       }))
-    });
+    );
+
+    return jsonResponse(200, { items });
   } catch (error) {
     return errorResponse(error);
   }

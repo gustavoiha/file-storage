@@ -21,8 +21,7 @@ import {
   normalizeNodeName,
   normalizeFullPath,
   splitFolderPath,
-  splitFullPath,
-  toRelativePath
+  splitFullPath
 } from '../domain/path.js';
 import type {
   DirectoryItem,
@@ -35,7 +34,6 @@ import { fileStateFromNode } from '../types/models.js';
 import { dynamoDoc } from './clients.js';
 import { env } from './env.js';
 import { listDirectoryChildrenByParentFolderNodeId as listDirectoryChildrenAction } from './repository/folderChildren.js';
-import { buildObjectKey } from './s3.js';
 
 const isConditionalFailure = (error: unknown): boolean =>
   error instanceof Error &&
@@ -82,6 +80,24 @@ const getFileNodeById = async (
   );
 
   return (response.Item as FileNodeItem | undefined) ?? null;
+};
+
+const getFolderNodeById = async (
+  userId: string,
+  vaultId: string,
+  folderNodeId: string
+): Promise<FolderNodeItem | null> => {
+  const response = await dynamoDoc.send(
+    new GetCommand({
+      TableName: env.tableName,
+      Key: {
+        PK: buildFilePk(userId, vaultId),
+        SK: buildFolderNodeSk(folderNodeId)
+      }
+    })
+  );
+
+  return (response.Item as FolderNodeItem | undefined) ?? null;
 };
 
 const putRootFolderNodeIfMissing = async (
@@ -380,6 +396,7 @@ export const upsertActiveFileByPath = async (params: {
   vaultId: string;
   fullPath: string;
   s3Key: string;
+  preferredFileNodeId?: string;
   size: number;
   contentType: string;
   etag: string;
@@ -461,7 +478,7 @@ export const upsertActiveFileByPath = async (params: {
     };
   }
 
-  const fileNodeId = randomUUID();
+  const fileNodeId = params.preferredFileNodeId ?? randomUUID();
 
   await dynamoDoc.send(
     new TransactWriteCommand({
@@ -560,17 +577,24 @@ export const findTrashedFileByFullPath = async (
   vaultId: string,
   fullPath: string
 ): Promise<FileNodeItem | null> => {
-  const normalizedFullPath = normalizeFullPath(fullPath);
-  const s3Key = buildObjectKey(userId, vaultId, toRelativePath(normalizedFullPath));
+  const { folderPath, fileName } = splitFullPath(fullPath);
+  const parentFolderNodeId = await resolveFolderNodeId(userId, vaultId, folderPath);
+  if (!parentFolderNodeId) {
+    return null;
+  }
 
   const files = await queryAll<FileNodeItem>({
     KeyConditionExpression: 'PK = :pk AND begins_with(SK, :skPrefix)',
     FilterExpression:
-      's3Key = :s3Key AND attribute_exists(deletedAt) AND attribute_not_exists(purgedAt)',
+      'parentFolderNodeId = :parentFolderNodeId AND #name = :name AND attribute_exists(deletedAt) AND attribute_not_exists(purgedAt)',
+    ExpressionAttributeNames: {
+      '#name': 'name'
+    },
     ExpressionAttributeValues: {
       ':pk': buildFilePk(userId, vaultId),
       ':skPrefix': 'L#',
-      ':s3Key': s3Key
+      ':parentFolderNodeId': parentFolderNodeId,
+      ':name': fileName
     }
   });
 
@@ -919,4 +943,36 @@ export const fullPathFromS3Key = (
   }
 
   return `/${s3Key.slice(prefix.length)}`;
+};
+
+export const fullPathFromFileNode = async (
+  userId: string,
+  vaultId: string,
+  fileNode: FileNodeItem
+): Promise<string> => {
+  if (fileNode.parentFolderNodeId === ROOT_FOLDER_NODE_ID) {
+    return buildFullPath('/', fileNode.name);
+  }
+
+  const segments: string[] = [];
+  const seen = new Set<string>();
+  let cursor = fileNode.parentFolderNodeId;
+
+  while (cursor && cursor !== ROOT_FOLDER_NODE_ID) {
+    if (seen.has(cursor)) {
+      return buildFullPath('/', fileNode.name);
+    }
+
+    seen.add(cursor);
+    const folderNode = await getFolderNodeById(userId, vaultId, cursor);
+    if (!folderNode) {
+      return buildFullPath('/', fileNode.name);
+    }
+
+    segments.unshift(folderNode.name);
+    cursor = folderNode.parentFolderNodeId ?? ROOT_FOLDER_NODE_ID;
+  }
+
+  const folderPath = segments.length ? `/${segments.join('/')}` : '/';
+  return buildFullPath(folderPath, fileNode.name);
 };

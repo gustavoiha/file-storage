@@ -10,10 +10,26 @@ import { s3Client } from './clients.js';
 import { env } from './env.js';
 
 export const buildObjectKey = (
-  userId: string,
   vaultId: string,
-  relativePath: string
-): string => `${userId}/vaults/${vaultId}/files/${relativePath}`;
+  fileNodeId: string
+): string => `${vaultId}/${fileNodeId}`;
+
+export const parseObjectKey = (
+  vaultId: string,
+  objectKey: string
+): { fileNodeId: string } | null => {
+  const prefix = `${vaultId}/`;
+  if (!objectKey.startsWith(prefix)) {
+    return null;
+  }
+
+  const fileNodeId = objectKey.slice(prefix.length).trim();
+  if (!fileNodeId || fileNodeId.includes('/')) {
+    return null;
+  }
+
+  return { fileNodeId };
+};
 
 export const createUploadUrl = async (
   key: string,

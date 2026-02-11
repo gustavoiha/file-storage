@@ -35,7 +35,9 @@ export class AuthError extends Error {
     super(message);
     this.name = 'AuthError';
     this.statusCode = statusCode;
-    this.context = context;
+    if (context !== undefined) {
+      this.context = context;
+    }
   }
 }
 

@@ -82,6 +82,7 @@ export const uploadFile = async (
     method: 'POST',
     body: JSON.stringify({
       fullPath,
+      objectKey: session.objectKey,
       size: file.size,
       contentType: file.type || 'application/octet-stream',
       etag

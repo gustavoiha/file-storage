@@ -241,7 +241,7 @@
 }
 
 .vault-browser__folder-item--pending {
-  padding: 0.5rem 0.65rem;
+  padding: 0.32rem 0.5rem;
 }
 
 .vault-browser__folder-button {
@@ -253,7 +253,7 @@
   justify-content: space-between;
   align-items: center;
   text-align: left;
-  padding: 0.5rem 0.65rem;
+  padding: 0.32rem 0.5rem;
   cursor: pointer;
 }
 
@@ -386,6 +386,7 @@
 
 .vault-browser__item-name {
   font-weight: 600;
+  font-size: 0.9rem;
 }
 
 .vault-browser__item-meta {

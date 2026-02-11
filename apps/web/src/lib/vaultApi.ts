@@ -97,6 +97,17 @@ export const moveToTrash = async (vaultId: string, fullPath: string): Promise<vo
   });
 };
 
+export const renameFile = async (
+  vaultId: string,
+  fullPath: string,
+  newName: string
+): Promise<void> => {
+  await apiRequest(`/vaults/${vaultId}/files/rename`, {
+    method: 'PATCH',
+    body: JSON.stringify({ fullPath, newName })
+  });
+};
+
 export const restoreFile = async (vaultId: string, fullPath: string): Promise<void> => {
   await apiRequest(`/vaults/${vaultId}/files/restore`, {
     method: 'POST',

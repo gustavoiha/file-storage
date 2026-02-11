@@ -34,6 +34,36 @@ describe('FileList', () => {
     expect(onAction).toHaveBeenCalledWith('/x.txt');
   });
 
+  it('calls rename action when provided', () => {
+    const onAction = vi.fn();
+    const onOpenFolder = vi.fn();
+    const onRename = vi.fn();
+
+    render(
+      <FileList
+        files={[
+          {
+            fullPath: '/x.txt',
+            size: 1,
+            state: 'ACTIVE'
+          }
+        ]}
+        folders={[]}
+        currentFolder="/"
+        pendingFolderPaths={[]}
+        actionLabel="Trash"
+        renameActionLabel="Rename"
+        onRename={onRename}
+        onOpenFolder={onOpenFolder}
+        onAction={onAction}
+      />
+    );
+
+    fireEvent.click(screen.getByRole('button', { name: /actions for x.txt/i }));
+    fireEvent.click(screen.getByRole('menuitem', { name: /rename/i }));
+    expect(onRename).toHaveBeenCalledWith('/x.txt');
+  });
+
   it('opens actions menu on right click', () => {
     const onAction = vi.fn();
     const onOpenFolder = vi.fn();

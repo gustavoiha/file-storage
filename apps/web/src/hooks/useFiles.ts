@@ -8,6 +8,7 @@ import {
   listPurged,
   listTrash,
   moveToTrash,
+  renameFile,
   restoreFile,
   uploadFile
 } from '@/lib/vaultApi';
@@ -110,6 +111,25 @@ export const useMoveToTrash = (vaultId: string, folder: string) => {
         queryClient.invalidateQueries({ queryKey: ['files', userId, vaultId] }),
         queryClient.invalidateQueries({ queryKey: trashQueryKey(userId, vaultId) })
       ]);
+    }
+  });
+};
+
+export const useRenameFile = (vaultId: string, folder: string) => {
+  const queryClient = useQueryClient();
+  const { session } = useStore(authStore);
+  const userId = session?.userId ?? '';
+  void folder;
+
+  return useMutation({
+    mutationFn: ({ fullPath, newName }: { fullPath: string; newName: string }) =>
+      renameFile(vaultId, fullPath, newName),
+    onSuccess: async () => {
+      if (!userId) {
+        return;
+      }
+
+      await queryClient.invalidateQueries({ queryKey: ['files', userId, vaultId] });
     }
   });
 };

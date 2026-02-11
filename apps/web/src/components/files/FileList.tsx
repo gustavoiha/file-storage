@@ -10,9 +10,11 @@ interface FileListProps {
   folders?: FolderRecord[];
   currentFolder?: string;
   pendingFolderPaths?: string[];
+  renameActionLabel?: string | undefined;
   rootBreadcrumbLabel?: string;
   toolbarActions?: ReactNode;
   actionLabel: string;
+  onRename?: ((fullPath: string) => void) | undefined;
   onOpenFolder?: (folderPath: string) => void;
   onAction: (fullPath: string) => void;
 }
@@ -179,10 +181,12 @@ const FolderRow = ({ folderEntry, onOpenFolder }: FolderRowProps) => (
 interface FileRowProps {
   actionLabel: string;
   file: FileRecord;
+  onRename?: ((fullPath: string) => void) | undefined;
   onAction: (fullPath: string) => void;
+  renameActionLabel?: string | undefined;
 }
 
-const FileRow = ({ actionLabel, file, onAction }: FileRowProps) => {
+const FileRow = ({ actionLabel, file, onAction, onRename, renameActionLabel }: FileRowProps) => {
   const FileIcon = useFileIconForPath(file.fullPath);
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const [menuAnchor, setMenuAnchor] = useState<{ x: number; y: number } | null>(null);
@@ -245,6 +249,15 @@ const FileRow = ({ actionLabel, file, onAction }: FileRowProps) => {
             className="vault-browser__file-actions-menu"
             style={menuStyle}
           >
+            {onRename && renameActionLabel ? (
+              <DropdownMenu.Button
+                className="vault-browser__file-actions-item"
+                onClick={() => onRename(file.fullPath)}
+              >
+                {renameActionLabel}
+              </DropdownMenu.Button>
+            ) : null}
+            {onRename && renameActionLabel ? <DropdownMenu.Separator /> : null}
             <DropdownMenu.Button
               className="vault-browser__file-actions-item"
               onClick={() => onAction(file.fullPath)}
@@ -263,9 +276,11 @@ interface FolderModeListProps {
   currentFolder: string;
   files: FileRecord[];
   folders: FolderRecord[];
+  onRename?: ((fullPath: string) => void) | undefined;
   onAction: (fullPath: string) => void;
   onOpenFolder: (folderPath: string) => void;
   pendingFolderPaths: string[];
+  renameActionLabel?: string | undefined;
   rootBreadcrumbLabel: string;
   toolbarActions?: ReactNode;
 }
@@ -275,9 +290,11 @@ const FolderModeList = ({
   currentFolder,
   files,
   folders,
+  onRename,
   onAction,
   onOpenFolder,
   pendingFolderPaths,
+  renameActionLabel,
   rootBreadcrumbLabel,
   toolbarActions
 }: FolderModeListProps) => {
@@ -361,7 +378,14 @@ const FolderModeList = ({
         )}
 
         {directFiles.map((file) => (
-          <FileRow key={file.fullPath} actionLabel={actionLabel} file={file} onAction={onAction} />
+          <FileRow
+            key={file.fullPath}
+            actionLabel={actionLabel}
+            file={file}
+            onRename={onRename}
+            onAction={onAction}
+            renameActionLabel={renameActionLabel}
+          />
         ))}
       </ul>
     </div>
@@ -373,9 +397,11 @@ export const FileList = ({
   currentFolder = '/',
   files,
   folders = [],
+  onRename,
   onAction,
   onOpenFolder,
   pendingFolderPaths = [],
+  renameActionLabel,
   rootBreadcrumbLabel = 'Root',
   toolbarActions
 }: FileListProps) => {
@@ -389,9 +415,11 @@ export const FileList = ({
       currentFolder={currentFolder}
       files={files}
       folders={folders}
+      onRename={onRename}
       onAction={onAction}
       onOpenFolder={onOpenFolder}
       pendingFolderPaths={pendingFolderPaths}
+      renameActionLabel={renameActionLabel}
       rootBreadcrumbLabel={rootBreadcrumbLabel}
       toolbarActions={toolbarActions}
     />

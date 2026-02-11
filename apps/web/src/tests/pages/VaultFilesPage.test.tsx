@@ -12,7 +12,8 @@ const mockState = vi.hoisted(() => ({
     } as unknown,
     error: null as unknown
   },
-  moveToTrash: vi.fn(async () => {})
+  moveToTrash: vi.fn(async () => {}),
+  renameFile: vi.fn(async () => {})
 }));
 
 vi.mock('@tanstack/react-router', () => ({
@@ -40,6 +41,7 @@ vi.mock('@/components/files/FileList', () => ({
 vi.mock('@/hooks/useFiles', () => ({
   useFiles: () => mockState.filesResult,
   useMoveToTrash: () => ({ mutateAsync: mockState.moveToTrash }),
+  useRenameFile: () => ({ mutateAsync: mockState.renameFile, isPending: false, error: null }),
   useCreateFolder: () => ({ mutateAsync: vi.fn(async () => ({})), isPending: false, error: null }),
   useUploadFile: () => ({ mutateAsync: vi.fn(async () => ({})), isPending: false, error: null })
 }));

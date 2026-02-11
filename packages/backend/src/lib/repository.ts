@@ -744,6 +744,69 @@ export const moveOrRenameActiveFileNode = async (params: {
   const fileNodeId = getFileNodeIdFromSk(params.fileNode.SK);
   const oldNormalizedName = normalizeNodeName(params.oldName);
   const newNormalizedName = normalizeNodeName(params.newName);
+  const oldDirectorySk = buildDirectorySk(
+    params.oldParentFolderNodeId,
+    'L',
+    oldNormalizedName,
+    fileNodeId
+  );
+  const newDirectorySk = buildDirectorySk(
+    params.newParentFolderNodeId,
+    'L',
+    newNormalizedName,
+    fileNodeId
+  );
+
+  if (oldDirectorySk === newDirectorySk) {
+    await dynamoDoc.send(
+      new TransactWriteCommand({
+        TransactItems: [
+          {
+            Update: {
+              TableName: env.tableName,
+              Key: {
+                PK: buildFilePk(params.userId, params.vaultId),
+                SK: params.fileNode.SK
+              },
+              ConditionExpression: 'attribute_not_exists(deletedAt) AND attribute_not_exists(purgedAt)',
+              UpdateExpression:
+                'SET parentFolderNodeId = :parentFolderNodeId, #name = :name, updatedAt = :updatedAt',
+              ExpressionAttributeNames: {
+                '#name': 'name'
+              },
+              ExpressionAttributeValues: {
+                ':parentFolderNodeId': params.newParentFolderNodeId,
+                ':name': params.newName,
+                ':updatedAt': params.nowIso
+              }
+            }
+          },
+          {
+            Update: {
+              TableName: env.tableName,
+              Key: {
+                PK: buildFilePk(params.userId, params.vaultId),
+                SK: oldDirectorySk
+              },
+              ConditionExpression: 'attribute_exists(PK) AND attribute_exists(SK)',
+              UpdateExpression:
+                'SET #name = :name, normalizedName = :normalizedName, parentFolderNodeId = :parentFolderNodeId, updatedAt = :updatedAt',
+              ExpressionAttributeNames: {
+                '#name': 'name'
+              },
+              ExpressionAttributeValues: {
+                ':name': params.newName,
+                ':normalizedName': newNormalizedName,
+                ':parentFolderNodeId': params.newParentFolderNodeId,
+                ':updatedAt': params.nowIso
+              }
+            }
+          }
+        ]
+      })
+    );
+    return;
+  }
 
   await dynamoDoc.send(
     new TransactWriteCommand({
@@ -773,12 +836,7 @@ export const moveOrRenameActiveFileNode = async (params: {
             TableName: env.tableName,
             Key: {
               PK: buildFilePk(params.userId, params.vaultId),
-              SK: buildDirectorySk(
-                params.oldParentFolderNodeId,
-                'L',
-                oldNormalizedName,
-                fileNodeId
-              )
+              SK: oldDirectorySk
             }
           }
         },
@@ -787,12 +845,7 @@ export const moveOrRenameActiveFileNode = async (params: {
             TableName: env.tableName,
             Item: {
               PK: buildFilePk(params.userId, params.vaultId),
-              SK: buildDirectorySk(
-                params.newParentFolderNodeId,
-                'L',
-                newNormalizedName,
-                fileNodeId
-              ),
+              SK: newDirectorySk,
               type: 'DIRECTORY',
               name: params.newName,
               normalizedName: newNormalizedName,

@@ -32,12 +32,16 @@ export const UploadFilesDialog = ({
   }
 
   return (
-    <div className="vault-dialog-backdrop" role="presentation">
-      <div
+    <div className="vault-dialog-backdrop">
+      <dialog
         className="vault-dialog vault-dialog--wide"
-        role="dialog"
+        open
         aria-modal="true"
         aria-label="Upload files"
+        onCancel={(event) => {
+          event.preventDefault();
+          onClose();
+        }}
       >
         <h3 className="vault-dialog__title">Upload files</h3>
         <form onSubmit={onSubmit}>
@@ -61,7 +65,7 @@ export const UploadFilesDialog = ({
             </Button>
           </div>
         </form>
-      </div>
+      </dialog>
     </div>
   );
 };

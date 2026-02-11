@@ -5,6 +5,7 @@ import { UnauthorizedNotice } from '@/components/auth/UnauthorizedNotice';
 import { AddFolderDialog } from '@/components/files/AddFolderDialog';
 import { FileList } from '@/components/files/FileList';
 import { RenameFileDialog } from '@/components/files/RenameFileDialog';
+import { RenameFolderDialog } from '@/components/files/RenameFolderDialog';
 import { UploadFilesDialog } from '@/components/files/UploadFilesDialog';
 import { VaultFilesHeaderActions } from '@/components/files/VaultFilesHeaderActions';
 import { buildPathInFolder } from '@/components/files/pathHelpers';
@@ -16,6 +17,7 @@ import {
   useFiles,
   useMoveToTrash,
   useRenameFile,
+  useRenameFolder,
   useUploadFile
 } from '@/hooks/useFiles';
 import { useVaultUploadDialog } from '@/hooks/useVaultUploadDialog';
@@ -48,11 +50,16 @@ export const VaultFilesPage = () => {
   const { vaultId } = useParams({ from: '/vaults/$vaultId' });
   const [folderTrail, setFolderTrail] = useState<FolderTrailEntry[]>([ROOT_FOLDER]);
   const [isVaultMenuOpen, setIsVaultMenuOpen] = useState(false);
-  const [renameDialogFullPath, setRenameDialogFullPath] = useState<string | null>(null);
-  const [renameDialogFileName, setRenameDialogFileName] = useState('');
-  const [renameDialogValidationError, setRenameDialogValidationError] = useState<string | null>(
-    null
-  );
+  const [renameFileDialogFullPath, setRenameFileDialogFullPath] = useState<string | null>(null);
+  const [renameFileDialogFileName, setRenameFileDialogFileName] = useState('');
+  const [renameFileDialogValidationError, setRenameFileDialogValidationError] = useState<
+    string | null
+  >(null);
+  const [renameFolderDialogPath, setRenameFolderDialogPath] = useState<string | null>(null);
+  const [renameFolderDialogName, setRenameFolderDialogName] = useState('');
+  const [renameFolderDialogValidationError, setRenameFolderDialogValidationError] = useState<
+    string | null
+  >(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const currentFolder = folderTrail[folderTrail.length - 1] ?? ROOT_FOLDER;
 
@@ -61,6 +68,7 @@ export const VaultFilesPage = () => {
   const createFolder = useCreateFolder(vaultId);
   const moveToTrash = useMoveToTrash(vaultId, currentFolder.fullPath);
   const renameFile = useRenameFile(vaultId, currentFolder.fullPath);
+  const renameFolder = useRenameFolder(vaultId, currentFolder.fullPath);
   const uploadFile = useUploadFile(vaultId, currentFolder.fullPath);
 
   const unauthorized =
@@ -178,53 +186,100 @@ export const VaultFilesPage = () => {
     [moveToTrash]
   );
 
-  const openRenameDialog = useCallback((fullPath: string) => {
-    setRenameDialogFullPath(fullPath);
-    setRenameDialogFileName(fileNameFromPath(fullPath));
-    setRenameDialogValidationError(null);
+  const openRenameFileDialog = useCallback((fullPath: string) => {
+    setRenameFileDialogFullPath(fullPath);
+    setRenameFileDialogFileName(fileNameFromPath(fullPath));
+    setRenameFileDialogValidationError(null);
   }, []);
 
-  const closeRenameDialog = useCallback(() => {
+  const closeRenameFileDialog = useCallback(() => {
     if (renameFile.isPending) {
       return;
     }
 
-    setRenameDialogFullPath(null);
-    setRenameDialogFileName('');
-    setRenameDialogValidationError(null);
+    setRenameFileDialogFullPath(null);
+    setRenameFileDialogFileName('');
+    setRenameFileDialogValidationError(null);
   }, [renameFile.isPending]);
 
-  const onRenameSubmit = useCallback(
+  const onRenameFileSubmit = useCallback(
     (event: FormEvent<HTMLFormElement>) => {
       event.preventDefault();
 
-      if (!renameDialogFullPath) {
+      if (!renameFileDialogFullPath) {
         return;
       }
 
-      const newName = renameDialogFileName.trim();
+      const newName = renameFileDialogFileName.trim();
       if (!newName) {
-        setRenameDialogValidationError('File name cannot be empty.');
+        setRenameFileDialogValidationError('File name cannot be empty.');
         return;
       }
 
-      setRenameDialogValidationError(null);
+      setRenameFileDialogValidationError(null);
       void (async () => {
         try {
-          await renameFile.mutateAsync({ fullPath: renameDialogFullPath, newName });
-          setRenameDialogFullPath(null);
-          setRenameDialogFileName('');
+          await renameFile.mutateAsync({ fullPath: renameFileDialogFullPath, newName });
+          setRenameFileDialogFullPath(null);
+          setRenameFileDialogFileName('');
         } catch {
           // Error is surfaced through renameFile.error.
         }
       })();
     },
-    [renameDialogFileName, renameDialogFullPath, renameFile]
+    [renameFileDialogFileName, renameFileDialogFullPath, renameFile]
   );
 
-  const renameDialogErrorMessage =
-    renameDialogValidationError ??
+  const openRenameFolderDialog = useCallback((folderPath: string) => {
+    setRenameFolderDialogPath(folderPath);
+    setRenameFolderDialogName(folderNameFromPath(folderPath));
+    setRenameFolderDialogValidationError(null);
+  }, []);
+
+  const closeRenameFolderDialog = useCallback(() => {
+    if (renameFolder.isPending) {
+      return;
+    }
+
+    setRenameFolderDialogPath(null);
+    setRenameFolderDialogName('');
+    setRenameFolderDialogValidationError(null);
+  }, [renameFolder.isPending]);
+
+  const onRenameFolderSubmit = useCallback(
+    (event: FormEvent<HTMLFormElement>) => {
+      event.preventDefault();
+
+      if (!renameFolderDialogPath) {
+        return;
+      }
+
+      const newName = renameFolderDialogName.trim();
+      if (!newName) {
+        setRenameFolderDialogValidationError('Folder name cannot be empty.');
+        return;
+      }
+
+      setRenameFolderDialogValidationError(null);
+      void (async () => {
+        try {
+          await renameFolder.mutateAsync({ folderPath: renameFolderDialogPath, newName });
+          setRenameFolderDialogPath(null);
+          setRenameFolderDialogName('');
+        } catch {
+          // Error is surfaced through renameFolder.error.
+        }
+      })();
+    },
+    [renameFolder, renameFolderDialogName, renameFolderDialogPath]
+  );
+
+  const renameFileDialogErrorMessage =
+    renameFileDialogValidationError ??
     (renameFile.error instanceof Error ? renameFile.error.message : null);
+  const renameFolderDialogErrorMessage =
+    renameFolderDialogValidationError ??
+    (renameFolder.error instanceof Error ? renameFolder.error.message : null);
 
   const uploadErrorMessage =
     uploadDialog.validationError ??
@@ -250,6 +305,7 @@ export const VaultFilesPage = () => {
                   pendingFolderPaths={addFolderDialog.pendingFolderPaths}
                   actionLabel="Move to Trash"
                   renameActionLabel="Rename"
+                  folderRenameActionLabel="Rename"
                   rootBreadcrumbLabel={vaultName}
                   toolbarActions={
                     <VaultFilesHeaderActions
@@ -266,7 +322,8 @@ export const VaultFilesPage = () => {
                       onUploadSelection={onUploadSelection}
                     />
                   }
-                  onRename={openRenameDialog}
+                  onRename={openRenameFileDialog}
+                  onRenameFolder={openRenameFolderDialog}
                   onOpenFolder={onOpenFolder}
                   onAction={onMoveToTrash}
                 />
@@ -293,18 +350,32 @@ export const VaultFilesPage = () => {
               onSubmit={uploadDialog.onSubmit}
             />
             <RenameFileDialog
-              errorMessage={renameDialogErrorMessage}
-              fileName={renameDialogFileName}
-              isOpen={Boolean(renameDialogFullPath)}
+              errorMessage={renameFileDialogErrorMessage}
+              fileName={renameFileDialogFileName}
+              isOpen={Boolean(renameFileDialogFullPath)}
               isSubmitting={renameFile.isPending}
-              onClose={closeRenameDialog}
+              onClose={closeRenameFileDialog}
               onFileNameChange={(nextValue) => {
-                setRenameDialogFileName(nextValue);
-                if (renameDialogValidationError) {
-                  setRenameDialogValidationError(null);
+                setRenameFileDialogFileName(nextValue);
+                if (renameFileDialogValidationError) {
+                  setRenameFileDialogValidationError(null);
                 }
               }}
-              onSubmit={onRenameSubmit}
+              onSubmit={onRenameFileSubmit}
+            />
+            <RenameFolderDialog
+              errorMessage={renameFolderDialogErrorMessage}
+              folderName={renameFolderDialogName}
+              isOpen={Boolean(renameFolderDialogPath)}
+              isSubmitting={renameFolder.isPending}
+              onClose={closeRenameFolderDialog}
+              onFolderNameChange={(nextValue) => {
+                setRenameFolderDialogName(nextValue);
+                if (renameFolderDialogValidationError) {
+                  setRenameFolderDialogValidationError(null);
+                }
+              }}
+              onSubmit={onRenameFolderSubmit}
             />
           </>
         )}

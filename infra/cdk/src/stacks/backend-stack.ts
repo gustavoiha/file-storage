@@ -54,6 +54,7 @@ export class BackendStack extends Stack {
       createVault: createHandler('createVault'),
       listVaults: createHandler('listVaults'),
       createFolder: createHandler('createFolder'),
+      renameFolder: createHandler('renameFolder'),
       createUploadSession: createHandler('createUploadSession'),
       confirmUpload: createHandler('confirmUpload'),
       listFolderChildren: createHandler('listFolderChildren'),
@@ -69,6 +70,7 @@ export class BackendStack extends Stack {
     props.table.grantReadWriteData(handlers.createVault);
     props.table.grantReadWriteData(handlers.listVaults);
     props.table.grantReadWriteData(handlers.createFolder);
+    props.table.grantReadWriteData(handlers.renameFolder);
     props.table.grantReadWriteData(handlers.createUploadSession);
     props.table.grantReadWriteData(handlers.confirmUpload);
     props.table.grantReadWriteData(handlers.listFolderChildren);
@@ -132,6 +134,13 @@ export class BackendStack extends Stack {
       path: '/vaults/{vaultId}/folders',
       methods: [HttpMethod.POST],
       integration: new HttpLambdaIntegration('CreateFolderIntegration', handlers.createFolder),
+      authorizer
+    });
+
+    this.api.addRoutes({
+      path: '/vaults/{vaultId}/folders/rename',
+      methods: [HttpMethod.PATCH],
+      integration: new HttpLambdaIntegration('RenameFolderIntegration', handlers.renameFolder),
       authorizer
     });
 

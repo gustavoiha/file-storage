@@ -9,6 +9,7 @@ import {
   listTrash,
   moveToTrash,
   renameFile,
+  renameFolder,
   restoreFile,
   uploadFile
 } from '@/lib/vaultApi';
@@ -89,6 +90,25 @@ export const useCreateFolder = (vaultId: string) => {
       }
 
       void folderPath;
+      await queryClient.invalidateQueries({ queryKey: ['files', userId, vaultId] });
+    }
+  });
+};
+
+export const useRenameFolder = (vaultId: string, folder: string) => {
+  const queryClient = useQueryClient();
+  const { session } = useStore(authStore);
+  const userId = session?.userId ?? '';
+  void folder;
+
+  return useMutation({
+    mutationFn: ({ folderPath, newName }: { folderPath: string; newName: string }) =>
+      renameFolder(vaultId, folderPath, newName),
+    onSuccess: async () => {
+      if (!userId) {
+        return;
+      }
+
       await queryClient.invalidateQueries({ queryKey: ['files', userId, vaultId] });
     }
   });

@@ -5,12 +5,13 @@ import {
   useFiles,
   useMoveToTrash,
   useRenameFile,
+  useRenameFolder,
   useUploadFile
 } from '@/hooks/useFiles';
 import { clearSession, setSession } from '@/lib/authStore';
 import { createTestQueryClient, QueryWrapper } from '@/tests/testUtils';
 
-const { listFolderChildren, createFolder, uploadFile, moveToTrash, renameFile } = vi.hoisted(() => ({
+const { listFolderChildren, createFolder, uploadFile, moveToTrash, renameFile, renameFolder } = vi.hoisted(() => ({
   listFolderChildren: vi.fn(async () => ({
     parentFolderNodeId: 'root',
     items: [
@@ -32,7 +33,8 @@ const { listFolderChildren, createFolder, uploadFile, moveToTrash, renameFile } 
   })),
   uploadFile: vi.fn(async () => {}),
   moveToTrash: vi.fn(async () => {}),
-  renameFile: vi.fn(async () => {})
+  renameFile: vi.fn(async () => {}),
+  renameFolder: vi.fn(async () => {})
 }));
 
 vi.mock('@/lib/vaultApi', () => ({
@@ -43,6 +45,7 @@ vi.mock('@/lib/vaultApi', () => ({
   uploadFile,
   moveToTrash,
   renameFile,
+  renameFolder,
   restoreFile: vi.fn(async () => {})
 }));
 
@@ -100,6 +103,16 @@ describe('useFiles', () => {
 
     await result.current.mutateAsync({ fullPath: '/x.txt', newName: 'renamed.txt' });
     expect(renameFile).toHaveBeenCalledWith('v1', '/x.txt', 'renamed.txt');
+  });
+
+  it('renames a folder', async () => {
+    const client = createTestQueryClient();
+    const { result } = renderHook(() => useRenameFolder('v1', '/'), {
+      wrapper: ({ children }) => <QueryWrapper client={client}>{children}</QueryWrapper>
+    });
+
+    await result.current.mutateAsync({ folderPath: '/docs', newName: 'guides' });
+    expect(renameFolder).toHaveBeenCalledWith('v1', '/docs', 'guides');
   });
 
   it('creates folder', async () => {

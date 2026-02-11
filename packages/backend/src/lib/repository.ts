@@ -862,6 +862,211 @@ export const moveOrRenameActiveFileNode = async (params: {
   );
 };
 
+export type RenameFolderByPathResult =
+  | { status: 'NOT_FOUND' }
+  | { status: 'CONFLICT' }
+  | { status: 'UNCHANGED'; folderPath: string }
+  | { status: 'RENAMED'; folderPath: string };
+
+export const renameFolderByPath = async (params: {
+  userId: string;
+  vaultId: string;
+  folderPath: string;
+  newName: string;
+  nowIso: string;
+}): Promise<RenameFolderByPathResult> => {
+  const normalizedFolderPath = normalizeFolderPath(params.folderPath);
+  const nextName = params.newName.trim();
+  const folderSegments = splitFolderPath(normalizedFolderPath);
+
+  if (!folderSegments.length) {
+    return { status: 'NOT_FOUND' };
+  }
+
+  const oldName = folderSegments[folderSegments.length - 1] ?? '';
+  const parentFolderPath =
+    folderSegments.length === 1 ? '/' : `/${folderSegments.slice(0, -1).join('/')}`;
+  const parentFolderNodeId = await resolveFolderNodeId(
+    params.userId,
+    params.vaultId,
+    parentFolderPath
+  );
+
+  if (!parentFolderNodeId) {
+    return { status: 'NOT_FOUND' };
+  }
+
+  const existingDirectory = await findDirectoryEntryByNameInternal(
+    params.userId,
+    params.vaultId,
+    parentFolderNodeId,
+    'F',
+    oldName
+  );
+
+  if (!existingDirectory) {
+    return { status: 'NOT_FOUND' };
+  }
+
+  const folderNodeId = existingDirectory.childId;
+  const folderNode = await getFolderNodeById(params.userId, params.vaultId, folderNodeId);
+
+  if (!folderNode) {
+    return { status: 'NOT_FOUND' };
+  }
+
+  if (folderNode.name === nextName) {
+    return {
+      status: 'UNCHANGED',
+      folderPath: normalizedFolderPath
+    };
+  }
+
+  const conflictingFolder = await findDirectoryEntryByNameInternal(
+    params.userId,
+    params.vaultId,
+    parentFolderNodeId,
+    'F',
+    nextName
+  );
+
+  if (conflictingFolder && conflictingFolder.childId !== folderNodeId) {
+    return { status: 'CONFLICT' };
+  }
+
+  const oldDirectorySk = buildDirectorySk(
+    parentFolderNodeId,
+    'F',
+    normalizeNodeName(oldName),
+    folderNodeId
+  );
+  const newNormalizedName = normalizeNodeName(nextName);
+  const newDirectorySk = buildDirectorySk(
+    parentFolderNodeId,
+    'F',
+    newNormalizedName,
+    folderNodeId
+  );
+
+  if (oldDirectorySk === newDirectorySk) {
+    await dynamoDoc.send(
+      new TransactWriteCommand({
+        TransactItems: [
+          {
+            Update: {
+              TableName: env.tableName,
+              Key: {
+                PK: buildFilePk(params.userId, params.vaultId),
+                SK: folderNode.SK
+              },
+              ConditionExpression: 'attribute_exists(PK) AND attribute_exists(SK)',
+              UpdateExpression: 'SET #name = :name, updatedAt = :updatedAt',
+              ExpressionAttributeNames: {
+                '#name': 'name'
+              },
+              ExpressionAttributeValues: {
+                ':name': nextName,
+                ':updatedAt': params.nowIso
+              }
+            }
+          },
+          {
+            Update: {
+              TableName: env.tableName,
+              Key: {
+                PK: buildFilePk(params.userId, params.vaultId),
+                SK: oldDirectorySk
+              },
+              ConditionExpression: 'attribute_exists(PK) AND attribute_exists(SK)',
+              UpdateExpression:
+                'SET #name = :name, normalizedName = :normalizedName, updatedAt = :updatedAt',
+              ExpressionAttributeNames: {
+                '#name': 'name'
+              },
+              ExpressionAttributeValues: {
+                ':name': nextName,
+                ':normalizedName': newNormalizedName,
+                ':updatedAt': params.nowIso
+              }
+            }
+          }
+        ]
+      })
+    );
+
+    return {
+      status: 'RENAMED',
+      folderPath: buildFullPath(parentFolderPath, nextName)
+    };
+  }
+
+  try {
+    await dynamoDoc.send(
+      new TransactWriteCommand({
+        TransactItems: [
+          {
+            Update: {
+              TableName: env.tableName,
+              Key: {
+                PK: buildFilePk(params.userId, params.vaultId),
+                SK: folderNode.SK
+              },
+              ConditionExpression: 'attribute_exists(PK) AND attribute_exists(SK)',
+              UpdateExpression: 'SET #name = :name, updatedAt = :updatedAt',
+              ExpressionAttributeNames: {
+                '#name': 'name'
+              },
+              ExpressionAttributeValues: {
+                ':name': nextName,
+                ':updatedAt': params.nowIso
+              }
+            }
+          },
+          {
+            Delete: {
+              TableName: env.tableName,
+              Key: {
+                PK: buildFilePk(params.userId, params.vaultId),
+                SK: oldDirectorySk
+              },
+              ConditionExpression: 'attribute_exists(PK) AND attribute_exists(SK)'
+            }
+          },
+          {
+            Put: {
+              TableName: env.tableName,
+              Item: {
+                PK: buildFilePk(params.userId, params.vaultId),
+                SK: newDirectorySk,
+                type: 'DIRECTORY',
+                name: nextName,
+                normalizedName: newNormalizedName,
+                childId: folderNodeId,
+                childType: 'folder',
+                parentFolderNodeId,
+                createdAt: existingDirectory.createdAt,
+                updatedAt: params.nowIso
+              } as DirectoryItem,
+              ConditionExpression: 'attribute_not_exists(PK) AND attribute_not_exists(SK)'
+            }
+          }
+        ]
+      })
+    );
+  } catch (error) {
+    if (isConditionalFailure(error)) {
+      return { status: 'CONFLICT' };
+    }
+
+    throw error;
+  }
+
+  return {
+    status: 'RENAMED',
+    folderPath: buildFullPath(parentFolderPath, nextName)
+  };
+};
+
 export const restoreFileNodeFromTrash = async (params: {
   userId: string;
   vaultId: string;

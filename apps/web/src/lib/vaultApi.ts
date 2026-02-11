@@ -32,6 +32,17 @@ export const createFolder = async (
     body: JSON.stringify({ folderPath })
   });
 
+export const renameFolder = async (
+  vaultId: string,
+  folderPath: string,
+  newName: string
+): Promise<void> => {
+  await apiRequest(`/vaults/${vaultId}/folders/rename`, {
+    method: 'PATCH',
+    body: JSON.stringify({ folderPath, newName })
+  });
+};
+
 export const listTrash = async (vaultId: string): Promise<FileRecord[]> => {
   const response = await apiRequest<{ items: FileRecord[] }>(`/vaults/${vaultId}/trash`);
   return response.items;

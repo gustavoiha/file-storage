@@ -26,8 +26,17 @@ export const RenameFileDialog = ({
   }
 
   return (
-    <div className="vault-dialog-backdrop" role="presentation">
-      <div className="vault-dialog" role="dialog" aria-modal="true" aria-label="Rename file">
+    <div className="vault-dialog-backdrop">
+      <dialog
+        className="vault-dialog"
+        open
+        aria-modal="true"
+        aria-label="Rename file"
+        onCancel={(event) => {
+          event.preventDefault();
+          onClose();
+        }}
+      >
         <h3 className="vault-dialog__title">Rename file</h3>
         <form onSubmit={onSubmit}>
           <label className="ui-field" htmlFor="rename-file-name">
@@ -51,7 +60,7 @@ export const RenameFileDialog = ({
             </Button>
           </div>
         </form>
-      </div>
+      </dialog>
     </div>
   );
 };

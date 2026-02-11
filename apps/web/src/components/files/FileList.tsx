@@ -10,11 +10,13 @@ interface FileListProps {
   folders?: FolderRecord[];
   currentFolder?: string;
   pendingFolderPaths?: string[];
+  folderRenameActionLabel?: string | undefined;
   renameActionLabel?: string | undefined;
   rootBreadcrumbLabel?: string;
   toolbarActions?: ReactNode;
   actionLabel: string;
   onRename?: ((fullPath: string) => void) | undefined;
+  onRenameFolder?: ((folderPath: string) => void) | undefined;
   onOpenFolder?: (folderPath: string) => void;
   onAction: (fullPath: string) => void;
 }
@@ -160,23 +162,91 @@ const PendingFolderRow = ({ name }: PendingFolderRowProps) => (
 
 interface FolderRowProps {
   folderEntry: FolderEntry;
+  onRenameFolder?: ((folderPath: string) => void) | undefined;
   onOpenFolder: (folderPath: string) => void;
+  renameActionLabel?: string | undefined;
 }
 
-const FolderRow = ({ folderEntry, onOpenFolder }: FolderRowProps) => (
-  <li className="resource-list__item vault-browser__folder-item">
-    <button
-      type="button"
-      className="vault-browser__folder-button"
-      onClick={() => onOpenFolder(folderEntry.fullPath)}
+const FolderRow = ({ folderEntry, onOpenFolder, onRenameFolder, renameActionLabel }: FolderRowProps) => {
+  const [isMenuOpen, setIsMenuOpen] = useState(false);
+  const [menuAnchor, setMenuAnchor] = useState<{ x: number; y: number } | null>(null);
+  const menuStyle: CSSProperties | undefined = menuAnchor
+    ? {
+        position: 'fixed',
+        left: menuAnchor.x + 4,
+        top: menuAnchor.y + 4,
+        right: 'auto'
+      }
+    : undefined;
+
+  return (
+    <li
+      className="resource-list__item vault-browser__folder-item"
+      onContextMenu={(event) => {
+        if (!onRenameFolder || !renameActionLabel) {
+          return;
+        }
+
+        event.preventDefault();
+        setMenuAnchor({ x: event.clientX, y: event.clientY });
+        setIsMenuOpen(true);
+      }}
     >
-      <span className="vault-browser__item-main">
-        <Folder className="vault-browser__folder-icon" size={16} strokeWidth={1.5} aria-hidden="true" />
-        <span className="vault-browser__item-name">{folderEntry.name}</span>
-      </span>
-    </button>
-  </li>
-);
+      <div className="vault-browser__folder-row">
+        <button
+          type="button"
+          className="vault-browser__folder-button"
+          onClick={() => onOpenFolder(folderEntry.fullPath)}
+        >
+          <span className="vault-browser__item-main">
+            <Folder
+              className="vault-browser__folder-icon"
+              size={16}
+              strokeWidth={1.5}
+              aria-hidden="true"
+            />
+            <span className="vault-browser__item-name">{folderEntry.name}</span>
+          </span>
+        </button>
+        {onRenameFolder && renameActionLabel ? (
+          <DropdownMenu
+            className="vault-browser__file-actions"
+            isOpen={isMenuOpen}
+            onOpenChange={(nextOpen) => {
+              if (!nextOpen) {
+                setMenuAnchor(null);
+              }
+
+              setIsMenuOpen(nextOpen);
+            }}
+          >
+            <DropdownMenu.Trigger
+              className="vault-browser__file-actions-trigger"
+              aria-label={`Actions for ${folderEntry.name}`}
+              onClick={() => {
+                setMenuAnchor(null);
+              }}
+            >
+              ⋯
+            </DropdownMenu.Trigger>
+            <DropdownMenu.Content
+              label={`Actions for ${folderEntry.name}`}
+              className="vault-browser__file-actions-menu"
+              style={menuStyle}
+            >
+              <DropdownMenu.Button
+                className="vault-browser__file-actions-item"
+                onClick={() => onRenameFolder(folderEntry.fullPath)}
+              >
+                {renameActionLabel}
+              </DropdownMenu.Button>
+            </DropdownMenu.Content>
+          </DropdownMenu>
+        ) : null}
+      </div>
+    </li>
+  );
+};
 
 interface FileRowProps {
   actionLabel: string;
@@ -275,8 +345,10 @@ interface FolderModeListProps {
   actionLabel: string;
   currentFolder: string;
   files: FileRecord[];
+  folderRenameActionLabel?: string | undefined;
   folders: FolderRecord[];
   onRename?: ((fullPath: string) => void) | undefined;
+  onRenameFolder?: ((folderPath: string) => void) | undefined;
   onAction: (fullPath: string) => void;
   onOpenFolder: (folderPath: string) => void;
   pendingFolderPaths: string[];
@@ -289,8 +361,10 @@ const FolderModeList = ({
   actionLabel,
   currentFolder,
   files,
+  folderRenameActionLabel,
   folders,
   onRename,
+  onRenameFolder,
   onAction,
   onOpenFolder,
   pendingFolderPaths,
@@ -372,7 +446,9 @@ const FolderModeList = ({
             <FolderRow
               key={folderEntry.fullPath}
               folderEntry={folderEntry}
+              onRenameFolder={onRenameFolder}
               onOpenFolder={onOpenFolder}
+              renameActionLabel={folderRenameActionLabel}
             />
           )
         )}
@@ -396,8 +472,10 @@ export const FileList = ({
   actionLabel,
   currentFolder = '/',
   files,
+  folderRenameActionLabel,
   folders = [],
   onRename,
+  onRenameFolder,
   onAction,
   onOpenFolder,
   pendingFolderPaths = [],
@@ -414,8 +492,10 @@ export const FileList = ({
       actionLabel={actionLabel}
       currentFolder={currentFolder}
       files={files}
+      folderRenameActionLabel={folderRenameActionLabel}
       folders={folders}
       onRename={onRename}
+      onRenameFolder={onRenameFolder}
       onAction={onAction}
       onOpenFolder={onOpenFolder}
       pendingFolderPaths={pendingFolderPaths}

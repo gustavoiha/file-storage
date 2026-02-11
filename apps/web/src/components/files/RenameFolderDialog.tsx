@@ -2,7 +2,7 @@ import type { FormEventHandler } from 'react';
 import { Alert } from '@/components/ui/Alert';
 import { Button } from '@/components/ui/Button';
 
-interface AddFolderDialogProps {
+interface RenameFolderDialogProps {
   errorMessage: string | null;
   folderName: string;
   isOpen: boolean;
@@ -12,7 +12,7 @@ interface AddFolderDialogProps {
   onSubmit: FormEventHandler<HTMLFormElement>;
 }
 
-export const AddFolderDialog = ({
+export const RenameFolderDialog = ({
   errorMessage,
   folderName,
   isOpen,
@@ -20,7 +20,7 @@ export const AddFolderDialog = ({
   onClose,
   onFolderNameChange,
   onSubmit
-}: AddFolderDialogProps) => {
+}: RenameFolderDialogProps) => {
   if (!isOpen) {
     return null;
   }
@@ -31,30 +31,31 @@ export const AddFolderDialog = ({
         className="vault-dialog"
         open
         aria-modal="true"
-        aria-label="Add folder"
+        aria-label="Rename folder"
         onCancel={(event) => {
           event.preventDefault();
           onClose();
         }}
       >
-        <h3 className="vault-dialog__title">Add folder</h3>
+        <h3 className="vault-dialog__title">Rename folder</h3>
         <form onSubmit={onSubmit}>
-          <label className="ui-field" htmlFor="new-folder-name">
+          <label className="ui-field" htmlFor="rename-folder-name">
             <span className="ui-field__label">Folder name</span>
             <input
-              id="new-folder-name"
+              id="rename-folder-name"
               className="ui-input"
               value={folderName}
               onChange={(event) => onFolderNameChange(event.target.value)}
               autoFocus
+              disabled={isSubmitting}
             />
           </label>
           {errorMessage ? <Alert message={errorMessage} /> : null}
           <div className="vault-dialog__actions">
             <Button type="submit" disabled={isSubmitting}>
-              {isSubmitting ? 'Creating...' : 'Create'}
+              {isSubmitting ? 'Renaming...' : 'Rename'}
             </Button>
-            <Button type="button" variant="secondary" onClick={onClose}>
+            <Button type="button" variant="secondary" onClick={onClose} disabled={isSubmitting}>
               Cancel
             </Button>
           </div>

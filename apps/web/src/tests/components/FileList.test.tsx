@@ -121,6 +121,39 @@ describe('FileList', () => {
     expect(onOpenFolder).toHaveBeenCalledWith('/docs');
   });
 
+  it('renames a folder from the folder actions menu', () => {
+    const onAction = vi.fn();
+    const onOpenFolder = vi.fn();
+    const onRenameFolder = vi.fn();
+
+    render(
+      <FileList
+        files={[]}
+        folders={[
+          {
+            folderNodeId: 'f_docs',
+            parentFolderNodeId: 'root',
+            fullPath: '/docs',
+            name: 'docs',
+            createdAt: '2026-01-01T00:00:00.000Z',
+            updatedAt: '2026-01-01T00:00:00.000Z'
+          }
+        ]}
+        currentFolder="/"
+        pendingFolderPaths={[]}
+        actionLabel="Trash"
+        folderRenameActionLabel="Rename"
+        onRenameFolder={onRenameFolder}
+        onOpenFolder={onOpenFolder}
+        onAction={onAction}
+      />
+    );
+
+    fireEvent.contextMenu(screen.getByText('docs'));
+    fireEvent.click(screen.getByRole('menuitem', { name: /rename/i }));
+    expect(onRenameFolder).toHaveBeenCalledWith('/docs');
+  });
+
   it('shows pending folder placeholder', () => {
     const onAction = vi.fn();
     const onOpenFolder = vi.fn();

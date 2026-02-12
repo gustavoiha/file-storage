@@ -1,18 +1,18 @@
 import { render, screen } from '@testing-library/react';
 import { describe, expect, it, vi } from 'vitest';
-import { VaultList } from '@/components/files/VaultList';
+import { DockspaceList } from '@/components/files/DockspaceList';
 
 vi.mock('@tanstack/react-router', () => ({
   Link: ({ children }: { children?: unknown }) => <a>{children as any}</a>
 }));
 
-describe('VaultList', () => {
+describe('DockspaceList', () => {
   it('renders items', () => {
     render(
-      <VaultList
-        vaults={[
+      <DockspaceList
+        dockspaces={[
           {
-            vaultId: 'v1',
+            dockspaceId: 'v1',
             name: 'Main',
             createdAt: '2026-01-01T00:00:00.000Z'
           }

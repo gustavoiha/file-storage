@@ -7,18 +7,18 @@ import { createDownloadUrl, objectExists } from '../lib/s3.js';
 export const handler = async (event: APIGatewayProxyEventV2) => {
   try {
     const { userId } = requireEntitledUser(event);
-    const vaultId = event.pathParameters?.vaultId;
+    const dockspaceId = event.pathParameters?.dockspaceId;
     const fileNodeId = event.pathParameters?.fileNodeId?.trim();
 
-    if (!vaultId) {
-      return jsonResponse(400, { error: 'vaultId is required' });
+    if (!dockspaceId) {
+      return jsonResponse(400, { error: 'dockspaceId is required' });
     }
 
     if (!fileNodeId || fileNodeId.includes('/')) {
       return jsonResponse(400, { error: 'fileNodeId is required' });
     }
 
-    const fileNode = await findDownloadableFileByNodeId(userId, vaultId, fileNodeId);
+    const fileNode = await findDownloadableFileByNodeId(userId, dockspaceId, fileNodeId);
     if (!fileNode) {
       return jsonResponse(404, { error: 'Downloadable file not found' });
     }

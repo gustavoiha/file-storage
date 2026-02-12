@@ -2,11 +2,11 @@ export const ROOT_FOLDER_NODE_ID = 'root';
 
 export type DirectoryKind = 'L' | 'F';
 
-export const buildVaultPartitionSk = (userId: string, vaultId: string): string =>
-  `U#${userId}#V#${vaultId}`;
+export const buildDockspacePartitionSk = (userId: string, dockspaceId: string): string =>
+  `U#${userId}#S#${dockspaceId}`;
 
-export const buildFilePk = (userId: string, vaultId: string): string =>
-  buildVaultPartitionSk(userId, vaultId);
+export const buildFilePk = (userId: string, dockspaceId: string): string =>
+  buildDockspacePartitionSk(userId, dockspaceId);
 
 export const buildFileNodeSk = (fileNodeId: string): string => `L#${fileNodeId}`;
 
@@ -30,6 +30,6 @@ export const buildDirectoryNamePrefix = (
   normalizedName: string
 ): string => `D#${folderNodeId}#${kind}#${normalizedName}#`;
 
-export const buildVaultPk = (userId: string): string => `U#${userId}`;
+export const buildDockspacePk = (userId: string): string => `U#${userId}`;
 
-export const buildVaultSk = (vaultId: string): string => `V#${vaultId}`;
+export const buildDockspaceSk = (dockspaceId: string): string => `S#${dockspaceId}`;

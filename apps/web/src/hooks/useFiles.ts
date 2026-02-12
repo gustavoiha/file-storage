@@ -12,53 +12,53 @@ import {
   renameFolder,
   restoreFile,
   uploadFile
-} from '@/lib/vaultApi';
+} from '@/lib/dockspaceApi';
 
 const ROOT_FOLDER_NODE_ID = 'root';
 
-export const filesQueryKey = (userId: string, vaultId: string, parentFolderNodeId: string) =>
-  ['files', userId, vaultId, parentFolderNodeId] as const;
+export const filesQueryKey = (userId: string, dockspaceId: string, parentFolderNodeId: string) =>
+  ['files', userId, dockspaceId, parentFolderNodeId] as const;
 
-export const trashQueryKey = (userId: string, vaultId: string) =>
-  ['trash', userId, vaultId] as const;
+export const trashQueryKey = (userId: string, dockspaceId: string) =>
+  ['trash', userId, dockspaceId] as const;
 
-export const purgedQueryKey = (userId: string, vaultId: string) =>
-  ['purged', userId, vaultId] as const;
+export const purgedQueryKey = (userId: string, dockspaceId: string) =>
+  ['purged', userId, dockspaceId] as const;
 
-export const useFiles = (vaultId: string, parentFolderNodeId: string) => {
+export const useFiles = (dockspaceId: string, parentFolderNodeId: string) => {
   const { session } = useStore(authStore);
   const userId = session?.userId ?? '';
 
   return useQuery<DirectoryChildrenRecord>({
-    queryKey: filesQueryKey(userId, vaultId, parentFolderNodeId),
-    queryFn: () => listFolderChildren(vaultId, parentFolderNodeId),
+    queryKey: filesQueryKey(userId, dockspaceId, parentFolderNodeId),
+    queryFn: () => listFolderChildren(dockspaceId, parentFolderNodeId),
     enabled: Boolean(userId)
   });
 };
 
-export const useTrash = (vaultId: string) => {
+export const useTrash = (dockspaceId: string) => {
   const { session } = useStore(authStore);
   const userId = session?.userId ?? '';
 
   return useQuery({
-    queryKey: trashQueryKey(userId, vaultId),
-    queryFn: () => listTrash(vaultId),
-    enabled: Boolean(userId && vaultId)
+    queryKey: trashQueryKey(userId, dockspaceId),
+    queryFn: () => listTrash(dockspaceId),
+    enabled: Boolean(userId && dockspaceId)
   });
 };
 
-export const usePurged = (vaultId: string) => {
+export const usePurged = (dockspaceId: string) => {
   const { session } = useStore(authStore);
   const userId = session?.userId ?? '';
 
   return useQuery({
-    queryKey: purgedQueryKey(userId, vaultId),
-    queryFn: () => listPurged(vaultId),
-    enabled: Boolean(userId && vaultId)
+    queryKey: purgedQueryKey(userId, dockspaceId),
+    queryFn: () => listPurged(dockspaceId),
+    enabled: Boolean(userId && dockspaceId)
   });
 };
 
-export const useUploadFile = (vaultId: string, folder: string) => {
+export const useUploadFile = (dockspaceId: string, folder: string) => {
   const queryClient = useQueryClient();
   const { session } = useStore(authStore);
   const userId = session?.userId ?? '';
@@ -66,36 +66,36 @@ export const useUploadFile = (vaultId: string, folder: string) => {
 
   return useMutation({
     mutationFn: ({ fullPath, file }: { fullPath: string; file: File }) =>
-      uploadFile(vaultId, fullPath, file),
+      uploadFile(dockspaceId, fullPath, file),
     onSuccess: async () => {
       if (!userId) {
         return;
       }
 
-      await queryClient.invalidateQueries({ queryKey: ['files', userId, vaultId] });
+      await queryClient.invalidateQueries({ queryKey: ['files', userId, dockspaceId] });
     }
   });
 };
 
-export const useCreateFolder = (vaultId: string) => {
+export const useCreateFolder = (dockspaceId: string) => {
   const queryClient = useQueryClient();
   const { session } = useStore(authStore);
   const userId = session?.userId ?? '';
 
   return useMutation({
-    mutationFn: (folderPath: string) => createFolder(vaultId, folderPath),
+    mutationFn: (folderPath: string) => createFolder(dockspaceId, folderPath),
     onSuccess: async (_response, folderPath) => {
       if (!userId) {
         return;
       }
 
       void folderPath;
-      await queryClient.invalidateQueries({ queryKey: ['files', userId, vaultId] });
+      await queryClient.invalidateQueries({ queryKey: ['files', userId, dockspaceId] });
     }
   });
 };
 
-export const useRenameFolder = (vaultId: string, folder: string) => {
+export const useRenameFolder = (dockspaceId: string, folder: string) => {
   const queryClient = useQueryClient();
   const { session } = useStore(authStore);
   const userId = session?.userId ?? '';
@@ -103,39 +103,39 @@ export const useRenameFolder = (vaultId: string, folder: string) => {
 
   return useMutation({
     mutationFn: ({ folderPath, newName }: { folderPath: string; newName: string }) =>
-      renameFolder(vaultId, folderPath, newName),
+      renameFolder(dockspaceId, folderPath, newName),
     onSuccess: async () => {
       if (!userId) {
         return;
       }
 
-      await queryClient.invalidateQueries({ queryKey: ['files', userId, vaultId] });
+      await queryClient.invalidateQueries({ queryKey: ['files', userId, dockspaceId] });
     }
   });
 };
 
-export const useMoveToTrash = (vaultId: string, folder: string) => {
+export const useMoveToTrash = (dockspaceId: string, folder: string) => {
   const queryClient = useQueryClient();
   const { session } = useStore(authStore);
   const userId = session?.userId ?? '';
   void folder;
 
   return useMutation({
-    mutationFn: (fullPath: string) => moveToTrash(vaultId, fullPath),
+    mutationFn: (fullPath: string) => moveToTrash(dockspaceId, fullPath),
     onSuccess: async () => {
       if (!userId) {
         return;
       }
 
       await Promise.all([
-        queryClient.invalidateQueries({ queryKey: ['files', userId, vaultId] }),
-        queryClient.invalidateQueries({ queryKey: trashQueryKey(userId, vaultId) })
+        queryClient.invalidateQueries({ queryKey: ['files', userId, dockspaceId] }),
+        queryClient.invalidateQueries({ queryKey: trashQueryKey(userId, dockspaceId) })
       ]);
     }
   });
 };
 
-export const useRenameFile = (vaultId: string, folder: string) => {
+export const useRenameFile = (dockspaceId: string, folder: string) => {
   const queryClient = useQueryClient();
   const { session } = useStore(authStore);
   const userId = session?.userId ?? '';
@@ -143,33 +143,33 @@ export const useRenameFile = (vaultId: string, folder: string) => {
 
   return useMutation({
     mutationFn: ({ fullPath, newName }: { fullPath: string; newName: string }) =>
-      renameFile(vaultId, fullPath, newName),
+      renameFile(dockspaceId, fullPath, newName),
     onSuccess: async () => {
       if (!userId) {
         return;
       }
 
-      await queryClient.invalidateQueries({ queryKey: ['files', userId, vaultId] });
+      await queryClient.invalidateQueries({ queryKey: ['files', userId, dockspaceId] });
     }
   });
 };
 
-export const useRestoreFile = (vaultId: string) => {
+export const useRestoreFile = (dockspaceId: string) => {
   const queryClient = useQueryClient();
   const { session } = useStore(authStore);
   const userId = session?.userId ?? '';
 
   return useMutation({
-    mutationFn: (fullPath: string) => restoreFile(vaultId, fullPath),
+    mutationFn: (fullPath: string) => restoreFile(dockspaceId, fullPath),
     onSuccess: async () => {
       if (!userId) {
         return;
       }
 
       await Promise.all([
-        queryClient.invalidateQueries({ queryKey: trashQueryKey(userId, vaultId) }),
+        queryClient.invalidateQueries({ queryKey: trashQueryKey(userId, dockspaceId) }),
         queryClient.invalidateQueries({
-          queryKey: filesQueryKey(userId, vaultId, ROOT_FOLDER_NODE_ID)
+          queryKey: filesQueryKey(userId, dockspaceId, ROOT_FOLDER_NODE_ID)
         })
       ]);
     }

@@ -254,13 +254,13 @@ describe('FileList', () => {
         folders={[]}
         currentFolder="/"
         pendingFolderPaths={[]}
-        rootBreadcrumbLabel="My Vault"
+        rootBreadcrumbLabel="My Dockspace"
         actionLabel="Trash"
         onOpenFolder={onOpenFolder}
         onAction={onAction}
       />
     );
 
-    expect(screen.getByRole('button', { name: 'My Vault' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'My Dockspace' })).toBeInTheDocument();
   });
 });

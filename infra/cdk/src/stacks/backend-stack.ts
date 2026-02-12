@@ -51,8 +51,8 @@ export class BackendStack extends Stack {
       });
 
     const handlers = {
-      createVault: createHandler('createVault'),
-      listVaults: createHandler('listVaults'),
+      createDockspace: createHandler('createDockspace'),
+      listDockspaces: createHandler('listDockspaces'),
       createFolder: createHandler('createFolder'),
       renameFolder: createHandler('renameFolder'),
       createUploadSession: createHandler('createUploadSession'),
@@ -68,8 +68,8 @@ export class BackendStack extends Stack {
 
     const purgeReconciliation = createHandler('purgeReconciliation');
 
-    props.table.grantReadWriteData(handlers.createVault);
-    props.table.grantReadWriteData(handlers.listVaults);
+    props.table.grantReadWriteData(handlers.createDockspace);
+    props.table.grantReadWriteData(handlers.listDockspaces);
     props.table.grantReadWriteData(handlers.createFolder);
     props.table.grantReadWriteData(handlers.renameFolder);
     props.table.grantReadWriteData(handlers.createUploadSession);
@@ -110,21 +110,21 @@ export class BackendStack extends Stack {
     });
 
     this.api.addRoutes({
-      path: '/vaults',
+      path: '/dockspaces',
       methods: [HttpMethod.GET],
-      integration: new HttpLambdaIntegration('ListVaultsIntegration', handlers.listVaults),
+      integration: new HttpLambdaIntegration('ListDockspacesIntegration', handlers.listDockspaces),
       authorizer
     });
 
     this.api.addRoutes({
-      path: '/vaults',
+      path: '/dockspaces',
       methods: [HttpMethod.POST],
-      integration: new HttpLambdaIntegration('CreateVaultIntegration', handlers.createVault),
+      integration: new HttpLambdaIntegration('CreateDockspaceIntegration', handlers.createDockspace),
       authorizer
     });
 
     this.api.addRoutes({
-      path: '/vaults/{vaultId}/folders/{parentFolderNodeId}/children',
+      path: '/dockspaces/{dockspaceId}/folders/{parentFolderNodeId}/children',
       methods: [HttpMethod.GET],
       integration: new HttpLambdaIntegration(
         'ListFolderChildrenIntegration',
@@ -134,21 +134,21 @@ export class BackendStack extends Stack {
     });
 
     this.api.addRoutes({
-      path: '/vaults/{vaultId}/folders',
+      path: '/dockspaces/{dockspaceId}/folders',
       methods: [HttpMethod.POST],
       integration: new HttpLambdaIntegration('CreateFolderIntegration', handlers.createFolder),
       authorizer
     });
 
     this.api.addRoutes({
-      path: '/vaults/{vaultId}/folders/rename',
+      path: '/dockspaces/{dockspaceId}/folders/rename',
       methods: [HttpMethod.PATCH],
       integration: new HttpLambdaIntegration('RenameFolderIntegration', handlers.renameFolder),
       authorizer
     });
 
     this.api.addRoutes({
-      path: '/vaults/{vaultId}/files/upload-session',
+      path: '/dockspaces/{dockspaceId}/files/upload-session',
       methods: [HttpMethod.POST],
       integration: new HttpLambdaIntegration(
         'CreateUploadSessionIntegration',
@@ -158,7 +158,7 @@ export class BackendStack extends Stack {
     });
 
     this.api.addRoutes({
-      path: '/vaults/{vaultId}/files/{fileNodeId}/download-session',
+      path: '/dockspaces/{dockspaceId}/files/{fileNodeId}/download-session',
       methods: [HttpMethod.GET],
       integration: new HttpLambdaIntegration(
         'CreateDownloadSessionIntegration',
@@ -168,42 +168,42 @@ export class BackendStack extends Stack {
     });
 
     this.api.addRoutes({
-      path: '/vaults/{vaultId}/files/confirm-upload',
+      path: '/dockspaces/{dockspaceId}/files/confirm-upload',
       methods: [HttpMethod.POST],
       integration: new HttpLambdaIntegration('ConfirmUploadIntegration', handlers.confirmUpload),
       authorizer
     });
 
     this.api.addRoutes({
-      path: '/vaults/{vaultId}/files/rename',
+      path: '/dockspaces/{dockspaceId}/files/rename',
       methods: [HttpMethod.PATCH],
       integration: new HttpLambdaIntegration('RenameFileIntegration', handlers.renameFile),
       authorizer
     });
 
     this.api.addRoutes({
-      path: '/vaults/{vaultId}/files/trash',
+      path: '/dockspaces/{dockspaceId}/files/trash',
       methods: [HttpMethod.POST],
       integration: new HttpLambdaIntegration('MoveToTrashIntegration', handlers.moveToTrash),
       authorizer
     });
 
     this.api.addRoutes({
-      path: '/vaults/{vaultId}/files/restore',
+      path: '/dockspaces/{dockspaceId}/files/restore',
       methods: [HttpMethod.POST],
       integration: new HttpLambdaIntegration('RestoreFileIntegration', handlers.restoreFile),
       authorizer
     });
 
     this.api.addRoutes({
-      path: '/vaults/{vaultId}/trash',
+      path: '/dockspaces/{dockspaceId}/trash',
       methods: [HttpMethod.GET],
       integration: new HttpLambdaIntegration('ListTrashIntegration', handlers.listTrash),
       authorizer
     });
 
     this.api.addRoutes({
-      path: '/vaults/{vaultId}/purged',
+      path: '/dockspaces/{dockspaceId}/purged',
       methods: [HttpMethod.GET],
       integration: new HttpLambdaIntegration('ListPurgedIntegration', handlers.listPurged),
       authorizer

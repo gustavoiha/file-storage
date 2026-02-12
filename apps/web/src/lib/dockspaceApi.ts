@@ -1,55 +1,55 @@
 import { apiRequest } from './apiClient';
-import type { DirectoryChildrenRecord, FileRecord, Vault } from './apiTypes';
+import type { DirectoryChildrenRecord, FileRecord, Dockspace } from './apiTypes';
 
-export const listVaults = async (): Promise<Vault[]> => {
-  const response = await apiRequest<{ items: Vault[] }>('/vaults');
+export const listDockspaces = async (): Promise<Dockspace[]> => {
+  const response = await apiRequest<{ items: Dockspace[] }>('/dockspaces');
   return response.items;
 };
 
-export const createVault = async (name: string): Promise<Vault> =>
-  apiRequest<Vault>('/vaults', {
+export const createDockspace = async (name: string): Promise<Dockspace> =>
+  apiRequest<Dockspace>('/dockspaces', {
     method: 'POST',
     body: JSON.stringify({ name })
   });
 
 export const listFolderChildren = async (
-  vaultId: string,
+  dockspaceId: string,
   parentFolderNodeId: string
 ): Promise<DirectoryChildrenRecord> => {
   const response = await apiRequest<DirectoryChildrenRecord>(
-    `/vaults/${vaultId}/folders/${encodeURIComponent(parentFolderNodeId)}/children`
+    `/dockspaces/${dockspaceId}/folders/${encodeURIComponent(parentFolderNodeId)}/children`
   );
 
   return response;
 };
 
 export const createFolder = async (
-  vaultId: string,
+  dockspaceId: string,
   folderPath: string
 ): Promise<{ folderPath: string; folderNodeId: string; created: boolean }> =>
-  apiRequest(`/vaults/${vaultId}/folders`, {
+  apiRequest(`/dockspaces/${dockspaceId}/folders`, {
     method: 'POST',
     body: JSON.stringify({ folderPath })
   });
 
 export const renameFolder = async (
-  vaultId: string,
+  dockspaceId: string,
   folderPath: string,
   newName: string
 ): Promise<void> => {
-  await apiRequest(`/vaults/${vaultId}/folders/rename`, {
+  await apiRequest(`/dockspaces/${dockspaceId}/folders/rename`, {
     method: 'PATCH',
     body: JSON.stringify({ folderPath, newName })
   });
 };
 
-export const listTrash = async (vaultId: string): Promise<FileRecord[]> => {
-  const response = await apiRequest<{ items: FileRecord[] }>(`/vaults/${vaultId}/trash`);
+export const listTrash = async (dockspaceId: string): Promise<FileRecord[]> => {
+  const response = await apiRequest<{ items: FileRecord[] }>(`/dockspaces/${dockspaceId}/trash`);
   return response.items;
 };
 
-export const listPurged = async (vaultId: string): Promise<FileRecord[]> => {
-  const response = await apiRequest<{ items: FileRecord[] }>(`/vaults/${vaultId}/purged`);
+export const listPurged = async (dockspaceId: string): Promise<FileRecord[]> => {
+  const response = await apiRequest<{ items: FileRecord[] }>(`/dockspaces/${dockspaceId}/purged`);
   return response.items;
 };
 
@@ -68,12 +68,12 @@ export interface FileDownloadSessionResponse {
 }
 
 export const uploadFile = async (
-  vaultId: string,
+  dockspaceId: string,
   fullPath: string,
   file: File
 ): Promise<void> => {
   const session = await apiRequest<UploadSessionResponse>(
-    `/vaults/${vaultId}/files/upload-session`,
+    `/dockspaces/${dockspaceId}/files/upload-session`,
     {
       method: 'POST',
       body: JSON.stringify({
@@ -97,7 +97,7 @@ export const uploadFile = async (
 
   const etag = uploadResponse.headers.get('etag') ?? '';
 
-  await apiRequest(`/vaults/${vaultId}/files/confirm-upload`, {
+  await apiRequest(`/dockspaces/${dockspaceId}/files/confirm-upload`, {
     method: 'POST',
     body: JSON.stringify({
       fullPath,
@@ -109,35 +109,35 @@ export const uploadFile = async (
   });
 };
 
-export const moveToTrash = async (vaultId: string, fullPath: string): Promise<void> => {
-  await apiRequest(`/vaults/${vaultId}/files/trash`, {
+export const moveToTrash = async (dockspaceId: string, fullPath: string): Promise<void> => {
+  await apiRequest(`/dockspaces/${dockspaceId}/files/trash`, {
     method: 'POST',
     body: JSON.stringify({ fullPath })
   });
 };
 
 export const createFileDownloadSession = async (
-  vaultId: string,
+  dockspaceId: string,
   fileNodeId: string,
   options?: { disposition?: 'inline' | 'attachment' }
 ): Promise<FileDownloadSessionResponse> => {
   const query = options?.disposition ? `?disposition=${options.disposition}` : '';
-  return apiRequest(`/vaults/${vaultId}/files/${encodeURIComponent(fileNodeId)}/download-session${query}`);
+  return apiRequest(`/dockspaces/${dockspaceId}/files/${encodeURIComponent(fileNodeId)}/download-session${query}`);
 };
 
 export const renameFile = async (
-  vaultId: string,
+  dockspaceId: string,
   fullPath: string,
   newName: string
 ): Promise<void> => {
-  await apiRequest(`/vaults/${vaultId}/files/rename`, {
+  await apiRequest(`/dockspaces/${dockspaceId}/files/rename`, {
     method: 'PATCH',
     body: JSON.stringify({ fullPath, newName })
   });
 };
 
-export const restoreFile = async (vaultId: string, fullPath: string): Promise<void> => {
-  await apiRequest(`/vaults/${vaultId}/files/restore`, {
+export const restoreFile = async (dockspaceId: string, fullPath: string): Promise<void> => {
+  await apiRequest(`/dockspaces/${dockspaceId}/files/restore`, {
     method: 'POST',
     body: JSON.stringify({ fullPath })
   });

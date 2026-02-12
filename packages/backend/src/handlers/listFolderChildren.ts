@@ -6,11 +6,11 @@ import { listDirectoryChildrenByParentFolderNodeId } from '../lib/repository.js'
 export const handler = async (event: APIGatewayProxyEventV2) => {
   try {
     const { userId } = requireEntitledUser(event);
-    const vaultId = event.pathParameters?.vaultId;
+    const dockspaceId = event.pathParameters?.dockspaceId;
     const parentFolderNodeId = event.pathParameters?.parentFolderNodeId;
 
-    if (!vaultId) {
-      return jsonResponse(400, { error: 'vaultId is required' });
+    if (!dockspaceId) {
+      return jsonResponse(400, { error: 'dockspaceId is required' });
     }
 
     if (!parentFolderNodeId) {
@@ -19,7 +19,7 @@ export const handler = async (event: APIGatewayProxyEventV2) => {
 
     const items = await listDirectoryChildrenByParentFolderNodeId(
       userId,
-      vaultId,
+      dockspaceId,
       parentFolderNodeId
     );
 

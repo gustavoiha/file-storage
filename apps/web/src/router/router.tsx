@@ -15,8 +15,8 @@ import { PurgedPage } from '@/pages/PurgedPage';
 import { RegisterPage } from '@/pages/RegisterPage';
 import { ResetPasswordPage } from '@/pages/ResetPasswordPage';
 import { TrashPage } from '@/pages/TrashPage';
-import { VaultFilesPage } from '@/pages/VaultFilesPage';
-import { VaultsPage } from '@/pages/VaultsPage';
+import { DockspaceFilesPage } from '@/pages/DockspaceFilesPage';
+import { DockspacesPage } from '@/pages/DockspacesPage';
 
 const rootRoute = createRootRoute({
   component: () => (
@@ -33,7 +33,7 @@ const indexRoute = createRoute({
   beforeLoad: () => {
     const session = authStore.state.session;
     throw redirect({
-      to: session ? '/vaults' : '/login'
+      to: session ? '/dockspaces' : '/login'
     });
   }
 });
@@ -75,27 +75,27 @@ const resetPasswordRoute = createRoute({
   component: ResetPasswordPage
 });
 
-const vaultsRoute = createRoute({
+const dockspacesRoute = createRoute({
   getParentRoute: () => rootRoute,
-  path: '/vaults',
-  component: VaultsPage
+  path: '/dockspaces',
+  component: DockspacesPage
 });
 
-const vaultFilesRoute = createRoute({
+const dockspaceFilesRoute = createRoute({
   getParentRoute: () => rootRoute,
-  path: '/vaults/$vaultId',
-  component: VaultFilesPage
+  path: '/dockspaces/$dockspaceId',
+  component: DockspaceFilesPage
 });
 
 const trashRoute = createRoute({
   getParentRoute: () => rootRoute,
-  path: '/vaults/$vaultId/trash',
+  path: '/dockspaces/$dockspaceId/trash',
   component: TrashPage
 });
 
 const purgedRoute = createRoute({
   getParentRoute: () => rootRoute,
-  path: '/vaults/$vaultId/purged',
+  path: '/dockspaces/$dockspaceId/purged',
   component: PurgedPage
 });
 
@@ -112,8 +112,8 @@ const routeTree = rootRoute.addChildren([
   confirmSignUpRoute,
   forgotPasswordRoute,
   resetPasswordRoute,
-  vaultsRoute,
-  vaultFilesRoute,
+  dockspacesRoute,
+  dockspaceFilesRoute,
   trashRoute,
   purgedRoute,
   changePasswordRoute

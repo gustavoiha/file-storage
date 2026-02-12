@@ -3,7 +3,7 @@ import { useQuery } from '@tanstack/react-query';
 import { Alert } from '@/components/ui/Alert';
 import { Button } from '@/components/ui/Button';
 import type { FileRecord } from '@/lib/apiTypes';
-import { createFileDownloadSession } from '@/lib/vaultApi';
+import { createFileDownloadSession } from '@/lib/dockspaceApi';
 
 type PreviewKind = 'pdf' | 'image' | 'text' | 'audio' | 'video' | 'unsupported';
 const MAX_PREVIEW_BYTES = 20 * 1024 * 1024;
@@ -12,7 +12,7 @@ interface FileViewerDialogProps {
   file: FileRecord | null;
   isOpen: boolean;
   onClose: () => void;
-  vaultId: string;
+  dockspaceId: string;
 }
 
 const IMAGE_EXTENSIONS = new Set(['avif', 'bmp', 'gif', 'jpeg', 'jpg', 'png', 'svg', 'webp']);
@@ -90,14 +90,14 @@ const errorMessage = (error: unknown): string => {
   return 'Unable to load file preview.';
 };
 
-export const FileViewerDialog = ({ file, isOpen, onClose, vaultId }: FileViewerDialogProps) => {
+export const FileViewerDialog = ({ file, isOpen, onClose, dockspaceId }: FileViewerDialogProps) => {
   const fileNodeId = file?.fileNodeId?.trim() ?? '';
   const fallbackName = file ? basename(file.fullPath) : '';
 
   const sessionQuery = useQuery({
-    queryKey: ['file-download-session', vaultId, fileNodeId],
-    queryFn: () => createFileDownloadSession(vaultId, fileNodeId),
-    enabled: isOpen && Boolean(vaultId && fileNodeId)
+    queryKey: ['file-download-session', dockspaceId, fileNodeId],
+    queryFn: () => createFileDownloadSession(dockspaceId, fileNodeId),
+    enabled: isOpen && Boolean(dockspaceId && fileNodeId)
   });
 
   const session = sessionQuery.data;
@@ -127,9 +127,9 @@ export const FileViewerDialog = ({ file, isOpen, onClose, vaultId }: FileViewerD
   }
 
   return (
-    <div className="vault-dialog-backdrop">
+    <div className="dockspace-dialog-backdrop">
       <dialog
-        className="vault-dialog vault-dialog--viewer"
+        className="dockspace-dialog dockspace-dialog--viewer"
         open
         aria-modal="true"
         aria-label={fileName ? `Preview ${fileName}` : 'File preview'}
@@ -138,12 +138,12 @@ export const FileViewerDialog = ({ file, isOpen, onClose, vaultId }: FileViewerD
           onClose();
         }}
       >
-        <header className="vault-file-viewer__header">
-          <h3 className="vault-dialog__title">File preview</h3>
-          <p className="vault-file-viewer__file-name">{fileName}</p>
+        <header className="dockspace-file-viewer__header">
+          <h3 className="dockspace-dialog__title">File preview</h3>
+          <p className="dockspace-file-viewer__file-name">{fileName}</p>
         </header>
 
-        <section className="vault-file-viewer__content">
+        <section className="dockspace-file-viewer__content">
           {!fileNodeId ? <Alert message="File preview is unavailable for this item." /> : null}
 
           {fileNodeId && sessionQuery.isPending ? <p>Loading preview...</p> : null}
@@ -151,10 +151,10 @@ export const FileViewerDialog = ({ file, isOpen, onClose, vaultId }: FileViewerD
           {fileNodeId && sessionQuery.error ? <Alert message={errorMessage(sessionQuery.error)} /> : null}
 
           {session?.downloadUrl && isOverPreviewLimit ? (
-            <div className="vault-file-viewer__fallback">
+            <div className="dockspace-file-viewer__fallback">
               <p>Preview is limited to files up to 20MB.</p>
               <a
-                className="vault-file-viewer__open-link"
+                className="dockspace-file-viewer__open-link"
                 href={session.downloadUrl}
                 target="_blank"
                 rel="noreferrer"
@@ -166,26 +166,26 @@ export const FileViewerDialog = ({ file, isOpen, onClose, vaultId }: FileViewerD
 
           {session?.downloadUrl && !isOverPreviewLimit && kind === 'pdf' ? (
             <iframe
-              className="vault-file-viewer__frame"
+              className="dockspace-file-viewer__frame"
               src={session.downloadUrl}
               title={fileName}
             />
           ) : null}
 
           {session?.downloadUrl && !isOverPreviewLimit && kind === 'image' ? (
-            <div className="vault-file-viewer__image-wrap">
-              <img className="vault-file-viewer__image" src={session.downloadUrl} alt={fileName} />
+            <div className="dockspace-file-viewer__image-wrap">
+              <img className="dockspace-file-viewer__image" src={session.downloadUrl} alt={fileName} />
             </div>
           ) : null}
 
           {session?.downloadUrl && !isOverPreviewLimit && kind === 'audio' ? (
-            <audio className="vault-file-viewer__media" controls src={session.downloadUrl}>
+            <audio className="dockspace-file-viewer__media" controls src={session.downloadUrl}>
               Your browser does not support audio playback.
             </audio>
           ) : null}
 
           {session?.downloadUrl && !isOverPreviewLimit && kind === 'video' ? (
-            <video className="vault-file-viewer__media" controls src={session.downloadUrl}>
+            <video className="dockspace-file-viewer__media" controls src={session.downloadUrl}>
               Your browser does not support video playback.
             </video>
           ) : null}
@@ -199,14 +199,14 @@ export const FileViewerDialog = ({ file, isOpen, onClose, vaultId }: FileViewerD
           ) : null}
 
           {session?.downloadUrl && !isOverPreviewLimit && kind === 'text' && textQuery.data ? (
-            <pre className="vault-file-viewer__text">{textQuery.data}</pre>
+            <pre className="dockspace-file-viewer__text">{textQuery.data}</pre>
           ) : null}
 
           {session?.downloadUrl && !isOverPreviewLimit && kind === 'unsupported' ? (
-            <div className="vault-file-viewer__fallback">
+            <div className="dockspace-file-viewer__fallback">
               <p>Preview is not available for this file type.</p>
               <a
-                className="vault-file-viewer__open-link"
+                className="dockspace-file-viewer__open-link"
                 href={session.downloadUrl}
                 target="_blank"
                 rel="noreferrer"
@@ -217,7 +217,7 @@ export const FileViewerDialog = ({ file, isOpen, onClose, vaultId }: FileViewerD
           ) : null}
         </section>
 
-        <div className="vault-dialog__actions">
+        <div className="dockspace-dialog__actions">
           <Button type="button" variant="secondary" onClick={onClose}>
             Close
           </Button>

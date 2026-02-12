@@ -5,15 +5,15 @@ import { Page } from '@/components/ui/Page';
 import { usePurged } from '@/hooks/useFiles';
 
 export const PurgedPage = () => {
-  const { vaultId } = useParams({ from: '/vaults/$vaultId/purged' });
-  const purgedQuery = usePurged(vaultId);
+  const { dockspaceId } = useParams({ from: '/dockspaces/$dockspaceId/purged' });
+  const purgedQuery = usePurged(dockspaceId);
 
   return (
     <RequireAuth>
       <Page title="Purged History">
         <Card>
-          <Link to="/vaults/$vaultId" params={{ vaultId }}>
-            Back to vault
+          <Link to="/dockspaces/$dockspaceId" params={{ dockspaceId }}>
+            Back to dockspace
           </Link>
         </Card>
         <Card>

@@ -2,17 +2,17 @@ import { useRef, type ChangeEvent } from 'react';
 import { Alert } from '@/components/ui/Alert';
 import { Button } from '@/components/ui/Button';
 import { useUploadFile } from '@/hooks/useFiles';
-import { useVaultUploadDialog } from '@/hooks/useVaultUploadDialog';
+import { useDockspaceUploadDialog } from '@/hooks/useDockspaceUploadDialog';
 import { UploadStagingList } from '@/components/files/UploadStagingList';
 
 interface UploadFormProps {
-  vaultId: string;
+  dockspaceId: string;
   folder: string;
 }
 
-export const UploadForm = ({ vaultId, folder }: UploadFormProps) => {
-  const uploadMutation = useUploadFile(vaultId, folder);
-  const uploadDialog = useVaultUploadDialog({
+export const UploadForm = ({ dockspaceId, folder }: UploadFormProps) => {
+  const uploadMutation = useUploadFile(dockspaceId, folder);
+  const uploadDialog = useDockspaceUploadDialog({
     currentFolderPath: folder,
     uploadFile: uploadMutation.mutateAsync
   });

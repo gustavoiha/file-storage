@@ -11,7 +11,7 @@ import {
   buildFileNodeSk,
   buildFilePk,
   buildFolderNodeSk,
-  buildVaultPk,
+  buildDockspacePk,
   ROOT_FOLDER_NODE_ID,
   type DirectoryKind
 } from '../domain/keys.js';
@@ -28,7 +28,7 @@ import type {
   FileNodeItem,
   FileState,
   FolderNodeItem,
-  VaultItem
+  DockspaceItem
 } from '../types/models.js';
 import { fileStateFromNode } from '../types/models.js';
 import { dynamoDoc } from './clients.js';
@@ -66,14 +66,14 @@ const queryAll = async <T>(
 
 const getFileNodeById = async (
   userId: string,
-  vaultId: string,
+  dockspaceId: string,
   fileNodeId: string
 ): Promise<FileNodeItem | null> => {
   const response = await dynamoDoc.send(
     new GetCommand({
       TableName: env.tableName,
       Key: {
-        PK: buildFilePk(userId, vaultId),
+        PK: buildFilePk(userId, dockspaceId),
         SK: buildFileNodeSk(fileNodeId)
       }
     })
@@ -84,14 +84,14 @@ const getFileNodeById = async (
 
 const getFolderNodeById = async (
   userId: string,
-  vaultId: string,
+  dockspaceId: string,
   folderNodeId: string
 ): Promise<FolderNodeItem | null> => {
   const response = await dynamoDoc.send(
     new GetCommand({
       TableName: env.tableName,
       Key: {
-        PK: buildFilePk(userId, vaultId),
+        PK: buildFilePk(userId, dockspaceId),
         SK: buildFolderNodeSk(folderNodeId)
       }
     })
@@ -102,7 +102,7 @@ const getFolderNodeById = async (
 
 const putRootFolderNodeIfMissing = async (
   userId: string,
-  vaultId: string,
+  dockspaceId: string,
   nowIso: string
 ): Promise<void> => {
   try {
@@ -110,7 +110,7 @@ const putRootFolderNodeIfMissing = async (
       new PutCommand({
         TableName: env.tableName,
         Item: {
-          PK: buildFilePk(userId, vaultId),
+          PK: buildFilePk(userId, dockspaceId),
           SK: buildFolderNodeSk(ROOT_FOLDER_NODE_ID),
           type: 'FOLDER_NODE',
           name: '/',
@@ -129,7 +129,7 @@ const putRootFolderNodeIfMissing = async (
 
 const putFolderNodeWithDirectory = async (
   userId: string,
-  vaultId: string,
+  dockspaceId: string,
   parentFolderNodeId: string,
   folderName: string,
   nowIso: string
@@ -144,7 +144,7 @@ const putFolderNodeWithDirectory = async (
           Put: {
             TableName: env.tableName,
             Item: {
-              PK: buildFilePk(userId, vaultId),
+              PK: buildFilePk(userId, dockspaceId),
               SK: buildFolderNodeSk(folderNodeId),
               type: 'FOLDER_NODE',
               parentFolderNodeId,
@@ -159,7 +159,7 @@ const putFolderNodeWithDirectory = async (
           Put: {
             TableName: env.tableName,
             Item: {
-              PK: buildFilePk(userId, vaultId),
+              PK: buildFilePk(userId, dockspaceId),
               SK: buildDirectorySk(parentFolderNodeId, 'F', normalizedName, folderNodeId),
               type: 'DIRECTORY',
               name: folderName,
@@ -180,17 +180,17 @@ const putFolderNodeWithDirectory = async (
   return folderNodeId;
 };
 
-export const putVault = async (vault: VaultItem): Promise<void> => {
+export const putDockspace = async (dockspace: DockspaceItem): Promise<void> => {
   await dynamoDoc.send(
     new PutCommand({
       TableName: env.tableName,
-      Item: vault
+      Item: dockspace
     })
   );
 };
 
-export const putVaultWithRootFolder = async (
-  vault: VaultItem,
+export const putDockspaceWithRootFolder = async (
+  dockspace: DockspaceItem,
   nowIso: string
 ): Promise<void> => {
   await dynamoDoc.send(
@@ -199,7 +199,7 @@ export const putVaultWithRootFolder = async (
         {
           Put: {
             TableName: env.tableName,
-            Item: vault,
+            Item: dockspace,
             ConditionExpression: 'attribute_not_exists(PK) AND attribute_not_exists(SK)'
           }
         },
@@ -207,7 +207,7 @@ export const putVaultWithRootFolder = async (
           Put: {
             TableName: env.tableName,
             Item: {
-              PK: buildFilePk(vault.userId, vault.vaultId),
+              PK: buildFilePk(dockspace.userId, dockspace.dockspaceId),
               SK: buildFolderNodeSk(ROOT_FOLDER_NODE_ID),
               type: 'FOLDER_NODE',
               name: '/',
@@ -222,24 +222,24 @@ export const putVaultWithRootFolder = async (
   );
 };
 
-export const listVaults = async (userId: string): Promise<VaultItem[]> => {
+export const listDockspaces = async (userId: string): Promise<DockspaceItem[]> => {
   const response = await dynamoDoc.send(
     new QueryCommand({
       TableName: env.tableName,
       KeyConditionExpression: 'PK = :pk AND begins_with(SK, :skPrefix)',
       ExpressionAttributeValues: {
-        ':pk': buildVaultPk(userId),
-        ':skPrefix': 'V#'
+        ':pk': buildDockspacePk(userId),
+        ':skPrefix': 'S#'
       }
     })
   );
 
-  return (response.Items ?? []) as VaultItem[];
+  return (response.Items ?? []) as DockspaceItem[];
 };
 
 const findDirectoryEntryByNameInternal = async (
   userId: string,
-  vaultId: string,
+  dockspaceId: string,
   parentFolderNodeId: string,
   kind: DirectoryKind,
   name: string
@@ -250,7 +250,7 @@ const findDirectoryEntryByNameInternal = async (
       TableName: env.tableName,
       KeyConditionExpression: 'PK = :pk AND begins_with(SK, :skPrefix)',
       ExpressionAttributeValues: {
-        ':pk': buildFilePk(userId, vaultId),
+        ':pk': buildFilePk(userId, dockspaceId),
         ':skPrefix': buildDirectoryNamePrefix(parentFolderNodeId, kind, normalizedName)
       },
       Limit: 1
@@ -262,18 +262,18 @@ const findDirectoryEntryByNameInternal = async (
 
 export const findDirectoryFileByName = async (
   userId: string,
-  vaultId: string,
+  dockspaceId: string,
   parentFolderNodeId: string,
   name: string
 ): Promise<DirectoryItem | null> =>
-  findDirectoryEntryByNameInternal(userId, vaultId, parentFolderNodeId, 'L', name);
+  findDirectoryEntryByNameInternal(userId, dockspaceId, parentFolderNodeId, 'L', name);
 
 export const findDownloadableFileByNodeId = async (
   userId: string,
-  vaultId: string,
+  dockspaceId: string,
   fileNodeId: string
 ): Promise<FileNodeItem | null> => {
-  const fileNode = await getFileNodeById(userId, vaultId, fileNodeId);
+  const fileNode = await getFileNodeById(userId, dockspaceId, fileNodeId);
   if (!fileNode) {
     return null;
   }
@@ -287,7 +287,7 @@ export const findDownloadableFileByNodeId = async (
 
 const resolveFolderNodeId = async (
   userId: string,
-  vaultId: string,
+  dockspaceId: string,
   folderPath: string
 ): Promise<string | null> => {
   const segments = splitFolderPath(folderPath);
@@ -300,7 +300,7 @@ const resolveFolderNodeId = async (
   for (const segment of segments) {
     const nextFolder = await findDirectoryEntryByNameInternal(
       userId,
-      vaultId,
+      dockspaceId,
       currentFolderNodeId,
       'F',
       segment
@@ -318,18 +318,18 @@ const resolveFolderNodeId = async (
 
 const ensureFolderNodeId = async (
   userId: string,
-  vaultId: string,
+  dockspaceId: string,
   folderSegments: string[],
   nowIso: string
 ): Promise<string> => {
-  await putRootFolderNodeIfMissing(userId, vaultId, nowIso);
+  await putRootFolderNodeIfMissing(userId, dockspaceId, nowIso);
 
   let currentFolderNodeId = ROOT_FOLDER_NODE_ID;
 
   for (const segment of folderSegments) {
     const existing = await findDirectoryEntryByNameInternal(
       userId,
-      vaultId,
+      dockspaceId,
       currentFolderNodeId,
       'F',
       segment
@@ -343,7 +343,7 @@ const ensureFolderNodeId = async (
     try {
       currentFolderNodeId = await putFolderNodeWithDirectory(
         userId,
-        vaultId,
+        dockspaceId,
         currentFolderNodeId,
         segment,
         nowIso
@@ -355,7 +355,7 @@ const ensureFolderNodeId = async (
 
       const concurrent = await findDirectoryEntryByNameInternal(
         userId,
-        vaultId,
+        dockspaceId,
         currentFolderNodeId,
         'F',
         segment
@@ -374,14 +374,14 @@ const ensureFolderNodeId = async (
 
 export const upsertFolderByPath = async (params: {
   userId: string;
-  vaultId: string;
+  dockspaceId: string;
   folderPath: string;
   nowIso: string;
 }): Promise<{ folderNodeId: string; folderPath: string; created: boolean }> => {
   const normalizedFolderPath = normalizeFolderPath(params.folderPath);
   const existingFolderNodeId = await resolveFolderNodeId(
     params.userId,
-    params.vaultId,
+    params.dockspaceId,
     normalizedFolderPath
   );
 
@@ -396,7 +396,7 @@ export const upsertFolderByPath = async (params: {
   const folderSegments = splitFolderPath(normalizedFolderPath);
   const folderNodeId = await ensureFolderNodeId(
     params.userId,
-    params.vaultId,
+    params.dockspaceId,
     folderSegments,
     params.nowIso
   );
@@ -410,7 +410,7 @@ export const upsertFolderByPath = async (params: {
 
 export const upsertActiveFileByPath = async (params: {
   userId: string;
-  vaultId: string;
+  dockspaceId: string;
   fullPath: string;
   s3Key: string;
   preferredFileNodeId?: string;
@@ -422,14 +422,14 @@ export const upsertActiveFileByPath = async (params: {
   const { normalizedFullPath, folderSegments, fileName } = splitFullPath(params.fullPath);
   const parentFolderNodeId = await ensureFolderNodeId(
     params.userId,
-    params.vaultId,
+    params.dockspaceId,
     folderSegments,
     params.nowIso
   );
   const normalizedName = normalizeNodeName(fileName);
   const existingDirectory = await findDirectoryEntryByNameInternal(
     params.userId,
-    params.vaultId,
+    params.dockspaceId,
     parentFolderNodeId,
     'L',
     fileName
@@ -443,7 +443,7 @@ export const upsertActiveFileByPath = async (params: {
             Update: {
               TableName: env.tableName,
               Key: {
-                PK: buildFilePk(params.userId, params.vaultId),
+                PK: buildFilePk(params.userId, params.dockspaceId),
                 SK: buildFileNodeSk(existingDirectory.childId)
               },
               ConditionExpression: 'attribute_exists(PK) AND attribute_exists(SK)',
@@ -468,7 +468,7 @@ export const upsertActiveFileByPath = async (params: {
             Update: {
               TableName: env.tableName,
               Key: {
-                PK: buildFilePk(params.userId, params.vaultId),
+                PK: buildFilePk(params.userId, params.dockspaceId),
                 SK: existingDirectory.SK
               },
               ConditionExpression: 'attribute_exists(PK) AND attribute_exists(SK)',
@@ -504,7 +504,7 @@ export const upsertActiveFileByPath = async (params: {
           Put: {
             TableName: env.tableName,
             Item: {
-              PK: buildFilePk(params.userId, params.vaultId),
+              PK: buildFilePk(params.userId, params.dockspaceId),
               SK: buildFileNodeSk(fileNodeId),
               type: 'FILE_NODE',
               parentFolderNodeId,
@@ -523,7 +523,7 @@ export const upsertActiveFileByPath = async (params: {
           Put: {
             TableName: env.tableName,
             Item: {
-              PK: buildFilePk(params.userId, params.vaultId),
+              PK: buildFilePk(params.userId, params.dockspaceId),
               SK: buildDirectorySk(parentFolderNodeId, 'L', normalizedName, fileNodeId),
               type: 'DIRECTORY',
               name: fileName,
@@ -553,11 +553,11 @@ export interface ResolvedFileByPath {
 
 export const resolveFileByFullPath = async (
   userId: string,
-  vaultId: string,
+  dockspaceId: string,
   fullPath: string
 ): Promise<ResolvedFileByPath | null> => {
   const { normalizedFullPath, folderPath, fileName } = splitFullPath(fullPath);
-  const parentFolderNodeId = await resolveFolderNodeId(userId, vaultId, folderPath);
+  const parentFolderNodeId = await resolveFolderNodeId(userId, dockspaceId, folderPath);
 
   if (!parentFolderNodeId) {
     return null;
@@ -565,7 +565,7 @@ export const resolveFileByFullPath = async (
 
   const directory = await findDirectoryEntryByNameInternal(
     userId,
-    vaultId,
+    dockspaceId,
     parentFolderNodeId,
     'L',
     fileName
@@ -575,7 +575,7 @@ export const resolveFileByFullPath = async (
     return null;
   }
 
-  const fileNode = await getFileNodeById(userId, vaultId, directory.childId);
+  const fileNode = await getFileNodeById(userId, dockspaceId, directory.childId);
 
   if (!fileNode) {
     return null;
@@ -591,11 +591,11 @@ export const resolveFileByFullPath = async (
 
 export const findTrashedFileByFullPath = async (
   userId: string,
-  vaultId: string,
+  dockspaceId: string,
   fullPath: string
 ): Promise<FileNodeItem | null> => {
   const { folderPath, fileName } = splitFullPath(fullPath);
-  const parentFolderNodeId = await resolveFolderNodeId(userId, vaultId, folderPath);
+  const parentFolderNodeId = await resolveFolderNodeId(userId, dockspaceId, folderPath);
   if (!parentFolderNodeId) {
     return null;
   }
@@ -608,7 +608,7 @@ export const findTrashedFileByFullPath = async (
       '#name': 'name'
     },
     ExpressionAttributeValues: {
-      ':pk': buildFilePk(userId, vaultId),
+      ':pk': buildFilePk(userId, dockspaceId),
       ':skPrefix': 'L#',
       ':parentFolderNodeId': parentFolderNodeId,
       ':name': fileName
@@ -621,10 +621,10 @@ export const findTrashedFileByFullPath = async (
 
 export const listActiveFilesInFolder = async (
   userId: string,
-  vaultId: string,
+  dockspaceId: string,
   folderPath: string
 ): Promise<Array<{ fullPath: string; fileNode: FileNodeItem }>> => {
-  const contents = await listActiveFolderContents(userId, vaultId, folderPath);
+  const contents = await listActiveFolderContents(userId, dockspaceId, folderPath);
   return contents.files;
 };
 
@@ -632,7 +632,7 @@ export { listDirectoryChildrenByParentFolderNodeId } from './repository/folderCh
 
 export const listActiveFolderContents = async (
   userId: string,
-  vaultId: string,
+  dockspaceId: string,
   folderPath: string
 ): Promise<{
   files: Array<{ fullPath: string; fileNode: FileNodeItem }>;
@@ -644,7 +644,7 @@ export const listActiveFolderContents = async (
   }>;
 }> => {
   const normalizedFolderPath = normalizeFolderPath(folderPath);
-  const folderNodeId = await resolveFolderNodeId(userId, vaultId, normalizedFolderPath);
+  const folderNodeId = await resolveFolderNodeId(userId, dockspaceId, normalizedFolderPath);
 
   if (!folderNodeId) {
     return {
@@ -655,7 +655,7 @@ export const listActiveFolderContents = async (
 
   const directoryItems = await listDirectoryChildrenAction(
     userId,
-    vaultId,
+    dockspaceId,
     folderNodeId
   );
 
@@ -678,7 +678,7 @@ export const listActiveFolderContents = async (
   }
 
   const fileNodes = await Promise.all(
-    fileDirectoryItems.map((item) => getFileNodeById(userId, vaultId, item.childId))
+    fileDirectoryItems.map((item) => getFileNodeById(userId, dockspaceId, item.childId))
   );
   const fileNodeById = new Map(
     fileNodes
@@ -708,7 +708,7 @@ export const listActiveFolderContents = async (
 
 export const markResolvedFileNodeTrashed = async (
   userId: string,
-  vaultId: string,
+  dockspaceId: string,
   resolved: ResolvedFileByPath,
   nowIso: string,
   flaggedForDeleteAt: string
@@ -720,7 +720,7 @@ export const markResolvedFileNodeTrashed = async (
           Update: {
             TableName: env.tableName,
             Key: {
-              PK: buildFilePk(userId, vaultId),
+              PK: buildFilePk(userId, dockspaceId),
               SK: resolved.fileNode.SK
             },
             ConditionExpression: 'attribute_not_exists(deletedAt) AND attribute_not_exists(purgedAt)',
@@ -737,7 +737,7 @@ export const markResolvedFileNodeTrashed = async (
           Delete: {
             TableName: env.tableName,
             Key: {
-              PK: buildFilePk(userId, vaultId),
+              PK: buildFilePk(userId, dockspaceId),
               SK: resolved.directory.SK
             },
             ConditionExpression: 'attribute_exists(PK) AND attribute_exists(SK)'
@@ -750,7 +750,7 @@ export const markResolvedFileNodeTrashed = async (
 
 export const moveOrRenameActiveFileNode = async (params: {
   userId: string;
-  vaultId: string;
+  dockspaceId: string;
   fileNode: FileNodeItem;
   oldParentFolderNodeId: string;
   oldName: string;
@@ -782,7 +782,7 @@ export const moveOrRenameActiveFileNode = async (params: {
             Update: {
               TableName: env.tableName,
               Key: {
-                PK: buildFilePk(params.userId, params.vaultId),
+                PK: buildFilePk(params.userId, params.dockspaceId),
                 SK: params.fileNode.SK
               },
               ConditionExpression: 'attribute_not_exists(deletedAt) AND attribute_not_exists(purgedAt)',
@@ -802,7 +802,7 @@ export const moveOrRenameActiveFileNode = async (params: {
             Update: {
               TableName: env.tableName,
               Key: {
-                PK: buildFilePk(params.userId, params.vaultId),
+                PK: buildFilePk(params.userId, params.dockspaceId),
                 SK: oldDirectorySk
               },
               ConditionExpression: 'attribute_exists(PK) AND attribute_exists(SK)',
@@ -832,7 +832,7 @@ export const moveOrRenameActiveFileNode = async (params: {
           Update: {
             TableName: env.tableName,
             Key: {
-              PK: buildFilePk(params.userId, params.vaultId),
+              PK: buildFilePk(params.userId, params.dockspaceId),
               SK: params.fileNode.SK
             },
             ConditionExpression: 'attribute_not_exists(deletedAt) AND attribute_not_exists(purgedAt)',
@@ -852,7 +852,7 @@ export const moveOrRenameActiveFileNode = async (params: {
           Delete: {
             TableName: env.tableName,
             Key: {
-              PK: buildFilePk(params.userId, params.vaultId),
+              PK: buildFilePk(params.userId, params.dockspaceId),
               SK: oldDirectorySk
             }
           }
@@ -861,7 +861,7 @@ export const moveOrRenameActiveFileNode = async (params: {
           Put: {
             TableName: env.tableName,
             Item: {
-              PK: buildFilePk(params.userId, params.vaultId),
+              PK: buildFilePk(params.userId, params.dockspaceId),
               SK: newDirectorySk,
               type: 'DIRECTORY',
               name: params.newName,
@@ -887,7 +887,7 @@ export type RenameFolderByPathResult =
 
 export const renameFolderByPath = async (params: {
   userId: string;
-  vaultId: string;
+  dockspaceId: string;
   folderPath: string;
   newName: string;
   nowIso: string;
@@ -905,7 +905,7 @@ export const renameFolderByPath = async (params: {
     folderSegments.length === 1 ? '/' : `/${folderSegments.slice(0, -1).join('/')}`;
   const parentFolderNodeId = await resolveFolderNodeId(
     params.userId,
-    params.vaultId,
+    params.dockspaceId,
     parentFolderPath
   );
 
@@ -915,7 +915,7 @@ export const renameFolderByPath = async (params: {
 
   const existingDirectory = await findDirectoryEntryByNameInternal(
     params.userId,
-    params.vaultId,
+    params.dockspaceId,
     parentFolderNodeId,
     'F',
     oldName
@@ -926,7 +926,7 @@ export const renameFolderByPath = async (params: {
   }
 
   const folderNodeId = existingDirectory.childId;
-  const folderNode = await getFolderNodeById(params.userId, params.vaultId, folderNodeId);
+  const folderNode = await getFolderNodeById(params.userId, params.dockspaceId, folderNodeId);
 
   if (!folderNode) {
     return { status: 'NOT_FOUND' };
@@ -941,7 +941,7 @@ export const renameFolderByPath = async (params: {
 
   const conflictingFolder = await findDirectoryEntryByNameInternal(
     params.userId,
-    params.vaultId,
+    params.dockspaceId,
     parentFolderNodeId,
     'F',
     nextName
@@ -973,7 +973,7 @@ export const renameFolderByPath = async (params: {
             Update: {
               TableName: env.tableName,
               Key: {
-                PK: buildFilePk(params.userId, params.vaultId),
+                PK: buildFilePk(params.userId, params.dockspaceId),
                 SK: folderNode.SK
               },
               ConditionExpression: 'attribute_exists(PK) AND attribute_exists(SK)',
@@ -991,7 +991,7 @@ export const renameFolderByPath = async (params: {
             Update: {
               TableName: env.tableName,
               Key: {
-                PK: buildFilePk(params.userId, params.vaultId),
+                PK: buildFilePk(params.userId, params.dockspaceId),
                 SK: oldDirectorySk
               },
               ConditionExpression: 'attribute_exists(PK) AND attribute_exists(SK)',
@@ -1025,7 +1025,7 @@ export const renameFolderByPath = async (params: {
             Update: {
               TableName: env.tableName,
               Key: {
-                PK: buildFilePk(params.userId, params.vaultId),
+                PK: buildFilePk(params.userId, params.dockspaceId),
                 SK: folderNode.SK
               },
               ConditionExpression: 'attribute_exists(PK) AND attribute_exists(SK)',
@@ -1043,7 +1043,7 @@ export const renameFolderByPath = async (params: {
             Delete: {
               TableName: env.tableName,
               Key: {
-                PK: buildFilePk(params.userId, params.vaultId),
+                PK: buildFilePk(params.userId, params.dockspaceId),
                 SK: oldDirectorySk
               },
               ConditionExpression: 'attribute_exists(PK) AND attribute_exists(SK)'
@@ -1053,7 +1053,7 @@ export const renameFolderByPath = async (params: {
             Put: {
               TableName: env.tableName,
               Item: {
-                PK: buildFilePk(params.userId, params.vaultId),
+                PK: buildFilePk(params.userId, params.dockspaceId),
                 SK: newDirectorySk,
                 type: 'DIRECTORY',
                 name: nextName,
@@ -1086,7 +1086,7 @@ export const renameFolderByPath = async (params: {
 
 export const restoreFileNodeFromTrash = async (params: {
   userId: string;
-  vaultId: string;
+  dockspaceId: string;
   fileNode: FileNodeItem;
   nowIso: string;
 }): Promise<void> => {
@@ -1100,7 +1100,7 @@ export const restoreFileNodeFromTrash = async (params: {
           Update: {
             TableName: env.tableName,
             Key: {
-              PK: buildFilePk(params.userId, params.vaultId),
+              PK: buildFilePk(params.userId, params.dockspaceId),
               SK: params.fileNode.SK
             },
             ConditionExpression: 'attribute_exists(deletedAt) AND attribute_not_exists(purgedAt)',
@@ -1114,7 +1114,7 @@ export const restoreFileNodeFromTrash = async (params: {
           Put: {
             TableName: env.tableName,
             Item: {
-              PK: buildFilePk(params.userId, params.vaultId),
+              PK: buildFilePk(params.userId, params.dockspaceId),
               SK: buildDirectorySk(
                 params.fileNode.parentFolderNodeId,
                 'L',
@@ -1140,7 +1140,7 @@ export const restoreFileNodeFromTrash = async (params: {
 
 export const markFileNodePurged = async (params: {
   userId: string;
-  vaultId: string;
+  dockspaceId: string;
   fileNode: FileNodeItem;
   nowIso: string;
 }): Promise<void> => {
@@ -1151,7 +1151,7 @@ export const markFileNodePurged = async (params: {
           Update: {
             TableName: env.tableName,
             Key: {
-              PK: buildFilePk(params.userId, params.vaultId),
+              PK: buildFilePk(params.userId, params.dockspaceId),
               SK: params.fileNode.SK
             },
             ConditionExpression: 'attribute_exists(deletedAt) AND attribute_not_exists(purgedAt)',
@@ -1167,33 +1167,33 @@ export const markFileNodePurged = async (params: {
   );
 };
 
-const listFileNodesForVault = async (
+const listFileNodesForDockspace = async (
   userId: string,
-  vaultId: string
+  dockspaceId: string
 ): Promise<FileNodeItem[]> =>
   queryAll<FileNodeItem>({
     KeyConditionExpression: 'PK = :pk AND begins_with(SK, :skPrefix)',
     ExpressionAttributeValues: {
-      ':pk': buildFilePk(userId, vaultId),
+      ':pk': buildFilePk(userId, dockspaceId),
       ':skPrefix': 'L#'
     }
   });
 
 export const listFilesByState = async (
   userId: string,
-  vaultId: string,
+  dockspaceId: string,
   state: FileState
 ): Promise<FileNodeItem[]> => {
-  const files = await listFileNodesForVault(userId, vaultId);
+  const files = await listFileNodesForDockspace(userId, dockspaceId);
 
   return files.filter((file) => fileStateFromNode(file) === state);
 };
 
 export const listTrashedFileNodes = async (
   userId: string,
-  vaultId: string
+  dockspaceId: string
 ): Promise<FileNodeItem[]> => {
-  const files = await listFilesByState(userId, vaultId, 'TRASH');
+  const files = await listFilesByState(userId, dockspaceId, 'TRASH');
   return files.sort((a, b) =>
     (a.flaggedForDeleteAt ?? '').localeCompare(b.flaggedForDeleteAt ?? '')
   );
@@ -1201,18 +1201,18 @@ export const listTrashedFileNodes = async (
 
 export const listPurgedFileNodes = async (
   userId: string,
-  vaultId: string
+  dockspaceId: string
 ): Promise<FileNodeItem[]> => {
-  const files = await listFilesByState(userId, vaultId, 'PURGED');
+  const files = await listFilesByState(userId, dockspaceId, 'PURGED');
   return files.sort((a, b) => (b.purgedAt ?? '').localeCompare(a.purgedAt ?? ''));
 };
 
 export const fullPathFromS3Key = (
   userId: string,
-  vaultId: string,
+  dockspaceId: string,
   s3Key: string
 ): string => {
-  const prefix = `${userId}/vaults/${vaultId}/files/`;
+  const prefix = `${userId}/dockspaces/${dockspaceId}/files/`;
   if (!s3Key.startsWith(prefix)) {
     return `/${s3Key}`;
   }
@@ -1222,7 +1222,7 @@ export const fullPathFromS3Key = (
 
 export const fullPathFromFileNode = async (
   userId: string,
-  vaultId: string,
+  dockspaceId: string,
   fileNode: FileNodeItem
 ): Promise<string> => {
   if (fileNode.parentFolderNodeId === ROOT_FOLDER_NODE_ID) {
@@ -1239,7 +1239,7 @@ export const fullPathFromFileNode = async (
     }
 
     seen.add(cursor);
-    const folderNode = await getFolderNodeById(userId, vaultId, cursor);
+    const folderNode = await getFolderNodeById(userId, dockspaceId, cursor);
     if (!folderNode) {
       return buildFullPath('/', fileNode.name);
     }

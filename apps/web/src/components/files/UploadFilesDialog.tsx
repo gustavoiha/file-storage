@@ -1,7 +1,7 @@
 import type { FormEventHandler } from 'react';
 import { Alert } from '@/components/ui/Alert';
 import { Button } from '@/components/ui/Button';
-import type { StagedUploadFile } from '@/hooks/useVaultUploadDialog';
+import type { StagedUploadFile } from '@/hooks/useDockspaceUploadDialog';
 import { UploadStagingList } from '@/components/files/UploadStagingList';
 
 interface UploadFilesDialogProps {
@@ -32,9 +32,9 @@ export const UploadFilesDialog = ({
   }
 
   return (
-    <div className="vault-dialog-backdrop">
+    <div className="dockspace-dialog-backdrop">
       <dialog
-        className="vault-dialog vault-dialog--wide"
+        className="dockspace-dialog dockspace-dialog--wide"
         open
         aria-modal="true"
         aria-label="Upload files"
@@ -43,7 +43,7 @@ export const UploadFilesDialog = ({
           onClose();
         }}
       >
-        <h3 className="vault-dialog__title">Upload files</h3>
+        <h3 className="dockspace-dialog__title">Upload files</h3>
         <form onSubmit={onSubmit}>
           <UploadStagingList
             emptyStateMessage="No files selected."
@@ -53,7 +53,7 @@ export const UploadFilesDialog = ({
             onRemoveFile={onRemoveFile}
           />
           {errorMessage ? <Alert message={errorMessage} /> : null}
-          <div className="vault-dialog__actions">
+          <div className="dockspace-dialog__actions">
             <Button type="button" variant="secondary" onClick={onAddMoreFiles} disabled={isSubmitting}>
               Add more files
             </Button>

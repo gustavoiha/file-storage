@@ -7,17 +7,17 @@ import {
   buildFileNodeSk,
   buildFolderNodeSk,
   ROOT_FOLDER_NODE_ID,
-  buildVaultPk,
-  buildVaultSk
+  buildDockspacePk,
+  buildDockspaceSk
 } from '../domain/keys.js';
 
 describe('keys', () => {
-  it('builds node and vault keys', () => {
-    expect(buildFilePk('u1', 'v1')).toBe('U#u1#V#v1');
+  it('builds node and dockspace keys', () => {
+    expect(buildFilePk('u1', 'v1')).toBe('U#u1#S#v1');
     expect(buildFileNodeSk('file_1')).toBe('L#file_1');
     expect(buildFolderNodeSk('folder_1')).toBe('F#folder_1');
-    expect(buildVaultPk('u1')).toBe('U#u1');
-    expect(buildVaultSk('v1')).toBe('V#v1');
+    expect(buildDockspacePk('u1')).toBe('U#u1');
+    expect(buildDockspaceSk('v1')).toBe('S#v1');
     expect(ROOT_FOLDER_NODE_ID).toBe('root');
   });
 

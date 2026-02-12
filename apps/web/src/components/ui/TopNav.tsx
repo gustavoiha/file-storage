@@ -13,7 +13,7 @@ export const TopNav = () => {
     <header className="top-nav">
       <div className="top-nav__brand">Dockspace</div>
       <nav className="top-nav__links">
-        <Link to="/vaults">Vaults</Link>
+        <Link to="/dockspaces">Dockspaces</Link>
         <Link to="/settings/password">Change Password</Link>
         <button type="button" onClick={() => void logout()} className="top-nav__logout">
           Logout

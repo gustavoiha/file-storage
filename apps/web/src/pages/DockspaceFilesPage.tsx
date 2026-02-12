@@ -8,7 +8,7 @@ import { FileViewerDialog } from '@/components/files/FileViewerDialog';
 import { RenameFileDialog } from '@/components/files/RenameFileDialog';
 import { RenameFolderDialog } from '@/components/files/RenameFolderDialog';
 import { UploadFilesDialog } from '@/components/files/UploadFilesDialog';
-import { VaultFilesHeaderActions } from '@/components/files/VaultFilesHeaderActions';
+import { DockspaceFilesHeaderActions } from '@/components/files/DockspaceFilesHeaderActions';
 import { buildPathInFolder } from '@/components/files/pathHelpers';
 import { Card } from '@/components/ui/Card';
 import { Page } from '@/components/ui/Page';
@@ -21,11 +21,11 @@ import {
   useRenameFolder,
   useUploadFile
 } from '@/hooks/useFiles';
-import { useVaultUploadDialog } from '@/hooks/useVaultUploadDialog';
-import { useVaults } from '@/hooks/useVaults';
+import { useDockspaceUploadDialog } from '@/hooks/useDockspaceUploadDialog';
+import { useDockspaces } from '@/hooks/useDockspaces';
 import { ApiError } from '@/lib/apiClient';
 import type { FileRecord } from '@/lib/apiTypes';
-import { createFileDownloadSession } from '@/lib/vaultApi';
+import { createFileDownloadSession } from '@/lib/dockspaceApi';
 
 interface FolderTrailEntry {
   folderNodeId: string;
@@ -49,10 +49,10 @@ const fileNameFromPath = (fullPath: string): string => {
   return segments[segments.length - 1] ?? fullPath;
 };
 
-export const VaultFilesPage = () => {
-  const { vaultId } = useParams({ from: '/vaults/$vaultId' });
+export const DockspaceFilesPage = () => {
+  const { dockspaceId } = useParams({ from: '/dockspaces/$dockspaceId' });
   const [folderTrail, setFolderTrail] = useState<FolderTrailEntry[]>([ROOT_FOLDER]);
-  const [isVaultMenuOpen, setIsVaultMenuOpen] = useState(false);
+  const [isDockspaceMenuOpen, setIsDockspaceMenuOpen] = useState(false);
   const [renameFileDialogFullPath, setRenameFileDialogFullPath] = useState<string | null>(null);
   const [renameFileDialogFileName, setRenameFileDialogFileName] = useState('');
   const [renameFileDialogValidationError, setRenameFileDialogValidationError] = useState<
@@ -67,13 +67,13 @@ export const VaultFilesPage = () => {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const currentFolder = folderTrail[folderTrail.length - 1] ?? ROOT_FOLDER;
 
-  const vaultsQuery = useVaults();
-  const filesQuery = useFiles(vaultId, currentFolder.folderNodeId);
-  const createFolder = useCreateFolder(vaultId);
-  const moveToTrash = useMoveToTrash(vaultId, currentFolder.fullPath);
-  const renameFile = useRenameFile(vaultId, currentFolder.fullPath);
-  const renameFolder = useRenameFolder(vaultId, currentFolder.fullPath);
-  const uploadFile = useUploadFile(vaultId, currentFolder.fullPath);
+  const dockspacesQuery = useDockspaces();
+  const filesQuery = useFiles(dockspaceId, currentFolder.folderNodeId);
+  const createFolder = useCreateFolder(dockspaceId);
+  const moveToTrash = useMoveToTrash(dockspaceId, currentFolder.fullPath);
+  const renameFile = useRenameFile(dockspaceId, currentFolder.fullPath);
+  const renameFolder = useRenameFolder(dockspaceId, currentFolder.fullPath);
+  const uploadFile = useUploadFile(dockspaceId, currentFolder.fullPath);
 
   const unauthorized =
     filesQuery.error instanceof ApiError && filesQuery.error.statusCode === 403;
@@ -129,7 +129,7 @@ export const VaultFilesPage = () => {
     fetchedFolderPaths
   });
 
-  const uploadDialog = useVaultUploadDialog({
+  const uploadDialog = useDockspaceUploadDialog({
     currentFolderPath: currentFolder.fullPath,
     uploadFile: uploadFile.mutateAsync
   });
@@ -203,7 +203,7 @@ export const VaultFilesPage = () => {
 
       void (async () => {
         try {
-          const session = await createFileDownloadSession(vaultId, fileNodeId, {
+          const session = await createFileDownloadSession(dockspaceId, fileNodeId, {
             disposition: 'attachment'
           });
           const link = document.createElement('a');
@@ -216,7 +216,7 @@ export const VaultFilesPage = () => {
         }
       })();
     },
-    [vaultId]
+    [dockspaceId]
   );
 
   const openRenameFileDialog = useCallback((fullPath: string) => {
@@ -317,8 +317,8 @@ export const VaultFilesPage = () => {
   const uploadErrorMessage =
     uploadDialog.validationError ??
     (uploadFile.error instanceof Error ? uploadFile.error.message : null);
-  const vaultName =
-    vaultsQuery.data?.find((vault) => vault.vaultId === vaultId)?.name ?? 'Vault';
+  const dockspaceName =
+    dockspacesQuery.data?.find((dockspace) => dockspace.dockspaceId === dockspaceId)?.name ?? 'Dockspace';
 
   return (
     <RequireAuth>
@@ -340,13 +340,13 @@ export const VaultFilesPage = () => {
                   downloadActionLabel="Download"
                   renameActionLabel="Rename"
                   folderRenameActionLabel="Rename"
-                  rootBreadcrumbLabel={vaultName}
+                  rootBreadcrumbLabel={dockspaceName}
                   toolbarActions={
-                    <VaultFilesHeaderActions
+                    <DockspaceFilesHeaderActions
                       fileInputRef={fileInputRef}
-                      isMenuOpen={isVaultMenuOpen}
-                      onMenuOpenChange={setIsVaultMenuOpen}
-                      vaultId={vaultId}
+                      isMenuOpen={isDockspaceMenuOpen}
+                      onMenuOpenChange={setIsDockspaceMenuOpen}
+                      dockspaceId={dockspaceId}
                       onAddFolder={() => {
                         addFolderDialog.openDialog();
                       }}
@@ -418,7 +418,7 @@ export const VaultFilesPage = () => {
                 file={viewerFile}
                 isOpen
                 onClose={() => setViewerFile(null)}
-                vaultId={vaultId}
+                dockspaceId={dockspaceId}
               />
             ) : null}
           </>

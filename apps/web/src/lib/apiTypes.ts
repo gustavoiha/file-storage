@@ -1,5 +1,5 @@
-export interface Vault {
-  vaultId: string;
+export interface Dockspace {
+  dockspaceId: string;
   name: string;
   createdAt: string;
 }

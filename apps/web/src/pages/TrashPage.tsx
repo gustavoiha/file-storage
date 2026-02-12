@@ -6,16 +6,16 @@ import { Page } from '@/components/ui/Page';
 import { useRestoreFile, useTrash } from '@/hooks/useFiles';
 
 export const TrashPage = () => {
-  const { vaultId } = useParams({ from: '/vaults/$vaultId/trash' });
-  const trashQuery = useTrash(vaultId);
-  const restoreMutation = useRestoreFile(vaultId);
+  const { dockspaceId } = useParams({ from: '/dockspaces/$dockspaceId/trash' });
+  const trashQuery = useTrash(dockspaceId);
+  const restoreMutation = useRestoreFile(dockspaceId);
 
   return (
     <RequireAuth>
       <Page title="Trash">
         <Card>
-          <Link to="/vaults/$vaultId" params={{ vaultId }}>
-            Back to vault
+          <Link to="/dockspaces/$dockspaceId" params={{ dockspaceId }}>
+            Back to dockspace
           </Link>
         </Card>
         <Card>

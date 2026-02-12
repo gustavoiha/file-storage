@@ -15,10 +15,10 @@ const bodySchema = z.object({
 export const handler = async (event: APIGatewayProxyEventV2) => {
   try {
     const { userId } = requireEntitledUser(event);
-    const vaultId = event.pathParameters?.vaultId;
+    const dockspaceId = event.pathParameters?.dockspaceId;
 
-    if (!vaultId) {
-      return jsonResponse(400, { error: 'vaultId is required' });
+    if (!dockspaceId) {
+      return jsonResponse(400, { error: 'dockspaceId is required' });
     }
 
     const parsed = bodySchema.safeParse(safeJsonParse(event.body));
@@ -27,7 +27,7 @@ export const handler = async (event: APIGatewayProxyEventV2) => {
     }
 
     const fullPath = normalizeFullPath(parsed.data.fullPath);
-    const resolved = await resolveFileByFullPath(userId, vaultId, fullPath);
+    const resolved = await resolveFileByFullPath(userId, dockspaceId, fullPath);
 
     if (!resolved || fileStateFromNode(resolved.fileNode) !== 'ACTIVE') {
       return jsonResponse(404, { error: 'Active file not found' });
@@ -37,7 +37,7 @@ export const handler = async (event: APIGatewayProxyEventV2) => {
     const flaggedForDeleteAt = isoPlusDays(now, env.trashRetentionDays);
     const objectKey = resolved.fileNode.s3Key;
 
-    await markResolvedFileNodeTrashed(userId, vaultId, resolved, now, flaggedForDeleteAt);
+    await markResolvedFileNodeTrashed(userId, dockspaceId, resolved, now, flaggedForDeleteAt);
     await tagObjectTrash(objectKey);
 
     return jsonResponse(200, {

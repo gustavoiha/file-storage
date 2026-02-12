@@ -37,7 +37,7 @@ const { listFolderChildren, createFolder, uploadFile, moveToTrash, renameFile, r
   renameFolder: vi.fn(async () => {})
 }));
 
-vi.mock('@/lib/vaultApi', () => ({
+vi.mock('@/lib/dockspaceApi', () => ({
   listFolderChildren,
   listTrash: vi.fn(async () => []),
   listPurged: vi.fn(async () => []),

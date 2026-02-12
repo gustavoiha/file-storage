@@ -50,7 +50,7 @@ describe('LoginForm', () => {
     await waitFor(() =>
       expect(login).toHaveBeenCalledWith({ email: 'a@a.com', password: 'secret' })
     );
-    await waitFor(() => expect(navigate).toHaveBeenCalledWith({ to: '/vaults' }));
+    await waitFor(() => expect(navigate).toHaveBeenCalledWith({ to: '/dockspaces' }));
   });
 
   it('handles confirmation challenge', async () => {
@@ -78,7 +78,7 @@ describe('LoginForm', () => {
     fireEvent.submit(screen.getByRole('button', { name: 'Confirm Sign In' }));
 
     await waitFor(() => expect(confirmLogin).toHaveBeenCalledWith('123456'));
-    await waitFor(() => expect(navigate).toHaveBeenCalledWith({ to: '/vaults' }));
+    await waitFor(() => expect(navigate).toHaveBeenCalledWith({ to: '/dockspaces' }));
   });
 
   it('redirects to account confirmation when sign-up is not confirmed', async () => {

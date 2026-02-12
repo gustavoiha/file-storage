@@ -3,7 +3,7 @@ import { describe, expect, it, vi } from 'vitest';
 import { PurgedPage } from '@/pages/PurgedPage';
 
 vi.mock('@tanstack/react-router', () => ({
-  useParams: () => ({ vaultId: 'v1' }),
+  useParams: () => ({ dockspaceId: 'v1' }),
   Link: ({ children }: { children?: unknown }) => <a>{children as any}</a>
 }));
 

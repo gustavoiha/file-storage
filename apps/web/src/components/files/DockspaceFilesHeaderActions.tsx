@@ -2,55 +2,55 @@ import { Link } from '@tanstack/react-router';
 import type { ChangeEventHandler, RefObject } from 'react';
 import { DropdownMenu } from '@/components/ui/DropdownMenu';
 
-interface VaultFilesHeaderActionsProps {
+interface DockspaceFilesHeaderActionsProps {
   fileInputRef: RefObject<HTMLInputElement>;
   isMenuOpen: boolean;
   onMenuOpenChange: (nextOpen: boolean) => void;
-  vaultId: string;
+  dockspaceId: string;
   onAddFolder: () => void;
   onUploadFiles: () => void;
   onUploadSelection: ChangeEventHandler<HTMLInputElement>;
 }
 
-export const VaultFilesHeaderActions = ({
+export const DockspaceFilesHeaderActions = ({
   fileInputRef,
   isMenuOpen,
   onMenuOpenChange,
-  vaultId,
+  dockspaceId,
   onAddFolder,
   onUploadFiles,
   onUploadSelection
-}: VaultFilesHeaderActionsProps) => (
-  <DropdownMenu className="vault-page-menu" isOpen={isMenuOpen} onOpenChange={onMenuOpenChange}>
+}: DockspaceFilesHeaderActionsProps) => (
+  <DropdownMenu className="dockspace-page-menu" isOpen={isMenuOpen} onOpenChange={onMenuOpenChange}>
     <input
       ref={fileInputRef}
-      className="vault-files__hidden-input"
+      className="dockspace-files__hidden-input"
       type="file"
       multiple
       onChange={onUploadSelection}
     />
     <DropdownMenu.Trigger
-      className="vault-page-menu__trigger"
-      aria-label="Vault options"
+      className="dockspace-page-menu__trigger"
+      aria-label="Dockspace options"
     >
       ⋯
     </DropdownMenu.Trigger>
-    <DropdownMenu.Content className="vault-page-menu__dropdown" label="Vault actions">
+    <DropdownMenu.Content className="dockspace-page-menu__dropdown" label="Dockspace actions">
       <DropdownMenu.Button
-        className="vault-page-menu__item vault-page-menu__item--button"
+        className="dockspace-page-menu__item dockspace-page-menu__item--button"
         onClick={onAddFolder}
       >
         Create folder
       </DropdownMenu.Button>
       <DropdownMenu.Button
-        className="vault-page-menu__item vault-page-menu__item--button"
+        className="dockspace-page-menu__item dockspace-page-menu__item--button"
         onClick={onUploadFiles}
       >
         Upload files
       </DropdownMenu.Button>
       <DropdownMenu.Separator />
-      <DropdownMenu.Link asChild className="vault-page-menu__item">
-        <Link to="/vaults/$vaultId/trash" params={{ vaultId }}>
+      <DropdownMenu.Link asChild className="dockspace-page-menu__item">
+        <Link to="/dockspaces/$dockspaceId/trash" params={{ dockspaceId }}>
           Trash
         </Link>
       </DropdownMenu.Link>

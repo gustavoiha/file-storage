@@ -1,27 +1,27 @@
 import { renderHook, waitFor } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { useCreateVault, useVaults } from '@/hooks/useVaults';
+import { useCreateDockspace, useDockspaces } from '@/hooks/useDockspaces';
 import { clearSession, setSession } from '@/lib/authStore';
 import { createTestQueryClient, QueryWrapper } from '@/tests/testUtils';
 
-const { listVaults, createVault } = vi.hoisted(() => ({
-  listVaults: vi.fn(async () => [
+const { listDockspaces, createDockspace } = vi.hoisted(() => ({
+  listDockspaces: vi.fn(async () => [
     {
-      vaultId: 'v1',
+      dockspaceId: 'v1',
       name: 'Main',
       createdAt: '2026-01-01T00:00:00.000Z'
     }
   ]),
-  createVault: vi.fn(async () => ({
-    vaultId: 'v2',
+  createDockspace: vi.fn(async () => ({
+    dockspaceId: 'v2',
     name: 'Docs',
     createdAt: '2026-01-02T00:00:00.000Z'
   }))
 }));
 
-vi.mock('@/lib/vaultApi', () => ({
-  listVaults,
-  createVault
+vi.mock('@/lib/dockspaceApi', () => ({
+  listDockspaces,
+  createDockspace
 }));
 
 beforeEach(() => {
@@ -37,24 +37,24 @@ afterEach(() => {
   clearSession();
 });
 
-describe('useVaults', () => {
-  it('loads vaults', async () => {
+describe('useDockspaces', () => {
+  it('loads dockspaces', async () => {
     const client = createTestQueryClient();
-    const { result } = renderHook(() => useVaults(), {
+    const { result } = renderHook(() => useDockspaces(), {
       wrapper: ({ children }) => <QueryWrapper client={client}>{children}</QueryWrapper>
     });
 
     await waitFor(() => expect(result.current.isSuccess).toBe(true));
-    expect(result.current.data?.[0]?.vaultId).toBe('v1');
+    expect(result.current.data?.[0]?.dockspaceId).toBe('v1');
   });
 
-  it('creates vault', async () => {
+  it('creates dockspace', async () => {
     const client = createTestQueryClient();
-    const { result } = renderHook(() => useCreateVault(), {
+    const { result } = renderHook(() => useCreateDockspace(), {
       wrapper: ({ children }) => <QueryWrapper client={client}>{children}</QueryWrapper>
     });
 
     await result.current.mutateAsync('Docs');
-    expect(createVault).toHaveBeenCalledWith('Docs', expect.any(Object));
+    expect(createDockspace).toHaveBeenCalledWith('Docs', expect.any(Object));
   });
 });

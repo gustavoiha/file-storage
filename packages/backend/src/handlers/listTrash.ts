@@ -6,17 +6,17 @@ import { fullPathFromFileNode, listTrashedFileNodes } from '../lib/repository.js
 export const handler = async (event: APIGatewayProxyEventV2) => {
   try {
     const { userId } = requireEntitledUser(event);
-    const vaultId = event.pathParameters?.vaultId;
+    const dockspaceId = event.pathParameters?.dockspaceId;
 
-    if (!vaultId) {
-      return jsonResponse(400, { error: 'vaultId is required' });
+    if (!dockspaceId) {
+      return jsonResponse(400, { error: 'dockspaceId is required' });
     }
 
-    const files = await listTrashedFileNodes(userId, vaultId);
+    const files = await listTrashedFileNodes(userId, dockspaceId);
 
     const items = await Promise.all(
       files.map(async (file) => ({
-        fullPath: await fullPathFromFileNode(userId, vaultId, file),
+        fullPath: await fullPathFromFileNode(userId, dockspaceId, file),
         size: file.size,
         deletedAt: file.deletedAt,
         flaggedForDeleteAt: file.flaggedForDeleteAt,

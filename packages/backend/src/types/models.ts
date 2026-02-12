@@ -40,12 +40,12 @@ export interface DirectoryItem {
   updatedAt: string;
 }
 
-export interface VaultItem {
+export interface DockspaceItem {
   PK: string;
   SK: string;
-  type: 'VAULT';
+  type: 'DOCKSPACE';
   userId: string;
-  vaultId: string;
+  dockspaceId: string;
   name: string;
   createdAt: string;
 }
@@ -62,4 +62,4 @@ export const fileStateFromNode = (file: FileNodeItem): FileState => {
   return 'ACTIVE';
 };
 
-export type TableItem = FileNodeItem | FolderNodeItem | DirectoryItem | VaultItem;
+export type TableItem = FileNodeItem | FolderNodeItem | DirectoryItem | DockspaceItem;

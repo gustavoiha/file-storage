@@ -123,21 +123,21 @@ interface FolderBreadcrumbsProps {
 }
 
 const FolderBreadcrumbs = ({ crumbs, currentFolder, onOpenFolder }: FolderBreadcrumbsProps) => (
-  <nav className="vault-browser__breadcrumbs" aria-label="Folder breadcrumb">
+  <nav className="dockspace-browser__breadcrumbs" aria-label="Folder breadcrumb">
     {crumbs.map((crumb, index) => {
       const isCurrent = crumb.fullPath === currentFolder;
 
       return (
-        <span key={crumb.fullPath} className="vault-browser__crumb-segment">
+        <span key={crumb.fullPath} className="dockspace-browser__crumb-segment">
           <button
             type="button"
-            className="vault-browser__crumb-button"
+            className="dockspace-browser__crumb-button"
             disabled={isCurrent}
             onClick={() => onOpenFolder(crumb.fullPath)}
           >
             {crumb.label}
           </button>
-          {index < crumbs.length - 1 ? <span className="vault-browser__crumb-divider">/</span> : null}
+          {index < crumbs.length - 1 ? <span className="dockspace-browser__crumb-divider">/</span> : null}
         </span>
       );
     })}
@@ -149,14 +149,14 @@ interface PendingFolderRowProps {
 }
 
 const PendingFolderRow = ({ name }: PendingFolderRowProps) => (
-  <li className="resource-list__item vault-browser__folder-item vault-browser__folder-item--pending">
-    <div className="vault-browser__folder-pending">
-      <span className="vault-browser__item-main">
-        <Folder className="vault-browser__folder-icon" size={16} strokeWidth={1.5} aria-hidden="true" />
-        <span className="vault-browser__item-name">{name}</span>
+  <li className="resource-list__item dockspace-browser__folder-item dockspace-browser__folder-item--pending">
+    <div className="dockspace-browser__folder-pending">
+      <span className="dockspace-browser__item-main">
+        <Folder className="dockspace-browser__folder-icon" size={16} strokeWidth={1.5} aria-hidden="true" />
+        <span className="dockspace-browser__item-name">{name}</span>
       </span>
-      <span className="vault-browser__item-meta">
-        <span className="vault-browser__spinner" aria-hidden="true" />
+      <span className="dockspace-browser__item-meta">
+        <span className="dockspace-browser__spinner" aria-hidden="true" />
         Creating...
       </span>
     </div>
@@ -184,7 +184,7 @@ const FolderRow = ({ folderEntry, onOpenFolder, onRenameFolder, renameActionLabe
 
   return (
     <li
-      className="resource-list__item vault-browser__folder-item"
+      className="resource-list__item dockspace-browser__folder-item"
       onContextMenu={(event) => {
         if (!onRenameFolder || !renameActionLabel) {
           return;
@@ -195,25 +195,25 @@ const FolderRow = ({ folderEntry, onOpenFolder, onRenameFolder, renameActionLabe
         setIsMenuOpen(true);
       }}
     >
-      <div className="vault-browser__folder-row">
+      <div className="dockspace-browser__folder-row">
         <button
           type="button"
-          className="vault-browser__folder-button"
+          className="dockspace-browser__folder-button"
           onClick={() => onOpenFolder(folderEntry.fullPath)}
         >
-          <span className="vault-browser__item-main">
+          <span className="dockspace-browser__item-main">
             <Folder
-              className="vault-browser__folder-icon"
+              className="dockspace-browser__folder-icon"
               size={16}
               strokeWidth={1.5}
               aria-hidden="true"
             />
-            <span className="vault-browser__item-name">{folderEntry.name}</span>
+            <span className="dockspace-browser__item-name">{folderEntry.name}</span>
           </span>
         </button>
         {onRenameFolder && renameActionLabel ? (
           <DropdownMenu
-            className="vault-browser__file-actions"
+            className="dockspace-browser__file-actions"
             isOpen={isMenuOpen}
             onOpenChange={(nextOpen) => {
               if (!nextOpen) {
@@ -224,7 +224,7 @@ const FolderRow = ({ folderEntry, onOpenFolder, onRenameFolder, renameActionLabe
             }}
           >
             <DropdownMenu.Trigger
-              className="vault-browser__file-actions-trigger"
+              className="dockspace-browser__file-actions-trigger"
               aria-label={`Actions for ${folderEntry.name}`}
               onClick={() => {
                 setMenuAnchor(null);
@@ -234,11 +234,11 @@ const FolderRow = ({ folderEntry, onOpenFolder, onRenameFolder, renameActionLabe
             </DropdownMenu.Trigger>
             <DropdownMenu.Content
               label={`Actions for ${folderEntry.name}`}
-              className="vault-browser__file-actions-menu"
+              className="dockspace-browser__file-actions-menu"
               style={menuStyle}
             >
               <DropdownMenu.Button
-                className="vault-browser__file-actions-item"
+                className="dockspace-browser__file-actions-item"
                 onClick={() => onRenameFolder(folderEntry.fullPath)}
               >
                 {renameActionLabel}
@@ -287,36 +287,36 @@ const FileRow = ({
 
   return (
     <li
-      className="resource-list__item vault-browser__file-item"
+      className="resource-list__item dockspace-browser__file-item"
       onContextMenu={(event) => {
         event.preventDefault();
         setMenuAnchor({ x: event.clientX, y: event.clientY });
         setIsMenuOpen(true);
       }}
     >
-      <div className="vault-browser__file-row">
+      <div className="dockspace-browser__file-row">
         <button
           type="button"
-          className="vault-browser__file-open"
+          className="dockspace-browser__file-open"
           onClick={() => onOpenFile?.(file)}
         >
-          <span className="vault-browser__file-summary">
-            <span className="vault-browser__file-main">
+          <span className="dockspace-browser__file-summary">
+            <span className="dockspace-browser__file-main">
               <FileIcon
-                className="vault-browser__file-icon"
+                className="dockspace-browser__file-icon"
                 size={16}
                 strokeWidth={1.5}
                 aria-hidden="true"
               />
-              <span className="vault-browser__file-name">{fileName}</span>
+              <span className="dockspace-browser__file-name">{fileName}</span>
             </span>
             {typeof file.size === 'number' ? (
-              <span className="vault-browser__file-size">{file.size} bytes</span>
+              <span className="dockspace-browser__file-size">{file.size} bytes</span>
             ) : null}
           </span>
         </button>
         <DropdownMenu
-          className="vault-browser__file-actions"
+          className="dockspace-browser__file-actions"
           isOpen={isMenuOpen}
           onOpenChange={(nextOpen) => {
             if (!nextOpen) {
@@ -327,7 +327,7 @@ const FileRow = ({
           }}
         >
           <DropdownMenu.Trigger
-            className="vault-browser__file-actions-trigger"
+            className="dockspace-browser__file-actions-trigger"
             aria-label={`Actions for ${fileName}`}
             onClick={() => {
               setMenuAnchor(null);
@@ -337,12 +337,12 @@ const FileRow = ({
           </DropdownMenu.Trigger>
           <DropdownMenu.Content
             label={`Actions for ${fileName}`}
-            className="vault-browser__file-actions-menu"
+            className="dockspace-browser__file-actions-menu"
             style={menuStyle}
           >
             {onRename && renameActionLabel ? (
               <DropdownMenu.Button
-                className="vault-browser__file-actions-item"
+                className="dockspace-browser__file-actions-item"
                 onClick={() => onRename(file.fullPath)}
               >
                 {renameActionLabel}
@@ -350,7 +350,7 @@ const FileRow = ({
             ) : null}
             {onDownload && downloadActionLabel ? (
               <DropdownMenu.Button
-                className="vault-browser__file-actions-item"
+                className="dockspace-browser__file-actions-item"
                 onClick={() => onDownload(file)}
               >
                 {downloadActionLabel}
@@ -361,7 +361,7 @@ const FileRow = ({
               <DropdownMenu.Separator />
             ) : null}
             <DropdownMenu.Button
-              className="vault-browser__file-actions-item"
+              className="dockspace-browser__file-actions-item"
               onClick={() => onAction(file.fullPath)}
             >
               {actionLabel}
@@ -458,19 +458,19 @@ const FolderModeList = ({
   const hasEntries = folderEntries.length > 0 || directFiles.length > 0;
 
   return (
-    <div className="vault-browser">
-      <div className="vault-browser__toolbar">
+    <div className="dockspace-browser">
+      <div className="dockspace-browser__toolbar">
         <FolderBreadcrumbs
           crumbs={crumbs}
           currentFolder={normalizedCurrentFolder}
           onOpenFolder={onOpenFolder}
         />
         {toolbarActions ? (
-          <div className="vault-browser__toolbar-actions">{toolbarActions}</div>
+          <div className="dockspace-browser__toolbar-actions">{toolbarActions}</div>
         ) : null}
       </div>
 
-      <ul className="resource-list vault-browser__list">
+      <ul className="resource-list dockspace-browser__list">
         {!hasEntries ? (
           <li className="resource-list__item">
             <p>No files or folders in this location.</p>

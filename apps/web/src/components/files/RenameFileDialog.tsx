@@ -26,9 +26,9 @@ export const RenameFileDialog = ({
   }
 
   return (
-    <div className="vault-dialog-backdrop">
+    <div className="dockspace-dialog-backdrop">
       <dialog
-        className="vault-dialog"
+        className="dockspace-dialog"
         open
         aria-modal="true"
         aria-label="Rename file"
@@ -37,7 +37,7 @@ export const RenameFileDialog = ({
           onClose();
         }}
       >
-        <h3 className="vault-dialog__title">Rename file</h3>
+        <h3 className="dockspace-dialog__title">Rename file</h3>
         <form onSubmit={onSubmit}>
           <label className="ui-field" htmlFor="rename-file-name">
             <span className="ui-field__label">File name</span>
@@ -51,7 +51,7 @@ export const RenameFileDialog = ({
             />
           </label>
           {errorMessage ? <Alert message={errorMessage} /> : null}
-          <div className="vault-dialog__actions">
+          <div className="dockspace-dialog__actions">
             <Button type="submit" disabled={isSubmitting}>
               {isSubmitting ? 'Renaming...' : 'Rename'}
             </Button>

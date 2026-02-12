@@ -18,10 +18,10 @@ const bodySchema = z.object({
 export const handler = async (event: APIGatewayProxyEventV2) => {
   try {
     const { userId } = requireEntitledUser(event);
-    const vaultId = event.pathParameters?.vaultId;
+    const dockspaceId = event.pathParameters?.dockspaceId;
 
-    if (!vaultId) {
-      return jsonResponse(400, { error: 'vaultId is required' });
+    if (!dockspaceId) {
+      return jsonResponse(400, { error: 'dockspaceId is required' });
     }
 
     const parsed = bodySchema.safeParse(safeJsonParse(event.body));
@@ -30,7 +30,7 @@ export const handler = async (event: APIGatewayProxyEventV2) => {
     }
 
     const fullPath = normalizeFullPath(parsed.data.fullPath);
-    const file = await findTrashedFileByFullPath(userId, vaultId, fullPath);
+    const file = await findTrashedFileByFullPath(userId, dockspaceId, fullPath);
 
     if (!file) {
       return jsonResponse(404, { error: 'Trashed file not found' });
@@ -40,7 +40,7 @@ export const handler = async (event: APIGatewayProxyEventV2) => {
     const now = new Date().toISOString();
 
     if (!(await objectExists(objectKey))) {
-      await markFileNodePurged({ userId, vaultId, fileNode: file, nowIso: now });
+      await markFileNodePurged({ userId, dockspaceId, fileNode: file, nowIso: now });
       return jsonResponse(409, {
         error: 'Object already purged from S3',
         state: 'PURGED'
@@ -50,7 +50,7 @@ export const handler = async (event: APIGatewayProxyEventV2) => {
     const { fileName } = splitFullPath(fullPath);
     const conflicting = await findDirectoryFileByName(
       userId,
-      vaultId,
+      dockspaceId,
       file.parentFolderNodeId,
       fileName
     );
@@ -61,7 +61,7 @@ export const handler = async (event: APIGatewayProxyEventV2) => {
       });
     }
 
-    await restoreFileNodeFromTrash({ userId, vaultId, fileNode: file, nowIso: now });
+    await restoreFileNodeFromTrash({ userId, dockspaceId, fileNode: file, nowIso: now });
     await clearTrashTag(objectKey);
 
     return jsonResponse(200, {

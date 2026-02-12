@@ -6,7 +6,7 @@ import { env } from '../env.js';
 
 export const listDirectoryChildrenByParentFolderNodeId = async (
   userId: string,
-  vaultId: string,
+  dockspaceId: string,
   parentFolderNodeId: string
 ): Promise<DirectoryItem[]> => {
   const response = await dynamoDoc.send(
@@ -14,7 +14,7 @@ export const listDirectoryChildrenByParentFolderNodeId = async (
       TableName: env.tableName,
       KeyConditionExpression: 'PK = :pk AND begins_with(SK, :skPrefix)',
       ExpressionAttributeValues: {
-        ':pk': buildFilePk(userId, vaultId),
+        ':pk': buildFilePk(userId, dockspaceId),
         ':skPrefix': buildDirectoryPrefix(parentFolderNodeId)
       }
     })

@@ -1,6 +1,6 @@
 # Dockspace - File Storage - System Design
 
-**Single-Tenant, Multi-Vault Cloud File Storage**
+**Single-Tenant, Multi-Dockspace Cloud File Storage**
 
 ---
 
@@ -8,7 +8,7 @@
 
 Dockspace is a self-hosted, single-tenant cloud file storage system comparable to a minimal Google Drive. It supports:
 
-* Multiple vaults per user
+* Multiple dockspaces per user
 * Folder-based organization
 * Soft deletion with a trash period
 * Verified purging of deleted files
@@ -69,20 +69,14 @@ The system is designed for personal use and open-source redistribution. Each dep
 ### Object Key Format
 
 ```
-{userId}/vaults/{vaultId}/files/{relativePath}
+{dockspaceId}/{fileNodeId}
 ```
 
 Rules:
 
-* `relativePath` never starts with `/`
-* Folder hierarchy is implicit via prefixes
-* No folder marker objects
-
-Example:
-
-```
-gus/vaults/8f3a92/files/photos/2026/img1.jpg
-```
+* No path or folder directory information in the S3 object key.
+* Object's key is immutable.
+* Renaming or moving a file means updating the DynamoDB metadata, not the object's S3 key.
 
 ### Tags
 
@@ -105,7 +99,7 @@ Single table, on-demand capacity.
 ### Key Identifier Mapping
 
 * `U` = user
-* `V` = vault
+* `S` = dockspace
 * `F` = folder node
 * `L` = file node
 * `D` = directory
@@ -113,7 +107,7 @@ Single table, on-demand capacity.
 ### File Node Record
 
 ```
-PK = U#{userId}#V#{vaultId}
+PK = U#{userId}#S#{dockspaceId}
 SK = L#{fileNodeId}
 ```
 
@@ -137,7 +131,7 @@ Each file node gets a UUID at creation. PK/SK is path-agnostic.
 ### Folder Node Record
 
 ```
-PK = U#{userId}#V#{vaultId}
+PK = U#{userId}#S#{dockspaceId}
 SK = F#{folderNodeId}
 ```
 
@@ -152,7 +146,7 @@ Attributes:
 ### Directory Record
 
 ```
-PK = U#{userId}#V#{vaultId}
+PK = U#{userId}#S#{dockspaceId}
 SK = D#{folderNodeId}#{kind}#{normalizedName}#{id}
 ```
 
@@ -172,13 +166,13 @@ Attributes:
 * `createdAt`
 * `updatedAt`
 
-### Vault Items (Same Table)
+### Dockspace Items (Same Table)
 
 ```
 PK = U#{userId}
-SK = V#{vaultId}
+SK = S#{dockspaceId}
 
-type: "VAULT"
+type: "DOCKSPACE"
 name
 createdAt
 ```
@@ -190,7 +184,7 @@ createdAt
 Folder and file listing is resolved through `D#...` records.
 
 * Listing a folder queries:
-  * `PK = U#{userId}#V#{vaultId}`
+  * `PK = U#{userId}#S#{dockspaceId}`
   * `begins_with(SK, D#{folderNodeId}#L#)`
 * Resolving nested folders traverses:
   * `D#{folderNodeId}#F#{normalizedName}#{childId}`
@@ -207,14 +201,14 @@ Folder and file listing is resolved through `D#...` records.
 
 ### Trash View
 
-Query file nodes (`L#`) under vault PK and filter where:
+Query file nodes (`L#`) under dockspace PK and filter where:
 
 * `deletedAt` exists
 * `purgedAt` does not exist
 
 ### Purged History
 
-Query file nodes (`L#`) under vault PK and filter where:
+Query file nodes (`L#`) under dockspace PK and filter where:
 
 * `purgedAt` exists
 
@@ -284,7 +278,7 @@ If the object no longer exists, restore fails and the item should be transitione
 
 Runs daily.
 
-Algorithm (per vault):
+Algorithm (per dockspace):
 
 1. Query GSI1:
 
@@ -329,11 +323,11 @@ The same transaction pattern is used for upload-confirm, trash, and restore flow
 
 ---
 
-## 13. Multi-Vault Support
+## 13. Multi-Dockspace Support
 
-* Vaults are logical containers
-* No cross-vault listing
-* Vault membership is implicit (single user)
+* Dockspaces are logical containers
+* No cross-dockspace listing
+* Dockspace membership is implicit (single user)
 
 Future sharing can be added via new item types without schema changes.
 
@@ -347,7 +341,7 @@ Future sharing can be added via new item types without schema changes.
 * IAM scoped to:
 
   * Specific bucket
-  * Prefix `{userId}/vaults/*`
+  * Prefix `{userId}/dockspaces/*`
 
 ---
 
@@ -391,7 +385,7 @@ Create this parameter before first production signup:
 1. Add the email to `/dockspace/auth/allowed-signup-emails`
 2. User signs up and confirms email
 3. Post-confirmation trigger adds the user to `entitled-users`
-4. User can access vault/file APIs
+4. User can access dockspace/file APIs
 
 ### Revoking Access
 

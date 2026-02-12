@@ -1,7 +1,7 @@
 import { fireEvent, render, screen } from '@testing-library/react';
 import { describe, expect, it, vi } from 'vitest';
 import { ApiError } from '@/lib/apiClient';
-import { VaultFilesPage } from '@/pages/VaultFilesPage';
+import { DockspaceFilesPage } from '@/pages/DockspaceFilesPage';
 
 const mockState = vi.hoisted(() => ({
   filesResult: {
@@ -18,7 +18,7 @@ const mockState = vi.hoisted(() => ({
 }));
 
 vi.mock('@tanstack/react-router', () => ({
-  useParams: () => ({ vaultId: 'v1' }),
+  useParams: () => ({ dockspaceId: 'v1' }),
   Link: ({ children }: { children?: unknown }) => <a>{children as any}</a>
 }));
 
@@ -48,19 +48,19 @@ vi.mock('@/hooks/useFiles', () => ({
   useUploadFile: () => ({ mutateAsync: vi.fn(async () => ({})), isPending: false, error: null })
 }));
 
-vi.mock('@/hooks/useVaults', () => ({
-  useVaults: () => ({
+vi.mock('@/hooks/useDockspaces', () => ({
+  useDockspaces: () => ({
     data: [
       {
-        vaultId: 'v1',
-        name: 'My Vault'
+        dockspaceId: 'v1',
+        name: 'My Dockspace'
       }
     ]
   })
 }));
 
-describe('VaultFilesPage', () => {
-  it('renders vault files page', () => {
+describe('DockspaceFilesPage', () => {
+  it('renders dockspace files page', () => {
     mockState.filesResult = {
       isLoading: false,
       data: {
@@ -70,8 +70,8 @@ describe('VaultFilesPage', () => {
       error: null
     };
 
-    render(<VaultFilesPage />);
-    fireEvent.click(screen.getByRole('button', { name: 'Vault options' }));
+    render(<DockspaceFilesPage />);
+    fireEvent.click(screen.getByRole('button', { name: 'Dockspace options' }));
     expect(screen.getByRole('menuitem', { name: 'Create folder' })).toBeInTheDocument();
     expect(screen.getByRole('menuitem', { name: 'Upload files' })).toBeInTheDocument();
     expect(screen.getByText('Trash')).toBeInTheDocument();
@@ -88,7 +88,7 @@ describe('VaultFilesPage', () => {
       error: new ApiError('Not authorized for this account', 403)
     };
 
-    render(<VaultFilesPage />);
+    render(<DockspaceFilesPage />);
 
     expect(screen.getByText('UnauthorizedNotice')).toBeInTheDocument();
   });

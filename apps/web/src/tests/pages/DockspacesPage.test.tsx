@@ -2,17 +2,17 @@ import { cleanup, render, screen, waitFor } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { ApiError } from '@/lib/apiClient';
 import { clearSession, setSession } from '@/lib/authStore';
-import { VaultsPage } from '@/pages/VaultsPage';
+import { DockspacesPage } from '@/pages/DockspacesPage';
 
 const mutateAsync = vi.hoisted(() => vi.fn(async () => {}));
 
 const mockState = vi.hoisted(() => ({
-  vaultsResult: {
+  dockspacesResult: {
     isLoading: false,
     data: [] as unknown[],
     error: null as unknown
   },
-  createVaultResult: {
+  createDockspaceResult: {
     mutateAsync,
     isPending: false,
     isError: false,
@@ -24,29 +24,29 @@ vi.mock('@/components/auth/RequireAuth', () => ({
   RequireAuth: ({ children }: { children?: unknown }) => <>{children as any}</>
 }));
 
-vi.mock('@/components/files/CreateVaultForm', () => ({
-  CreateVaultForm: ({ disabled }: { disabled?: boolean }) => (
-    <div>{disabled ? 'CreateVaultForm-disabled' : 'CreateVaultForm-enabled'}</div>
+vi.mock('@/components/files/CreateDockspaceForm', () => ({
+  CreateDockspaceForm: ({ disabled }: { disabled?: boolean }) => (
+    <div>{disabled ? 'CreateDockspaceForm-disabled' : 'CreateDockspaceForm-enabled'}</div>
   )
 }));
 
-vi.mock('@/components/files/VaultList', () => ({
-  VaultList: () => <div>VaultList</div>
+vi.mock('@/components/files/DockspaceList', () => ({
+  DockspaceList: () => <div>DockspaceList</div>
 }));
 
 vi.mock('@/components/auth/UnauthorizedNotice', () => ({
   UnauthorizedNotice: () => <div>UnauthorizedNotice</div>
 }));
 
-vi.mock('@/hooks/useVaults', () => ({
-  useVaults: () => mockState.vaultsResult,
-  useCreateVault: () => mockState.createVaultResult
+vi.mock('@/hooks/useDockspaces', () => ({
+  useDockspaces: () => mockState.dockspacesResult,
+  useCreateDockspace: () => mockState.createDockspaceResult
 }));
 
 beforeEach(() => {
   clearSession();
   mutateAsync.mockClear();
-  mockState.createVaultResult = {
+  mockState.createDockspaceResult = {
     mutateAsync,
     isPending: false,
     isError: false,
@@ -59,29 +59,29 @@ afterEach(() => {
   clearSession();
 });
 
-describe('VaultsPage', () => {
-  it('renders vaults page', () => {
-    mockState.vaultsResult = { isLoading: false, data: [], error: null };
+describe('DockspacesPage', () => {
+  it('renders dockspaces page', () => {
+    mockState.dockspacesResult = { isLoading: false, data: [], error: null };
 
-    render(<VaultsPage />);
-    expect(screen.getByText('Vaults')).toBeInTheDocument();
-    expect(screen.getByText('CreateVaultForm-enabled')).toBeInTheDocument();
-    expect(screen.getByText('VaultList')).toBeInTheDocument();
+    render(<DockspacesPage />);
+    expect(screen.getByText('Dockspaces')).toBeInTheDocument();
+    expect(screen.getByText('CreateDockspaceForm-enabled')).toBeInTheDocument();
+    expect(screen.getByText('DockspaceList')).toBeInTheDocument();
   });
 
   it('renders unauthorized notice for 403', () => {
-    mockState.vaultsResult = {
+    mockState.dockspacesResult = {
       isLoading: false,
       data: [],
       error: new ApiError('Not authorized for this account', 403)
     };
 
-    render(<VaultsPage />);
+    render(<DockspacesPage />);
 
     expect(screen.getByText('UnauthorizedNotice')).toBeInTheDocument();
   });
 
-  it('creates a first vault from email prefix for empty state accounts', async () => {
+  it('creates a first dockspace from email prefix for empty state accounts', async () => {
     setSession({
       accessToken: 'a',
       idToken: 'i',
@@ -89,22 +89,22 @@ describe('VaultsPage', () => {
       userId: 'u1'
     });
 
-    mockState.vaultsResult = { isLoading: false, data: [], error: null };
-    mockState.createVaultResult = {
+    mockState.dockspacesResult = { isLoading: false, data: [], error: null };
+    mockState.createDockspaceResult = {
       mutateAsync,
       isPending: false,
       isError: false,
       error: null
     };
 
-    render(<VaultsPage />);
+    render(<DockspacesPage />);
 
     await waitFor(() => {
       expect(mutateAsync).toHaveBeenCalledWith('first.user');
     });
   });
 
-  it('shows preparing empty state and disables create action while creating first vault', () => {
+  it('shows preparing empty state and disables create action while creating first dockspace', () => {
     setSession({
       accessToken: 'a',
       idToken: 'i',
@@ -112,21 +112,21 @@ describe('VaultsPage', () => {
       userId: 'u1'
     });
 
-    mockState.vaultsResult = { isLoading: false, data: [], error: null };
-    mockState.createVaultResult = {
+    mockState.dockspacesResult = { isLoading: false, data: [], error: null };
+    mockState.createDockspaceResult = {
       mutateAsync,
       isPending: true,
       isError: false,
       error: null
     };
 
-    render(<VaultsPage />);
+    render(<DockspacesPage />);
 
     expect(
-      screen.getByText('Preparing your first vault,', {
+      screen.getByText('Preparing your first dockspace,', {
         exact: false
       })
     ).toBeInTheDocument();
-    expect(screen.getByText('CreateVaultForm-disabled')).toBeInTheDocument();
+    expect(screen.getByText('CreateDockspaceForm-disabled')).toBeInTheDocument();
   });
 });

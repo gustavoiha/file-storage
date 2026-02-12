@@ -7,15 +7,15 @@ export interface StagedUploadFile {
   name: string;
 }
 
-interface UseVaultUploadDialogParams {
+interface UseDockspaceUploadDialogParams {
   currentFolderPath: string;
   uploadFile: (params: { fullPath: string; file: File }) => Promise<unknown>;
 }
 
-export const useVaultUploadDialog = ({
+export const useDockspaceUploadDialog = ({
   currentFolderPath,
   uploadFile
-}: UseVaultUploadDialogParams) => {
+}: UseDockspaceUploadDialogParams) => {
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [stagedFiles, setStagedFiles] = useState<StagedUploadFile[]>([]);
   const [validationError, setValidationError] = useState<string | null>(null);

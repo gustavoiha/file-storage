@@ -26,15 +26,15 @@ const attachmentContentDisposition = (fileName?: string): string => {
 };
 
 export const buildObjectKey = (
-  vaultId: string,
+  dockspaceId: string,
   fileNodeId: string
-): string => `${vaultId}/${fileNodeId}`;
+): string => `${dockspaceId}/${fileNodeId}`;
 
 export const parseObjectKey = (
-  vaultId: string,
+  dockspaceId: string,
   objectKey: string
 ): { fileNodeId: string } | null => {
-  const prefix = `${vaultId}/`;
+  const prefix = `${dockspaceId}/`;
   if (!objectKey.startsWith(prefix)) {
     return null;
   }

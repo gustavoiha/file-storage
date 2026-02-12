@@ -4,29 +4,29 @@ import { objectExists } from '../lib/s3.js';
 import { dynamoDoc } from '../lib/clients.js';
 import { env } from '../lib/env.js';
 import { listTrashedFileNodes, markFileNodePurged } from '../lib/repository.js';
-import type { VaultItem } from '../types/models.js';
+import type { DockspaceItem } from '../types/models.js';
 
 export const handler = async (_event: EventBridgeEvent<string, unknown>) => {
   const now = new Date().toISOString();
 
-  const vaultScan = await dynamoDoc.send(
+  const dockspaceScan = await dynamoDoc.send(
     new ScanCommand({
       TableName: env.tableName,
-      FilterExpression: '#type = :vaultType',
+      FilterExpression: '#type = :dockspaceType',
       ExpressionAttributeNames: {
         '#type': 'type'
       },
       ExpressionAttributeValues: {
-        ':vaultType': 'VAULT'
+        ':dockspaceType': 'DOCKSPACE'
       }
     })
   );
 
-  const vaults = (vaultScan.Items ?? []) as VaultItem[];
+  const dockspaces = (dockspaceScan.Items ?? []) as DockspaceItem[];
   let processed = 0;
 
-  for (const vault of vaults) {
-    const trashItems = await listTrashedFileNodes(vault.userId, vault.vaultId);
+  for (const dockspace of dockspaces) {
+    const trashItems = await listTrashedFileNodes(dockspace.userId, dockspace.dockspaceId);
 
     for (const item of trashItems) {
       if (!item.flaggedForDeleteAt || item.flaggedForDeleteAt > now) {
@@ -37,8 +37,8 @@ export const handler = async (_event: EventBridgeEvent<string, unknown>) => {
 
       if (!exists) {
         await markFileNodePurged({
-          userId: vault.userId,
-          vaultId: vault.vaultId,
+          userId: dockspace.userId,
+          dockspaceId: dockspace.dockspaceId,
           fileNode: item,
           nowIso: now
         });

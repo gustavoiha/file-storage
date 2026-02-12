@@ -4,8 +4,8 @@ import type { APIGatewayProxyEventV2 } from 'aws-lambda';
 const baseEvent = (): APIGatewayProxyEventV2 =>
   ({
     version: '2.0',
-    routeKey: 'POST /vaults',
-    rawPath: '/vaults',
+    routeKey: 'POST /dockspaces',
+    rawPath: '/dockspaces',
     rawQueryString: '',
     headers: {},
     requestContext: {
@@ -15,19 +15,19 @@ const baseEvent = (): APIGatewayProxyEventV2 =>
       domainPrefix: 'example',
       http: {
         method: 'POST',
-        path: '/vaults',
+        path: '/dockspaces',
         protocol: 'HTTP/1.1',
         sourceIp: '127.0.0.1',
         userAgent: 'test'
       },
       requestId: 'request-id',
-      routeKey: 'POST /vaults',
+      routeKey: 'POST /dockspaces',
       stage: '$default',
       time: '',
       timeEpoch: 0
     },
     isBase64Encoded: false,
-    body: JSON.stringify({ name: 'test-vault' })
+    body: JSON.stringify({ name: 'test-dockspace' })
   }) as APIGatewayProxyEventV2;
 
 describe('protected handlers auth behavior', () => {
@@ -38,14 +38,14 @@ describe('protected handlers auth behavior', () => {
   });
 
   it('returns 401 when claims are missing', async () => {
-    const { handler } = await import('../handlers/createVault.js');
+    const { handler } = await import('../handlers/createDockspace.js');
     const response = await handler(baseEvent());
 
     expect(response.statusCode).toBe(401);
   });
 
   it('returns 403 when user lacks entitlement group', async () => {
-    const { handler } = await import('../handlers/createVault.js');
+    const { handler } = await import('../handlers/createDockspace.js');
 
     const response = await handler({
       ...baseEvent(),

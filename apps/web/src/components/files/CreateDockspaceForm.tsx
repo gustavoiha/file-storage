@@ -1,16 +1,16 @@
 import { useState, type FormEvent } from 'react';
 import { Button } from '@/components/ui/Button';
 import { InputField } from '@/components/ui/InputField';
-import { useCreateVault } from '@/hooks/useVaults';
+import { useCreateDockspace } from '@/hooks/useDockspaces';
 
-interface CreateVaultFormProps {
+interface CreateDockspaceFormProps {
   disabled?: boolean;
 }
 
-export const CreateVaultForm = ({ disabled = false }: CreateVaultFormProps) => {
-  const createVault = useCreateVault();
+export const CreateDockspaceForm = ({ disabled = false }: CreateDockspaceFormProps) => {
+  const createDockspace = useCreateDockspace();
   const [name, setName] = useState('');
-  const isDisabled = disabled || createVault.isPending;
+  const isDisabled = disabled || createDockspace.isPending;
 
   const onSubmit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
@@ -19,15 +19,15 @@ export const CreateVaultForm = ({ disabled = false }: CreateVaultFormProps) => {
       return;
     }
 
-    await createVault.mutateAsync(name.trim());
+    await createDockspace.mutateAsync(name.trim());
     setName('');
   };
 
   return (
     <form onSubmit={onSubmit}>
       <InputField
-        id="vault-name"
-        label="Vault Name"
+        id="dockspace-name"
+        label="Dockspace Name"
         value={name}
         onChange={(event) => setName(event.target.value)}
         placeholder="Personal Docs"
@@ -35,7 +35,7 @@ export const CreateVaultForm = ({ disabled = false }: CreateVaultFormProps) => {
         disabled={isDisabled}
       />
       <Button type="submit" disabled={isDisabled}>
-        {createVault.isPending ? 'Creating...' : 'Create Vault'}
+        {createDockspace.isPending ? 'Creating...' : 'Create Dockspace'}
       </Button>
     </form>
   );

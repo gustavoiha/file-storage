@@ -12,10 +12,10 @@ const bodySchema = z.object({
 export const handler = async (event: APIGatewayProxyEventV2) => {
   try {
     const { userId } = requireEntitledUser(event);
-    const vaultId = event.pathParameters?.vaultId;
+    const dockspaceId = event.pathParameters?.dockspaceId;
 
-    if (!vaultId) {
-      return jsonResponse(400, { error: 'vaultId is required' });
+    if (!dockspaceId) {
+      return jsonResponse(400, { error: 'dockspaceId is required' });
     }
 
     const parsed = bodySchema.safeParse(safeJsonParse(event.body));
@@ -31,7 +31,7 @@ export const handler = async (event: APIGatewayProxyEventV2) => {
     const now = new Date().toISOString();
     const result = await upsertFolderByPath({
       userId,
-      vaultId,
+      dockspaceId,
       folderPath,
       nowIso: now
     });

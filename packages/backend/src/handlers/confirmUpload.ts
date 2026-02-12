@@ -17,10 +17,10 @@ const bodySchema = z.object({
 export const handler = async (event: APIGatewayProxyEventV2) => {
   try {
     const { userId } = requireEntitledUser(event);
-    const vaultId = event.pathParameters?.vaultId;
+    const dockspaceId = event.pathParameters?.dockspaceId;
 
-    if (!vaultId) {
-      return jsonResponse(400, { error: 'vaultId is required' });
+    if (!dockspaceId) {
+      return jsonResponse(400, { error: 'dockspaceId is required' });
     }
 
     const parsed = bodySchema.safeParse(safeJsonParse(event.body));
@@ -29,15 +29,15 @@ export const handler = async (event: APIGatewayProxyEventV2) => {
     }
 
     const fullPath = normalizeFullPath(parsed.data.fullPath);
-    const objectKeyInfo = parseObjectKey(vaultId, parsed.data.objectKey);
+    const objectKeyInfo = parseObjectKey(dockspaceId, parsed.data.objectKey);
     if (!objectKeyInfo) {
       return jsonResponse(400, { error: 'Invalid objectKey' });
     }
 
-    const existingFile = await resolveFileByFullPath(userId, vaultId, fullPath);
+    const existingFile = await resolveFileByFullPath(userId, dockspaceId, fullPath);
     const existingFileNodeId = existingFile?.fileNode.SK.replace(/^L#/, '');
     const expectedObjectKey = existingFileNodeId
-      ? buildObjectKey(vaultId, existingFileNodeId)
+      ? buildObjectKey(dockspaceId, existingFileNodeId)
       : parsed.data.objectKey;
 
     if (expectedObjectKey !== parsed.data.objectKey) {
@@ -51,7 +51,7 @@ export const handler = async (event: APIGatewayProxyEventV2) => {
     const now = new Date().toISOString();
     await upsertActiveFileByPath({
       userId,
-      vaultId,
+      dockspaceId,
       fullPath,
       s3Key: parsed.data.objectKey,
       preferredFileNodeId: existingFileNodeId ?? objectKeyInfo.fileNodeId,

@@ -1,5 +1,5 @@
 import { Button } from '@/components/ui/Button';
-import type { StagedUploadFile } from '@/hooks/useVaultUploadDialog';
+import type { StagedUploadFile } from '@/hooks/useDockspaceUploadDialog';
 
 interface UploadStagingListProps {
   emptyStateMessage?: string;

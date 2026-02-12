@@ -26,9 +26,9 @@ export const AddFolderDialog = ({
   }
 
   return (
-    <div className="vault-dialog-backdrop">
+    <div className="dockspace-dialog-backdrop">
       <dialog
-        className="vault-dialog"
+        className="dockspace-dialog"
         open
         aria-modal="true"
         aria-label="Add folder"
@@ -37,7 +37,7 @@ export const AddFolderDialog = ({
           onClose();
         }}
       >
-        <h3 className="vault-dialog__title">Add folder</h3>
+        <h3 className="dockspace-dialog__title">Add folder</h3>
         <form onSubmit={onSubmit}>
           <label className="ui-field" htmlFor="new-folder-name">
             <span className="ui-field__label">Folder name</span>
@@ -50,7 +50,7 @@ export const AddFolderDialog = ({
             />
           </label>
           {errorMessage ? <Alert message={errorMessage} /> : null}
-          <div className="vault-dialog__actions">
+          <div className="dockspace-dialog__actions">
             <Button type="submit" disabled={isSubmitting}>
               {isSubmitting ? 'Creating...' : 'Create'}
             </Button>

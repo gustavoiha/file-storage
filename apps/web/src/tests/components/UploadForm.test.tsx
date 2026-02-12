@@ -13,7 +13,7 @@ vi.mock('@/hooks/useFiles', () => ({
 
 describe('UploadForm', () => {
   it('stages multiple files and uploads them with editable names', async () => {
-    render(<UploadForm vaultId="v1" folder="/photos/2026" />);
+    render(<UploadForm dockspaceId="v1" folder="/photos/2026" />);
 
     const input = screen.getByLabelText('Files') as HTMLInputElement;
     const firstFile = new File(['hello'], 'x.txt', { type: 'text/plain' });

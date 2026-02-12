@@ -3,8 +3,8 @@ import { randomUUID } from 'node:crypto';
 import { z } from 'zod';
 import { requireEntitledUser } from '../lib/auth.js';
 import { errorResponse, jsonResponse, safeJsonParse } from '../lib/http.js';
-import { putVaultWithRootFolder } from '../lib/repository.js';
-import { buildVaultPk, buildVaultSk } from '../domain/keys.js';
+import { putDockspaceWithRootFolder } from '../lib/repository.js';
+import { buildDockspacePk, buildDockspaceSk } from '../domain/keys.js';
 
 const bodySchema = z.object({
   name: z.string().trim().min(1).max(100)
@@ -20,15 +20,15 @@ export const handler = async (event: APIGatewayProxyEventV2) => {
     }
 
     const now = new Date().toISOString();
-    const vaultId = randomUUID();
+    const dockspaceId = randomUUID();
 
-    await putVaultWithRootFolder(
+    await putDockspaceWithRootFolder(
       {
-        PK: buildVaultPk(userId),
-        SK: buildVaultSk(vaultId),
-        type: 'VAULT',
+        PK: buildDockspacePk(userId),
+        SK: buildDockspaceSk(dockspaceId),
+        type: 'DOCKSPACE',
         userId,
-        vaultId,
+        dockspaceId,
         name: parsed.data.name,
         createdAt: now
       },
@@ -36,7 +36,7 @@ export const handler = async (event: APIGatewayProxyEventV2) => {
     );
 
     return jsonResponse(201, {
-      vaultId,
+      dockspaceId,
       name: parsed.data.name,
       createdAt: now
     });

@@ -20,7 +20,7 @@ describe('TopNav', () => {
   it('shows links and logout', () => {
     render(<TopNav />);
 
-    expect(screen.getByText('Vaults')).toBeInTheDocument();
+    expect(screen.getByText('Dockspaces')).toBeInTheDocument();
     fireEvent.click(screen.getByRole('button', { name: 'Logout' }));
     expect(logout).toHaveBeenCalledTimes(1);
   });

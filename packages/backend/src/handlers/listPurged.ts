@@ -6,17 +6,17 @@ import { fullPathFromFileNode, listPurgedFileNodes } from '../lib/repository.js'
 export const handler = async (event: APIGatewayProxyEventV2) => {
   try {
     const { userId } = requireEntitledUser(event);
-    const vaultId = event.pathParameters?.vaultId;
+    const dockspaceId = event.pathParameters?.dockspaceId;
 
-    if (!vaultId) {
-      return jsonResponse(400, { error: 'vaultId is required' });
+    if (!dockspaceId) {
+      return jsonResponse(400, { error: 'dockspaceId is required' });
     }
 
-    const files = await listPurgedFileNodes(userId, vaultId);
+    const files = await listPurgedFileNodes(userId, dockspaceId);
 
     const items = await Promise.all(
       files.map(async (file) => ({
-        fullPath: await fullPathFromFileNode(userId, vaultId, file),
+        fullPath: await fullPathFromFileNode(userId, dockspaceId, file),
         purgedAt: file.purgedAt,
         state: 'PURGED' as const
       }))

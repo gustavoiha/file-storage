@@ -1,34 +1,34 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useStore } from '@tanstack/react-store';
 import { authStore } from '@/lib/authStore';
-import { createVault, listVaults } from '@/lib/vaultApi';
+import { createDockspace, listDockspaces } from '@/lib/dockspaceApi';
 
-export const vaultQueryKey = (userId: string) => ['vaults', userId] as const;
+export const dockspaceQueryKey = (userId: string) => ['dockspaces', userId] as const;
 
-export const useVaults = () => {
+export const useDockspaces = () => {
   const { session } = useStore(authStore);
   const userId = session?.userId ?? '';
 
   return useQuery({
-    queryKey: vaultQueryKey(userId),
-    queryFn: listVaults,
+    queryKey: dockspaceQueryKey(userId),
+    queryFn: listDockspaces,
     enabled: Boolean(userId)
   });
 };
 
-export const useCreateVault = () => {
+export const useCreateDockspace = () => {
   const queryClient = useQueryClient();
   const { session } = useStore(authStore);
   const userId = session?.userId ?? '';
 
   return useMutation({
-    mutationFn: createVault,
+    mutationFn: createDockspace,
     onSuccess: async () => {
       if (!userId) {
         return;
       }
 
-      await queryClient.invalidateQueries({ queryKey: vaultQueryKey(userId) });
+      await queryClient.invalidateQueries({ queryKey: dockspaceQueryKey(userId) });
     }
   });
 };

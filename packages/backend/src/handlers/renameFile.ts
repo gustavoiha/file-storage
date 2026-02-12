@@ -18,10 +18,10 @@ const bodySchema = z.object({
 export const handler = async (event: APIGatewayProxyEventV2) => {
   try {
     const { userId } = requireEntitledUser(event);
-    const vaultId = event.pathParameters?.vaultId;
+    const dockspaceId = event.pathParameters?.dockspaceId;
 
-    if (!vaultId) {
-      return jsonResponse(400, { error: 'vaultId is required' });
+    if (!dockspaceId) {
+      return jsonResponse(400, { error: 'dockspaceId is required' });
     }
 
     const parsed = bodySchema.safeParse(safeJsonParse(event.body));
@@ -36,7 +36,7 @@ export const handler = async (event: APIGatewayProxyEventV2) => {
       return jsonResponse(400, { error: 'newName cannot include path separators' });
     }
 
-    const resolved = await resolveFileByFullPath(userId, vaultId, fullPath);
+    const resolved = await resolveFileByFullPath(userId, dockspaceId, fullPath);
     if (!resolved || fileStateFromNode(resolved.fileNode) !== 'ACTIVE') {
       return jsonResponse(404, { error: 'Active file not found' });
     }
@@ -51,7 +51,7 @@ export const handler = async (event: APIGatewayProxyEventV2) => {
     const fileNodeId = resolved.fileNode.SK.slice(2);
     const conflict = await findDirectoryFileByName(
       userId,
-      vaultId,
+      dockspaceId,
       resolved.fileNode.parentFolderNodeId,
       newName
     );
@@ -65,7 +65,7 @@ export const handler = async (event: APIGatewayProxyEventV2) => {
     const now = new Date().toISOString();
     await moveOrRenameActiveFileNode({
       userId,
-      vaultId,
+      dockspaceId,
       fileNode: resolved.fileNode,
       oldParentFolderNodeId: resolved.fileNode.parentFolderNodeId,
       oldName: resolved.fileNode.name,

@@ -23,7 +23,7 @@ export const LoginForm = () => {
       const result = await login({ email, password });
 
       if (result.status === 'SIGNED_IN') {
-        await navigate({ to: '/vaults' });
+        await navigate({ to: '/dockspaces' });
         return;
       }
 
@@ -52,7 +52,7 @@ export const LoginForm = () => {
       const result = await confirmLogin(code);
 
       if (result.status === 'SIGNED_IN') {
-        await navigate({ to: '/vaults' });
+        await navigate({ to: '/dockspaces' });
         return;
       }
 

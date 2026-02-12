@@ -81,7 +81,7 @@ describe('DockspacesPage', () => {
     expect(screen.getByText('UnauthorizedNotice')).toBeInTheDocument();
   });
 
-  it('creates a first dockspace from email prefix for empty state accounts', async () => {
+  it('creates a first dockspace with default name for empty state accounts', async () => {
     setSession({
       accessToken: 'a',
       idToken: 'i',
@@ -100,7 +100,7 @@ describe('DockspacesPage', () => {
     render(<DockspacesPage />);
 
     await waitFor(() => {
-      expect(mutateAsync).toHaveBeenCalledWith('first.user');
+      expect(mutateAsync).toHaveBeenCalledWith('My dockspace');
     });
   });
 

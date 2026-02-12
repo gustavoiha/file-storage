@@ -11,22 +11,14 @@ import { useCreateDockspace, useDockspaces } from '@/hooks/useDockspaces';
 import { ApiError } from '@/lib/apiClient';
 import { authStore } from '@/lib/authStore';
 
-const getEmailPrefix = (email: string): string => {
-  const atIndex = email.indexOf('@');
-
-  if (atIndex <= 0) {
-    return 'dockspace';
-  }
-
-  return email.slice(0, atIndex).trim() || 'dockspace';
-};
+const FIRST_DOCKSPACE_NAME = 'My dockspace';
 
 export const DockspacesPage = () => {
   const dockspaces = useDockspaces();
   const createFirstDockspace = useCreateDockspace();
   const { session } = useStore(authStore);
   const autoCreateAttemptedRef = useRef(false);
-  const firstDockspaceName = getEmailPrefix(session?.email ?? '');
+  const firstDockspaceName = FIRST_DOCKSPACE_NAME;
   const unauthorized =
     dockspaces.error instanceof ApiError && dockspaces.error.statusCode === 403;
   const isDockspaceListEmpty = !dockspaces.isLoading && (dockspaces.data?.length ?? 0) === 0;

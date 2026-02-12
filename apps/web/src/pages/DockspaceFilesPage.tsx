@@ -9,6 +9,7 @@ import { RenameFileDialog } from '@/components/files/RenameFileDialog';
 import { RenameFolderDialog } from '@/components/files/RenameFolderDialog';
 import { UploadFilesDialog } from '@/components/files/UploadFilesDialog';
 import { DockspaceFilesHeaderActions } from '@/components/files/DockspaceFilesHeaderActions';
+import { Button } from '@/components/ui/Button';
 import { buildPathInFolder } from '@/components/files/pathHelpers';
 import { Card } from '@/components/ui/Card';
 import { Page } from '@/components/ui/Page';
@@ -320,6 +321,50 @@ export const DockspaceFilesPage = () => {
   const dockspaceName =
     dockspacesQuery.data?.find((dockspace) => dockspace.dockspaceId === dockspaceId)?.name ?? 'Dockspace';
 
+  const emptyDockspaceState = (
+    <div className="dockspace-browser-empty">
+      <svg
+        className="dockspace-browser-empty__image"
+        viewBox="0 0 760 420"
+        role="img"
+        aria-label="Empty folder illustration"
+      >
+        <defs>
+          <linearGradient id="dockspace-empty-bg" x1="0%" y1="0%" x2="100%" y2="100%">
+            <stop offset="0%" stopColor="rgba(114, 196, 255, 0.35)" />
+            <stop offset="100%" stopColor="rgba(47, 121, 201, 0.15)" />
+          </linearGradient>
+          <linearGradient id="dockspace-empty-folder" x1="0%" y1="0%" x2="100%" y2="100%">
+            <stop offset="0%" stopColor="rgba(228, 236, 247, 0.95)" />
+            <stop offset="100%" stopColor="rgba(145, 161, 184, 0.92)" />
+          </linearGradient>
+        </defs>
+        <rect x="24" y="16" width="712" height="388" rx="36" fill="url(#dockspace-empty-bg)" />
+        <path
+          d="M196 112h118l28 44h222c30 0 54 24 54 54v64c0 30-24 54-54 54H196c-30 0-54-24-54-54v-108c0-30 24-54 54-54z"
+          fill="url(#dockspace-empty-folder)"
+        />
+        <path
+          d="M380 182v72m0 0-28-28m28 28 28-28"
+          stroke="rgba(24, 36, 54, 0.72)"
+          strokeWidth="14"
+          strokeLinecap="round"
+          strokeLinejoin="round"
+          fill="none"
+        />
+        <circle cx="590" cy="120" r="22" fill="rgba(132, 220, 170, 0.82)" />
+        <circle cx="624" cy="94" r="12" fill="rgba(126, 203, 255, 0.8)" />
+      </svg>
+      <p className="dockspace-browser-empty__title">This folder is empty</p>
+      <p className="dockspace-browser-empty__message">
+        Upload your first files to start organizing your dockspace.
+      </p>
+      <Button type="button" onClick={openFilePicker}>
+        Upload your first files
+      </Button>
+    </div>
+  );
+
   return (
     <RequireAuth>
       <Page>
@@ -340,6 +385,7 @@ export const DockspaceFilesPage = () => {
                   downloadActionLabel="Download"
                   renameActionLabel="Rename"
                   folderRenameActionLabel="Rename"
+                  emptyState={emptyDockspaceState}
                   rootBreadcrumbLabel={dockspaceName}
                   toolbarActions={
                     <DockspaceFilesHeaderActions

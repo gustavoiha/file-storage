@@ -10,6 +10,7 @@ interface FileListProps {
   folders?: FolderRecord[];
   currentFolder?: string;
   pendingFolderPaths?: string[];
+  emptyState?: ReactNode;
   downloadActionLabel?: string | undefined;
   folderRenameActionLabel?: string | undefined;
   renameActionLabel?: string | undefined;
@@ -377,6 +378,7 @@ interface FolderModeListProps {
   actionLabel: string;
   currentFolder: string;
   downloadActionLabel?: string | undefined;
+  emptyState?: ReactNode;
   files: FileRecord[];
   folderRenameActionLabel?: string | undefined;
   folders: FolderRecord[];
@@ -396,6 +398,7 @@ const FolderModeList = ({
   actionLabel,
   currentFolder,
   downloadActionLabel,
+  emptyState,
   files,
   folderRenameActionLabel,
   folders,
@@ -472,8 +475,8 @@ const FolderModeList = ({
 
       <ul className="resource-list dockspace-browser__list">
         {!hasEntries ? (
-          <li className="resource-list__item">
-            <p>No files or folders in this location.</p>
+          <li className="resource-list__item dockspace-browser__empty-item">
+            {emptyState ?? <p>No files or folders in this location.</p>}
           </li>
         ) : null}
 
@@ -513,6 +516,7 @@ export const FileList = ({
   actionLabel,
   currentFolder = '/',
   downloadActionLabel,
+  emptyState,
   files,
   folderRenameActionLabel,
   folders = [],
@@ -536,6 +540,7 @@ export const FileList = ({
       actionLabel={actionLabel}
       currentFolder={currentFolder}
       downloadActionLabel={downloadActionLabel}
+      emptyState={emptyState}
       files={files}
       folderRenameActionLabel={folderRenameActionLabel}
       folders={folders}

@@ -59,6 +59,10 @@ interface UploadSessionResponse {
   expiresInSeconds: number;
 }
 
+interface UploadFileOptions {
+  onProgress?: (progress: number) => void;
+}
+
 export interface FileDownloadSessionResponse {
   downloadUrl: string;
   contentType?: string;
@@ -70,7 +74,8 @@ export interface FileDownloadSessionResponse {
 export const uploadFile = async (
   dockspaceId: string,
   fullPath: string,
-  file: File
+  file: File,
+  options?: UploadFileOptions
 ): Promise<void> => {
   const session = await apiRequest<UploadSessionResponse>(
     `/dockspaces/${dockspaceId}/files/upload-session`,
@@ -83,19 +88,40 @@ export const uploadFile = async (
     }
   );
 
-  const uploadResponse = await fetch(session.uploadUrl, {
-    method: 'PUT',
-    body: file,
-    headers: {
-      'content-type': file.type || 'application/octet-stream'
-    }
+  const etag = await new Promise<string>((resolve, reject) => {
+    const request = new XMLHttpRequest();
+    request.open('PUT', session.uploadUrl);
+    request.setRequestHeader('content-type', file.type || 'application/octet-stream');
+
+    request.upload.onprogress = (event) => {
+      if (!options?.onProgress || !event.lengthComputable) {
+        return;
+      }
+
+      const nextProgress = Math.min(100, Math.round((event.loaded / event.total) * 100));
+      options.onProgress(nextProgress);
+    };
+
+    request.onerror = () => {
+      reject(new Error('Upload to object storage failed'));
+    };
+
+    request.onabort = () => {
+      reject(new Error('Upload to object storage was cancelled'));
+    };
+
+    request.onload = () => {
+      if (request.status < 200 || request.status >= 300) {
+        reject(new Error('Upload to object storage failed'));
+        return;
+      }
+
+      options?.onProgress?.(100);
+      resolve(request.getResponseHeader('etag') ?? '');
+    };
+
+    request.send(file);
   });
-
-  if (!uploadResponse.ok) {
-    throw new Error('Upload to object storage failed');
-  }
-
-  const etag = uploadResponse.headers.get('etag') ?? '';
 
   await apiRequest(`/dockspaces/${dockspaceId}/files/confirm-upload`, {
     method: 'POST',

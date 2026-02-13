@@ -1,21 +1,11 @@
-import { Button } from '@/components/ui/Button';
-import type { StagedUploadFile } from '@/hooks/useDockspaceUploadDialog';
+import type { ActiveUploadFile } from '@/hooks/useDockspaceUploadDialog';
 
 interface UploadStagingListProps {
   emptyStateMessage?: string;
-  isSubmitting: boolean;
-  stagedFiles: StagedUploadFile[];
-  onFileNameChange: (id: number, name: string) => void;
-  onRemoveFile: (id: number) => void;
+  stagedFiles: ActiveUploadFile[];
 }
 
-export const UploadStagingList = ({
-  emptyStateMessage,
-  isSubmitting,
-  stagedFiles,
-  onFileNameChange,
-  onRemoveFile
-}: UploadStagingListProps) => {
+export const UploadStagingList = ({ emptyStateMessage, stagedFiles }: UploadStagingListProps) => {
   if (!stagedFiles.length) {
     return emptyStateMessage ? <p className="auth-note">{emptyStateMessage}</p> : null;
   }
@@ -24,29 +14,13 @@ export const UploadStagingList = ({
     <ul className="upload-staging-list">
       {stagedFiles.map((stagedFile) => (
         <li key={stagedFile.id} className="upload-staging-list__item">
-          <p className="upload-staging-list__meta">
-            Original file: {stagedFile.file.name} ({stagedFile.file.size} bytes)
-          </p>
-          <label className="ui-field" htmlFor={`upload-name-${stagedFile.id}`}>
-            <span className="ui-field__label">File name</span>
-            <input
-              id={`upload-name-${stagedFile.id}`}
-              className="ui-input"
-              value={stagedFile.name}
-              onChange={(event) => onFileNameChange(stagedFile.id, event.target.value)}
-              disabled={isSubmitting}
-            />
-          </label>
-          <div className="upload-staging-list__actions">
-            <Button
-              type="button"
-              variant="secondary"
-              onClick={() => onRemoveFile(stagedFile.id)}
-              disabled={isSubmitting}
-            >
-              Remove
-            </Button>
+          <p className="upload-staging-list__meta">{stagedFile.fullPath}</p>
+          <div className="upload-staging-list__progress">
+            <div className="upload-staging-list__progress-bar" style={{ width: `${stagedFile.progress}%` }} />
           </div>
+          <p className="upload-staging-list__status">
+            {stagedFile.status === 'uploading' ? `Uploading... ${stagedFile.progress}%` : 'Waiting to upload'}
+          </p>
         </li>
       ))}
     </ul>

@@ -10,6 +10,8 @@ interface FileListProps {
   folders?: FolderRecord[];
   currentFolder?: string;
   pendingFolderPaths?: string[];
+  pendingUploadFiles?: PendingUploadFileEntry[];
+  pendingUploadFolderPaths?: string[];
   emptyState?: ReactNode;
   downloadActionLabel?: string | undefined;
   folderRenameActionLabel?: string | undefined;
@@ -31,12 +33,18 @@ interface FolderEntry {
 }
 
 interface FolderListEntry extends FolderEntry {
-  isPending: boolean;
+  pendingState: 'none' | 'creating' | 'uploading';
 }
 
 interface BreadcrumbItem {
   label: string;
   fullPath: string;
+}
+
+interface PendingUploadFileEntry {
+  fullPath: string;
+  progress: number;
+  status: 'pending' | 'uploading';
 }
 
 const normalizeFolderPath = (folderPath: string): string => {
@@ -147,9 +155,10 @@ const FolderBreadcrumbs = ({ crumbs, currentFolder, onOpenFolder }: FolderBreadc
 
 interface PendingFolderRowProps {
   name: string;
+  statusLabel: string;
 }
 
-const PendingFolderRow = ({ name }: PendingFolderRowProps) => (
+const PendingFolderRow = ({ name, statusLabel }: PendingFolderRowProps) => (
   <li className="resource-list__item dockspace-browser__folder-item dockspace-browser__folder-item--pending">
     <div className="dockspace-browser__folder-pending">
       <span className="dockspace-browser__item-main">
@@ -158,11 +167,48 @@ const PendingFolderRow = ({ name }: PendingFolderRowProps) => (
       </span>
       <span className="dockspace-browser__item-meta">
         <span className="dockspace-browser__spinner" aria-hidden="true" />
-        Creating...
+        {statusLabel}
       </span>
     </div>
   </li>
 );
+
+interface PendingFileRowProps {
+  filePath: string;
+  progress: number;
+  status: 'pending' | 'uploading';
+}
+
+const PendingFileRow = ({ filePath, progress, status }: PendingFileRowProps) => {
+  const FileIcon = useFileIconForPath(filePath);
+  const fileName = fileNameFromPath(filePath);
+
+  return (
+    <li className="resource-list__item dockspace-browser__file-item dockspace-browser__file-item--pending">
+      <div className="dockspace-browser__file-row">
+        <span className="dockspace-browser__file-open dockspace-browser__file-open--pending">
+          <span className="dockspace-browser__file-summary">
+            <span className="dockspace-browser__file-main">
+              <FileIcon
+                className="dockspace-browser__file-icon"
+                size={16}
+                strokeWidth={1.5}
+                aria-hidden="true"
+              />
+              <span className="dockspace-browser__file-name">{fileName}</span>
+            </span>
+            <span className="dockspace-browser__file-size">
+              {status === 'uploading' ? `Uploading... ${progress}%` : 'Waiting to upload'}
+            </span>
+          </span>
+        </span>
+        <span className="dockspace-browser__item-meta">
+          <span className="dockspace-browser__spinner" aria-hidden="true" />
+        </span>
+      </div>
+    </li>
+  );
+};
 
 interface FolderRowProps {
   folderEntry: FolderEntry;
@@ -389,6 +435,8 @@ interface FolderModeListProps {
   onAction: (fullPath: string) => void;
   onOpenFolder: (folderPath: string) => void;
   pendingFolderPaths: string[];
+  pendingUploadFiles: PendingUploadFileEntry[];
+  pendingUploadFolderPaths: string[];
   renameActionLabel?: string | undefined;
   rootBreadcrumbLabel: string;
   toolbarActions?: ReactNode;
@@ -409,6 +457,8 @@ const FolderModeList = ({
   onAction,
   onOpenFolder,
   pendingFolderPaths,
+  pendingUploadFiles,
+  pendingUploadFolderPaths,
   renameActionLabel,
   rootBreadcrumbLabel,
   toolbarActions
@@ -432,7 +482,7 @@ const FolderModeList = ({
       nextFolders.set(folder.fullPath, {
         fullPath: folder.fullPath,
         name: folder.name,
-        isPending: false
+        pendingState: 'none'
       });
     }
 
@@ -445,20 +495,47 @@ const FolderModeList = ({
         nextFolders.set(pendingPath, {
           fullPath: pendingPath,
           name: folderName(pendingPath),
-          isPending: true
+          pendingState: 'creating'
+        });
+      }
+    }
+
+    for (const pendingPath of pendingUploadFolderPaths) {
+      if (parentFolderPath(pendingPath) !== normalizedCurrentFolder) {
+        continue;
+      }
+
+      if (!nextFolders.has(pendingPath)) {
+        nextFolders.set(pendingPath, {
+          fullPath: pendingPath,
+          name: folderName(pendingPath),
+          pendingState: 'uploading'
         });
       }
     }
 
     return Array.from(nextFolders.values()).sort((left, right) => left.name.localeCompare(right.name));
-  }, [folders, normalizedCurrentFolder, pendingFolderPaths]);
+  }, [folders, normalizedCurrentFolder, pendingFolderPaths, pendingUploadFolderPaths]);
+
+  const pendingFileEntries = useMemo(
+    () => {
+      const existingFilePaths = new Set(directFiles.map((file) => file.fullPath));
+
+      return pendingUploadFiles
+        .filter((item) => parentFolderPath(item.fullPath) === normalizedCurrentFolder)
+        .filter((item) => !existingFilePaths.has(item.fullPath))
+        .slice()
+        .sort((left, right) => fileNameFromPath(left.fullPath).localeCompare(fileNameFromPath(right.fullPath)));
+    },
+    [directFiles, normalizedCurrentFolder, pendingUploadFiles]
+  );
 
   const crumbs = useMemo(
     () => breadcrumbItems(normalizedCurrentFolder, rootBreadcrumbLabel),
     [normalizedCurrentFolder, rootBreadcrumbLabel]
   );
 
-  const hasEntries = folderEntries.length > 0 || directFiles.length > 0;
+  const hasEntries = folderEntries.length > 0 || directFiles.length > 0 || pendingFileEntries.length > 0;
 
   return (
     <div className="dockspace-browser">
@@ -481,8 +558,12 @@ const FolderModeList = ({
         ) : null}
 
         {folderEntries.map((folderEntry) =>
-          folderEntry.isPending ? (
-            <PendingFolderRow key={folderEntry.fullPath} name={folderEntry.name} />
+          folderEntry.pendingState !== 'none' ? (
+            <PendingFolderRow
+              key={folderEntry.fullPath}
+              name={folderEntry.name}
+              statusLabel={folderEntry.pendingState === 'creating' ? 'Creating...' : 'Uploading...'}
+            />
           ) : (
             <FolderRow
               key={folderEntry.fullPath}
@@ -493,6 +574,15 @@ const FolderModeList = ({
             />
           )
         )}
+
+        {pendingFileEntries.map((pendingFile) => (
+          <PendingFileRow
+            key={pendingFile.fullPath}
+            filePath={pendingFile.fullPath}
+            progress={pendingFile.progress}
+            status={pendingFile.status}
+          />
+        ))}
 
         {directFiles.map((file) => (
           <FileRow
@@ -527,6 +617,8 @@ export const FileList = ({
   onAction,
   onOpenFolder,
   pendingFolderPaths = [],
+  pendingUploadFiles = [],
+  pendingUploadFolderPaths = [],
   renameActionLabel,
   rootBreadcrumbLabel = 'Root',
   toolbarActions
@@ -551,6 +643,8 @@ export const FileList = ({
       onAction={onAction}
       onOpenFolder={onOpenFolder}
       pendingFolderPaths={pendingFolderPaths}
+      pendingUploadFiles={pendingUploadFiles}
+      pendingUploadFolderPaths={pendingUploadFolderPaths}
       renameActionLabel={renameActionLabel}
       rootBreadcrumbLabel={rootBreadcrumbLabel}
       toolbarActions={toolbarActions}

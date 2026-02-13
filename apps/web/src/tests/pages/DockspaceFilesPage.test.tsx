@@ -74,6 +74,7 @@ describe('DockspaceFilesPage', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Dockspace options' }));
     expect(screen.getByRole('menuitem', { name: 'Create folder' })).toBeInTheDocument();
     expect(screen.getByRole('menuitem', { name: 'Upload files' })).toBeInTheDocument();
+    expect(screen.getByRole('menuitem', { name: 'Upload folder' })).toBeInTheDocument();
     expect(screen.getByText('Trash')).toBeInTheDocument();
     expect(screen.getByText('FileList')).toBeInTheDocument();
   });

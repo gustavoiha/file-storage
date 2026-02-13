@@ -3,11 +3,11 @@ import { useParams } from '@tanstack/react-router';
 import { RequireAuth } from '@/components/auth/RequireAuth';
 import { UnauthorizedNotice } from '@/components/auth/UnauthorizedNotice';
 import { AddFolderDialog } from '@/components/files/AddFolderDialog';
+import { DockspaceSidebar } from '@/components/files/DockspaceSidebar';
 import { FileList } from '@/components/files/FileList';
 import { FileViewerDialog } from '@/components/files/FileViewerDialog';
 import { RenameFileDialog } from '@/components/files/RenameFileDialog';
 import { RenameFolderDialog } from '@/components/files/RenameFolderDialog';
-import { UploadFilesDialog } from '@/components/files/UploadFilesDialog';
 import { DockspaceFilesHeaderActions } from '@/components/files/DockspaceFilesHeaderActions';
 import { Button } from '@/components/ui/Button';
 import { buildPathInFolder } from '@/components/files/pathHelpers';
@@ -66,6 +66,7 @@ export const DockspaceFilesPage = () => {
   >(null);
   const [viewerFile, setViewerFile] = useState<FileRecord | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const folderInputRef = useRef<HTMLInputElement>(null);
   const currentFolder = folderTrail[folderTrail.length - 1] ?? ROOT_FOLDER;
 
   const dockspacesQuery = useDockspaces();
@@ -139,6 +140,10 @@ export const DockspaceFilesPage = () => {
     fileInputRef.current?.click();
   }, []);
 
+  const openFolderPicker = useCallback(() => {
+    folderInputRef.current?.click();
+  }, []);
+
   const onUploadSelection = useCallback(
     (event: ChangeEvent<HTMLInputElement>) => {
       const selectedFiles = Array.from(event.target.files ?? []);
@@ -150,6 +155,18 @@ export const DockspaceFilesPage = () => {
       }
     },
     [uploadDialog.stageFiles]
+  );
+
+  const onUploadFolderSelection = useCallback(
+    (event: ChangeEvent<HTMLInputElement>) => {
+      const selectedFiles = Array.from(event.target.files ?? []);
+      uploadDialog.stageFolderFiles(selectedFiles);
+
+      if (folderInputRef.current) {
+        folderInputRef.current.value = '';
+      }
+    },
+    [uploadDialog.stageFolderFiles]
   );
 
   const onOpenFolder = useCallback(
@@ -316,10 +333,36 @@ export const DockspaceFilesPage = () => {
     (renameFolder.error instanceof Error ? renameFolder.error.message : null);
 
   const uploadErrorMessage =
-    uploadDialog.validationError ??
-    (uploadFile.error instanceof Error ? uploadFile.error.message : null);
+    uploadDialog.validationError ?? (uploadFile.error instanceof Error ? uploadFile.error.message : null);
   const dockspaceName =
     dockspacesQuery.data?.find((dockspace) => dockspace.dockspaceId === dockspaceId)?.name ?? 'Dockspace';
+  const pendingUploadFiles = useMemo(
+    () =>
+      uploadDialog.activeUploads.map((upload) => ({
+        fullPath: upload.fullPath,
+        progress: upload.progress,
+        status: upload.status
+      })),
+    [uploadDialog.activeUploads]
+  );
+  const pendingUploadFolderPaths = useMemo(() => {
+    const folderPaths = new Set<string>();
+
+    for (const upload of uploadDialog.activeUploads) {
+      const segments = upload.fullPath.split('/').filter(Boolean);
+      if (segments.length <= 1) {
+        continue;
+      }
+
+      let runningPath = '';
+      for (let index = 0; index < segments.length - 1; index += 1) {
+        runningPath += `/${segments[index]}`;
+        folderPaths.add(runningPath);
+      }
+    }
+
+    return Array.from(folderPaths);
+  }, [uploadDialog.activeUploads]);
 
   const emptyDockspaceState = (
     <div className="dockspace-browser-empty">
@@ -367,50 +410,68 @@ export const DockspaceFilesPage = () => {
 
   return (
     <RequireAuth>
-      <Page>
+      <Page className="page--dockspace">
         {unauthorized ? (
           <UnauthorizedNotice />
         ) : (
           <>
-            <Card>
-              {filesQuery.isLoading ? (
-                <p>Loading...</p>
-              ) : (
-                <FileList
-                  files={files}
-                  folders={folders}
-                  currentFolder={currentFolder.fullPath}
-                  pendingFolderPaths={addFolderDialog.pendingFolderPaths}
-                  actionLabel="Move to Trash"
-                  downloadActionLabel="Download"
-                  renameActionLabel="Rename"
-                  folderRenameActionLabel="Rename"
-                  emptyState={emptyDockspaceState}
-                  rootBreadcrumbLabel={dockspaceName}
-                  toolbarActions={
-                    <DockspaceFilesHeaderActions
-                      fileInputRef={fileInputRef}
-                      isMenuOpen={isDockspaceMenuOpen}
-                      onMenuOpenChange={setIsDockspaceMenuOpen}
-                      dockspaceId={dockspaceId}
-                      onAddFolder={() => {
-                        addFolderDialog.openDialog();
-                      }}
-                      onUploadFiles={() => {
-                        openFilePicker();
-                      }}
-                      onUploadSelection={onUploadSelection}
+            <div className="dockspace-page-shell">
+              <div className="dockspace-page-main">
+                <Card>
+                  {filesQuery.isLoading ? (
+                    <p>Loading...</p>
+                  ) : (
+                    <FileList
+                      files={files}
+                      folders={folders}
+                      currentFolder={currentFolder.fullPath}
+                      pendingFolderPaths={addFolderDialog.pendingFolderPaths}
+                      pendingUploadFiles={pendingUploadFiles}
+                      pendingUploadFolderPaths={pendingUploadFolderPaths}
+                      actionLabel="Move to Trash"
+                      downloadActionLabel="Download"
+                      renameActionLabel="Rename"
+                      folderRenameActionLabel="Rename"
+                      emptyState={emptyDockspaceState}
+                      rootBreadcrumbLabel={dockspaceName}
+                      toolbarActions={
+                        <DockspaceFilesHeaderActions
+                          fileInputRef={fileInputRef}
+                          folderInputRef={folderInputRef}
+                          isMenuOpen={isDockspaceMenuOpen}
+                          onMenuOpenChange={setIsDockspaceMenuOpen}
+                          dockspaceId={dockspaceId}
+                          onAddFolder={() => {
+                            addFolderDialog.openDialog();
+                          }}
+                          onUploadFolder={() => {
+                            openFolderPicker();
+                          }}
+                          onUploadFiles={() => {
+                            openFilePicker();
+                          }}
+                          onUploadFolderSelection={onUploadFolderSelection}
+                          onUploadSelection={onUploadSelection}
+                        />
+                      }
+                      onRename={openRenameFileDialog}
+                      onRenameFolder={openRenameFolderDialog}
+                      onOpenFile={openFileViewer}
+                      onDownload={onDownloadFile}
+                      onOpenFolder={onOpenFolder}
+                      onAction={onMoveToTrash}
                     />
-                  }
-                  onRename={openRenameFileDialog}
-                  onRenameFolder={openRenameFolderDialog}
-                  onOpenFile={openFileViewer}
-                  onDownload={onDownloadFile}
-                  onOpenFolder={onOpenFolder}
-                  onAction={onMoveToTrash}
-                />
-              )}
-            </Card>
+                  )}
+                </Card>
+              </div>
+              <DockspaceSidebar
+                activeUploads={uploadDialog.activeUploads}
+                uploadErrorMessage={uploadErrorMessage}
+                onAddFolder={addFolderDialog.openDialog}
+                onUploadFiles={openFilePicker}
+                onUploadFolder={openFolderPicker}
+              />
+            </div>
             <AddFolderDialog
               errorMessage={addFolderDialog.errorMessage}
               folderName={addFolderDialog.folderName}
@@ -419,17 +480,6 @@ export const DockspaceFilesPage = () => {
               onClose={addFolderDialog.closeDialog}
               onFolderNameChange={addFolderDialog.onFolderNameChange}
               onSubmit={addFolderDialog.onSubmit}
-            />
-            <UploadFilesDialog
-              errorMessage={uploadErrorMessage}
-              isOpen={uploadDialog.isDialogOpen}
-              isSubmitting={uploadFile.isPending}
-              stagedFiles={uploadDialog.stagedFiles}
-              onAddMoreFiles={openFilePicker}
-              onClose={uploadDialog.closeDialog}
-              onFileNameChange={uploadDialog.onFileNameChange}
-              onRemoveFile={uploadDialog.removeStagedFile}
-              onSubmit={uploadDialog.onSubmit}
             />
             <RenameFileDialog
               errorMessage={renameFileDialogErrorMessage}

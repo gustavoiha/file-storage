@@ -11,7 +11,7 @@
 
 ## File Browser Operations
 
-- [ ] Implement deleting a folder. Show a confirmation before deleting. If there are files or folder nodes inside the folder, trash them one by one recursively on the client side.
+- [ ] Implement trashing an entire folder recursively, including all descendant files and subfolders, with confirmation and clear progress/error feedback.
 - [ ] Strengthen folder rename flow so renaming is blocked when the destination name conflicts with an existing sibling folder, with clear conflict messaging in the dialog.
 - [ ] Implement move-to-folder for files only, with multi-select support and hover checkboxes that replace file/folder icons while selecting.
 - [ ] Improve mutation cache handling for files/directories by applying targeted React Query cache updates (optimistic/patched state) instead of full refetch invalidation after each mutation.

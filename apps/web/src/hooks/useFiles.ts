@@ -65,8 +65,18 @@ export const useUploadFile = (dockspaceId: string, folder: string) => {
   void folder;
 
   return useMutation({
-    mutationFn: ({ fullPath, file }: { fullPath: string; file: File }) =>
-      uploadFile(dockspaceId, fullPath, file),
+    mutationFn: ({
+      fullPath,
+      file,
+      onProgress
+    }: {
+      fullPath: string;
+      file: File;
+      onProgress?: (progress: number) => void;
+    }) =>
+      onProgress
+        ? uploadFile(dockspaceId, fullPath, file, { onProgress })
+        : uploadFile(dockspaceId, fullPath, file),
     onSuccess: async () => {
       if (!userId) {
         return;

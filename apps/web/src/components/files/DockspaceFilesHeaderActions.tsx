@@ -4,21 +4,27 @@ import { DropdownMenu } from '@/components/ui/DropdownMenu';
 
 interface DockspaceFilesHeaderActionsProps {
   fileInputRef: RefObject<HTMLInputElement>;
+  folderInputRef: RefObject<HTMLInputElement>;
   isMenuOpen: boolean;
   onMenuOpenChange: (nextOpen: boolean) => void;
   dockspaceId: string;
   onAddFolder: () => void;
+  onUploadFolder: () => void;
   onUploadFiles: () => void;
+  onUploadFolderSelection: ChangeEventHandler<HTMLInputElement>;
   onUploadSelection: ChangeEventHandler<HTMLInputElement>;
 }
 
 export const DockspaceFilesHeaderActions = ({
   fileInputRef,
+  folderInputRef,
   isMenuOpen,
   onMenuOpenChange,
   dockspaceId,
   onAddFolder,
+  onUploadFolder,
   onUploadFiles,
+  onUploadFolderSelection,
   onUploadSelection
 }: DockspaceFilesHeaderActionsProps) => (
   <DropdownMenu className="dockspace-page-menu" isOpen={isMenuOpen} onOpenChange={onMenuOpenChange}>
@@ -28,6 +34,13 @@ export const DockspaceFilesHeaderActions = ({
       type="file"
       multiple
       onChange={onUploadSelection}
+    />
+    <input
+      ref={folderInputRef}
+      className="dockspace-files__hidden-input"
+      type="file"
+      {...({ webkitdirectory: '' } as Record<string, string>)}
+      onChange={onUploadFolderSelection}
     />
     <DropdownMenu.Trigger
       className="dockspace-page-menu__trigger"
@@ -47,6 +60,12 @@ export const DockspaceFilesHeaderActions = ({
         onClick={onUploadFiles}
       >
         Upload files
+      </DropdownMenu.Button>
+      <DropdownMenu.Button
+        className="dockspace-page-menu__item dockspace-page-menu__item--button"
+        onClick={onUploadFolder}
+      >
+        Upload folder
       </DropdownMenu.Button>
       <DropdownMenu.Separator />
       <DropdownMenu.Link asChild className="dockspace-page-menu__item">

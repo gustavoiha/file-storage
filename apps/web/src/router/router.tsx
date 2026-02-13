@@ -20,10 +20,12 @@ import { DockspacesPage } from '@/pages/DockspacesPage';
 
 const rootRoute = createRootRoute({
   component: () => (
-    <>
+    <div className="app-shell">
       <TopNav />
-      <Outlet />
-    </>
+      <div className="app-shell__body">
+        <Outlet />
+      </div>
+    </div>
   )
 });
 

@@ -1,3 +1,14 @@
+.app-shell {
+  --app-top-nav-height: 3.75rem;
+  min-height: 100vh;
+  display: grid;
+  grid-template-rows: auto 1fr;
+}
+
+.app-shell__body {
+  min-height: 0;
+}
+
 .page {
   max-width: 960px;
   margin: 0 auto;
@@ -30,10 +41,12 @@
   justify-content: space-between;
   background: rgba(0, 0, 0, 0.5);
   border-bottom: 1px solid var(--border);
-  padding: 0.85rem 1rem;
+  height: var(--app-top-nav-height);
+  padding: 0 1rem;
   position: sticky;
   top: 0;
   backdrop-filter: blur(8px);
+  z-index: 30;
 }
 
 .top-nav__brand {
@@ -99,6 +112,160 @@
 .dockspace-browser {
   display: grid;
   gap: 0.8rem;
+}
+
+.dockspace-page-shell {
+  --dockspace-sidebar-width: 320px;
+  display: grid;
+  grid-template-columns: var(--dockspace-sidebar-width) minmax(0, 1fr);
+  grid-template-areas: 'sidebar main';
+  min-height: calc(100vh - var(--app-top-nav-height));
+}
+
+.dockspace-page-main {
+  grid-area: main;
+  min-width: 0;
+  padding: 1rem;
+}
+
+.page--dockspace {
+  max-width: none;
+  margin: 0;
+  padding: 0;
+}
+
+.dockspace-sidebar {
+  grid-area: sidebar;
+  position: sticky;
+  top: var(--app-top-nav-height);
+  height: calc(100vh - var(--app-top-nav-height));
+  width: 100%;
+  border-right: 1px solid var(--border);
+  border-top: 0;
+  border-left: 0;
+  border-bottom: 0;
+  border-radius: 0;
+  background: rgba(0, 0, 0, 0.5);
+  backdrop-filter: blur(8px);
+  padding: 0.85rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+  overflow: hidden;
+}
+
+.dockspace-sidebar__section {
+  display: grid;
+  gap: 0.55rem;
+}
+
+.dockspace-sidebar__top-scroll {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  padding-right: 0.15rem;
+}
+
+.dockspace-sidebar__section--uploads {
+  flex-shrink: 0;
+  padding-top: 0.7rem;
+  border-top: 1px solid var(--border);
+}
+
+.dockspace-sidebar__title {
+  margin: 0;
+  font-size: 0.82rem;
+  text-transform: uppercase;
+  letter-spacing: 0.07em;
+  color: var(--text-muted);
+}
+
+.dockspace-sidebar__actions {
+  display: grid;
+  gap: 0.45rem;
+}
+
+.dockspace-sidebar__actions .ui-button {
+  width: 100%;
+  display: inline-flex;
+  align-items: center;
+  justify-content: flex-start;
+  gap: 0.45rem;
+}
+
+.dockspace-sidebar__uploads-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.6rem;
+}
+
+.dockspace-sidebar__uploads-count {
+  min-width: 1.35rem;
+  padding: 0.12rem 0.45rem;
+  border-radius: 999px;
+  border: 1px solid var(--border);
+  background: rgba(77, 168, 255, 0.12);
+  color: var(--text);
+  font-size: 0.74rem;
+  text-align: center;
+}
+
+.dockspace-sidebar__upload-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: 0.45rem;
+  max-height: min(34vh, 280px);
+  overflow: auto;
+}
+
+.dockspace-sidebar__upload-item {
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.03);
+  padding: 0.48rem 0.52rem;
+  display: grid;
+  gap: 0.3rem;
+}
+
+.dockspace-sidebar__upload-item-main {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.45rem;
+  min-width: 0;
+}
+
+.dockspace-sidebar__upload-item-icon {
+  color: var(--text-muted);
+  flex-shrink: 0;
+}
+
+.dockspace-sidebar__upload-item-path {
+  font-size: 0.8rem;
+  font-weight: 500;
+  color: var(--text);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.dockspace-sidebar__upload-item-status {
+  font-size: 0.74rem;
+  color: var(--text-muted);
+}
+
+.dockspace-sidebar__uploads-empty {
+  margin: 0;
+  font-size: 0.82rem;
+  color: var(--text-muted);
+}
+
+.dockspace-sidebar__uploads-error {
+  margin: 0;
+  color: var(--error);
+  font-size: 0.78rem;
 }
 
 .dockspace-browser__toolbar {
@@ -315,6 +482,10 @@
   padding: 0;
 }
 
+.dockspace-browser__file-item--pending {
+  opacity: 0.9;
+}
+
 .dockspace-browser__file-row {
   width: 100%;
   display: flex;
@@ -339,6 +510,10 @@
 
 .dockspace-browser__file-open:focus-visible {
   outline: none;
+}
+
+.dockspace-browser__file-open--pending {
+  cursor: default;
 }
 
 .dockspace-browser__file-summary {
@@ -622,6 +797,28 @@
   font-size: 0.85rem;
 }
 
+.upload-staging-list__progress {
+  width: 100%;
+  height: 0.5rem;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.08);
+  overflow: hidden;
+  margin-top: 0.45rem;
+}
+
+.upload-staging-list__progress-bar {
+  height: 100%;
+  border-radius: inherit;
+  background: linear-gradient(90deg, rgba(114, 196, 255, 0.9), rgba(47, 121, 201, 0.9));
+  transition: width 0.16s ease;
+}
+
+.upload-staging-list__status {
+  margin: 0.45rem 0 0;
+  font-size: 0.82rem;
+  color: var(--text-muted);
+}
+
 .upload-staging-list__actions {
   display: flex;
   justify-content: flex-end;
@@ -745,8 +942,44 @@
   }
 }
 
+@media (max-width: 920px) {
+  .dockspace-page-shell {
+    grid-template-columns: 1fr;
+    grid-template-areas:
+      'main'
+      'sidebar';
+    min-height: 0;
+  }
+
+  .dockspace-page-main {
+    padding: 0;
+  }
+
+  .dockspace-sidebar {
+    position: static;
+    width: 100%;
+    height: auto;
+    top: auto;
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    background: linear-gradient(165deg, rgba(20, 24, 32, 0.96), rgba(7, 10, 15, 0.96));
+    backdrop-filter: none;
+    overflow: visible;
+  }
+
+  .dockspace-sidebar__top-scroll {
+    overflow: visible;
+  }
+
+  .dockspace-sidebar__section--uploads {
+    padding-top: 0.5rem;
+  }
+}
+
 @media (max-width: 720px) {
   .top-nav {
+    height: auto;
+    padding: 0.7rem 1rem;
     flex-direction: column;
     align-items: flex-start;
     gap: 0.6rem;

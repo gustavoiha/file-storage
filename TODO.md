@@ -6,7 +6,7 @@
 
 ## Upload Experience
 
-- [ ] Implement uploading an entire local folder (including nested subfolders) into the current dockspace folder, preserving relative paths and showing per-file upload progress/errors.
+- [x] Implement uploading an entire local folder (including nested subfolders) into the current dockspace folder, preserving relative paths and showing per-file upload progress/errors.
 - [ ] Implement S3 multipart uploads for very large files (threshold-based fallback from single PUT), including retry/abort flow and final metadata confirmation.
 
 ## File Browser Operations

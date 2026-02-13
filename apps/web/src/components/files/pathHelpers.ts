@@ -36,3 +36,6 @@ export const isValidUploadPath = (path: string): boolean => {
     return Boolean(trimmed) && trimmed !== '.' && trimmed !== '..';
   });
 };
+
+export const normalizeNodeName = (name: string): string =>
+  name.trim().normalize('NFKC').replace(/\s+/g, '-').toLocaleLowerCase();

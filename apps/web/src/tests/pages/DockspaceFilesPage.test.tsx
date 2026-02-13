@@ -1,5 +1,5 @@
-import { fireEvent, render, screen } from '@testing-library/react';
-import { describe, expect, it, vi } from 'vitest';
+import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 import { ApiError } from '@/lib/apiClient';
 import { DockspaceFilesPage } from '@/pages/DockspaceFilesPage';
 
@@ -31,9 +31,20 @@ vi.mock('@/components/auth/UnauthorizedNotice', () => ({
 }));
 
 vi.mock('@/components/files/FileList', () => ({
-  FileList: ({ toolbarActions }: { toolbarActions?: unknown }) => (
+  FileList: ({
+    toolbarActions,
+    onRenameFolder
+  }: {
+    toolbarActions?: unknown;
+    onRenameFolder?: (folderPath: string) => void;
+  }) => (
     <div>
       {toolbarActions as any}
+      {onRenameFolder ? (
+        <button type="button" onClick={() => onRenameFolder('/docs')}>
+          Open rename folder
+        </button>
+      ) : null}
       FileList
     </div>
   )
@@ -58,6 +69,10 @@ vi.mock('@/hooks/useDockspaces', () => ({
     ]
   })
 }));
+
+afterEach(() => {
+  cleanup();
+});
 
 describe('DockspaceFilesPage', () => {
   it('renders dockspace files page', () => {
@@ -92,5 +107,79 @@ describe('DockspaceFilesPage', () => {
     render(<DockspaceFilesPage />);
 
     expect(screen.getByText('UnauthorizedNotice')).toBeInTheDocument();
+  });
+
+  it('blocks folder rename when sibling folder with same normalized name exists', async () => {
+    mockState.renameFolder = vi.fn(async () => {});
+    mockState.filesResult = {
+      isLoading: false,
+      data: {
+        parentFolderNodeId: 'root',
+        items: [
+          {
+            parentFolderNodeId: 'root',
+            childId: 'f_docs',
+            childType: 'folder',
+            name: 'docs',
+            createdAt: '2026-01-01T00:00:00.000Z',
+            updatedAt: '2026-01-01T00:00:00.000Z'
+          },
+          {
+            parentFolderNodeId: 'root',
+            childId: 'f_reports',
+            childType: 'folder',
+            name: 'my reports',
+            createdAt: '2026-01-01T00:00:00.000Z',
+            updatedAt: '2026-01-01T00:00:00.000Z'
+          }
+        ]
+      },
+      error: null
+    };
+
+    render(<DockspaceFilesPage />);
+    fireEvent.click(screen.getByRole('button', { name: 'Open rename folder' }));
+    fireEvent.change(screen.getByLabelText('Folder name'), {
+      target: { value: 'my   reports' }
+    });
+    fireEvent.click(screen.getByRole('button', { name: 'Rename' }));
+
+    expect(mockState.renameFolder).not.toHaveBeenCalled();
+    expect(screen.getByText('A sibling folder with this name already exists.')).toBeInTheDocument();
+  });
+
+  it('shows conflict message in dialog when API returns 409 on folder rename', async () => {
+    mockState.renameFolder = vi.fn(async () => {
+      throw new ApiError('Request failed', 409);
+    });
+    mockState.filesResult = {
+      isLoading: false,
+      data: {
+        parentFolderNodeId: 'root',
+        items: [
+          {
+            parentFolderNodeId: 'root',
+            childId: 'f_docs',
+            childType: 'folder',
+            name: 'docs',
+            createdAt: '2026-01-01T00:00:00.000Z',
+            updatedAt: '2026-01-01T00:00:00.000Z'
+          }
+        ]
+      },
+      error: null
+    };
+
+    render(<DockspaceFilesPage />);
+    fireEvent.click(screen.getByRole('button', { name: 'Open rename folder' }));
+    fireEvent.change(screen.getByLabelText('Folder name'), {
+      target: { value: 'docs-archive' }
+    });
+    fireEvent.click(screen.getByRole('button', { name: 'Rename' }));
+
+    await waitFor(() => expect(mockState.renameFolder).toHaveBeenCalledTimes(1));
+    await waitFor(() =>
+      expect(screen.getByText('A sibling folder with this name already exists.')).toBeInTheDocument()
+    );
   });
 });

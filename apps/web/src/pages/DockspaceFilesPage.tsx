@@ -10,7 +10,7 @@ import { RenameFileDialog } from '@/components/files/RenameFileDialog';
 import { RenameFolderDialog } from '@/components/files/RenameFolderDialog';
 import { DockspaceFilesHeaderActions } from '@/components/files/DockspaceFilesHeaderActions';
 import { Button } from '@/components/ui/Button';
-import { buildPathInFolder } from '@/components/files/pathHelpers';
+import { buildPathInFolder, normalizeNodeName } from '@/components/files/pathHelpers';
 import { Card } from '@/components/ui/Card';
 import { Page } from '@/components/ui/Page';
 import { useAddFolderDialog } from '@/hooks/useAddFolderDialog';
@@ -49,6 +49,17 @@ const fileNameFromPath = (fullPath: string): string => {
   const segments = fullPath.split('/').filter(Boolean);
   return segments[segments.length - 1] ?? fullPath;
 };
+
+const parentFolderPathFromPath = (fullPath: string): string => {
+  const segments = fullPath.split('/').filter(Boolean);
+  if (segments.length <= 1) {
+    return '/';
+  }
+
+  return `/${segments.slice(0, -1).join('/')}`;
+};
+
+const FOLDER_RENAME_CONFLICT_MESSAGE = 'A sibling folder with this name already exists.';
 
 export const DockspaceFilesPage = () => {
   const { dockspaceId } = useParams({ from: '/dockspaces/$dockspaceId' });
@@ -311,18 +322,39 @@ export const DockspaceFilesPage = () => {
         return;
       }
 
+      const targetParentPath = parentFolderPathFromPath(renameFolderDialogPath);
+      const normalizedTargetName = normalizeNodeName(newName);
+      const hasSiblingConflict = folders.some((folder) => {
+        if (folder.fullPath === renameFolderDialogPath) {
+          return false;
+        }
+
+        if (parentFolderPathFromPath(folder.fullPath) !== targetParentPath) {
+          return false;
+        }
+
+        return normalizeNodeName(folder.name) === normalizedTargetName;
+      });
+
+      if (hasSiblingConflict) {
+        setRenameFolderDialogValidationError(FOLDER_RENAME_CONFLICT_MESSAGE);
+        return;
+      }
+
       setRenameFolderDialogValidationError(null);
       void (async () => {
         try {
           await renameFolder.mutateAsync({ folderPath: renameFolderDialogPath, newName });
           setRenameFolderDialogPath(null);
           setRenameFolderDialogName('');
-        } catch {
-          // Error is surfaced through renameFolder.error.
+        } catch (error) {
+          if (error instanceof ApiError && error.statusCode === 409) {
+            setRenameFolderDialogValidationError(FOLDER_RENAME_CONFLICT_MESSAGE);
+          }
         }
       })();
     },
-    [renameFolder, renameFolderDialogName, renameFolderDialogPath]
+    [folders, renameFolder, renameFolderDialogName, renameFolderDialogPath]
   );
 
   const renameFileDialogErrorMessage =

@@ -33,16 +33,23 @@ vi.mock('@/components/auth/UnauthorizedNotice', () => ({
 vi.mock('@/components/files/FileList', () => ({
   FileList: ({
     toolbarActions,
-    onRenameFolder
+    onRenameFolder,
+    onActionFolder
   }: {
     toolbarActions?: unknown;
     onRenameFolder?: (folderPath: string) => void;
+    onActionFolder?: (folderPath: string) => void;
   }) => (
     <div>
       {toolbarActions as any}
       {onRenameFolder ? (
         <button type="button" onClick={() => onRenameFolder('/docs')}>
           Open rename folder
+        </button>
+      ) : null}
+      {onActionFolder ? (
+        <button type="button" onClick={() => onActionFolder('/docs')}>
+          Open trash folder
         </button>
       ) : null}
       FileList
@@ -180,6 +187,59 @@ describe('DockspaceFilesPage', () => {
     await waitFor(() => expect(mockState.renameFolder).toHaveBeenCalledTimes(1));
     await waitFor(() =>
       expect(screen.getByText('A sibling folder with this name already exists.')).toBeInTheDocument()
+    );
+  });
+
+  it('shows progress state while recursively trashing a folder', async () => {
+    let resolveMove!: () => void;
+    const movePromise = new Promise<void>((resolve) => {
+      resolveMove = resolve;
+    });
+    mockState.moveToTrash = vi.fn(async () => await movePromise);
+    mockState.filesResult = {
+      isLoading: false,
+      data: {
+        parentFolderNodeId: 'root',
+        items: []
+      },
+      error: null
+    };
+
+    render(<DockspaceFilesPage />);
+    fireEvent.click(screen.getByRole('button', { name: 'Open trash folder' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Move to trash' }));
+
+    expect(screen.getByRole('button', { name: 'Moving to trash...' })).toBeDisabled();
+    expect(mockState.moveToTrash).toHaveBeenCalledWith({
+      fullPath: '/docs',
+      targetType: 'folder'
+    });
+
+    resolveMove();
+    await waitFor(() =>
+      expect(screen.queryByRole('button', { name: 'Moving to trash...' })).not.toBeInTheDocument()
+    );
+  });
+
+  it('shows error feedback when recursive folder trash fails', async () => {
+    mockState.moveToTrash = vi.fn(async () => {
+      throw new Error('Failed to move folder to trash');
+    });
+    mockState.filesResult = {
+      isLoading: false,
+      data: {
+        parentFolderNodeId: 'root',
+        items: []
+      },
+      error: null
+    };
+
+    render(<DockspaceFilesPage />);
+    fireEvent.click(screen.getByRole('button', { name: 'Open trash folder' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Move to trash' }));
+
+    await waitFor(() =>
+      expect(screen.getByText('Failed to move folder to trash')).toBeInTheDocument()
     );
   });
 });

@@ -1,5 +1,6 @@
 import { randomUUID } from 'node:crypto';
 import {
+  DeleteCommand,
   GetCommand,
   PutCommand,
   QueryCommand,
@@ -551,6 +552,13 @@ export interface ResolvedFileByPath {
   directory: DirectoryItem;
 }
 
+export interface ResolvedFolderByPath {
+  folderPath: string;
+  parentFolderPath: string;
+  folderNode: FolderNodeItem;
+  directory: DirectoryItem;
+}
+
 export const resolveFileByFullPath = async (
   userId: string,
   dockspaceId: string,
@@ -589,34 +597,87 @@ export const resolveFileByFullPath = async (
   };
 };
 
+export const resolveFolderByPath = async (
+  userId: string,
+  dockspaceId: string,
+  folderPath: string
+): Promise<ResolvedFolderByPath | null> => {
+  const normalizedFolderPath = normalizeFolderPath(folderPath);
+  const segments = splitFolderPath(normalizedFolderPath);
+  if (!segments.length) {
+    return null;
+  }
+
+  const folderName = segments[segments.length - 1] ?? '';
+  const parentFolderPath = segments.length === 1 ? '/' : `/${segments.slice(0, -1).join('/')}`;
+  const parentFolderNodeId = await resolveFolderNodeId(userId, dockspaceId, parentFolderPath);
+  if (!parentFolderNodeId) {
+    return null;
+  }
+
+  const directory = await findDirectoryEntryByNameInternal(
+    userId,
+    dockspaceId,
+    parentFolderNodeId,
+    'F',
+    folderName
+  );
+  if (!directory) {
+    return null;
+  }
+
+  const folderNode = await getFolderNodeById(userId, dockspaceId, directory.childId);
+  if (!folderNode) {
+    return null;
+  }
+
+  return {
+    folderPath: normalizedFolderPath,
+    parentFolderPath,
+    folderNode,
+    directory
+  };
+};
+
+export const ensureFolderNodeIdByPath = async (
+  userId: string,
+  dockspaceId: string,
+  folderPath: string,
+  nowIso: string
+): Promise<string> => {
+  const normalizedFolderPath = normalizeFolderPath(folderPath);
+  const folderSegments = splitFolderPath(normalizedFolderPath);
+  return ensureFolderNodeId(userId, dockspaceId, folderSegments, nowIso);
+};
+
+export const fullPathForTrashedFileNode = async (
+  userId: string,
+  dockspaceId: string,
+  fileNode: FileNodeItem
+): Promise<string> => {
+  if (fileNode.trashedPath) {
+    return normalizeFullPath(fileNode.trashedPath);
+  }
+
+  return fullPathFromFileNode(userId, dockspaceId, fileNode);
+};
+
 export const findTrashedFileByFullPath = async (
   userId: string,
   dockspaceId: string,
   fullPath: string
 ): Promise<FileNodeItem | null> => {
-  const { folderPath, fileName } = splitFullPath(fullPath);
-  const parentFolderNodeId = await resolveFolderNodeId(userId, dockspaceId, folderPath);
-  if (!parentFolderNodeId) {
-    return null;
+  const normalizedFullPath = normalizeFullPath(fullPath);
+  const files = await listTrashedFileNodes(userId, dockspaceId);
+
+  for (const file of files) {
+    const path = await fullPathForTrashedFileNode(userId, dockspaceId, file);
+    if (path === normalizedFullPath) {
+      return file;
+    }
   }
 
-  const files = await queryAll<FileNodeItem>({
-    KeyConditionExpression: 'PK = :pk AND begins_with(SK, :skPrefix)',
-    FilterExpression:
-      'parentFolderNodeId = :parentFolderNodeId AND #name = :name AND attribute_exists(deletedAt) AND attribute_not_exists(purgedAt)',
-    ExpressionAttributeNames: {
-      '#name': 'name'
-    },
-    ExpressionAttributeValues: {
-      ':pk': buildFilePk(userId, dockspaceId),
-      ':skPrefix': 'L#',
-      ':parentFolderNodeId': parentFolderNodeId,
-      ':name': fileName
-    }
-  });
-
-  files.sort((a, b) => b.updatedAt.localeCompare(a.updatedAt));
-  return files[0] ?? null;
+  return null;
 };
 
 export const listActiveFilesInFolder = async (
@@ -626,6 +687,72 @@ export const listActiveFilesInFolder = async (
 ): Promise<Array<{ fullPath: string; fileNode: FileNodeItem }>> => {
   const contents = await listActiveFolderContents(userId, dockspaceId, folderPath);
   return contents.files;
+};
+
+interface RecursiveFolderTrashPlan {
+  files: ResolvedFileByPath[];
+  folderDirectories: DirectoryItem[];
+  folderNodeIds: string[];
+}
+
+export const buildRecursiveFolderTrashPlan = async (
+  userId: string,
+  dockspaceId: string,
+  resolvedFolder: ResolvedFolderByPath
+): Promise<RecursiveFolderTrashPlan> => {
+  const folderDirectories: DirectoryItem[] = [resolvedFolder.directory];
+  const folderNodeIds = new Set<string>([resolvedFolder.directory.childId]);
+  const files: ResolvedFileByPath[] = [];
+  const foldersToVisit: Array<{ folderNodeId: string; folderPath: string }> = [
+    {
+      folderNodeId: resolvedFolder.directory.childId,
+      folderPath: resolvedFolder.folderPath
+    }
+  ];
+
+  while (foldersToVisit.length > 0) {
+    const current = foldersToVisit.shift();
+    if (!current) {
+      continue;
+    }
+
+    const childDirectoryItems = await listDirectoryChildrenAction(
+      userId,
+      dockspaceId,
+      current.folderNodeId
+    );
+
+    for (const directoryItem of childDirectoryItems) {
+      if (directoryItem.childType === 'folder') {
+        const childFolderPath = buildFullPath(current.folderPath, directoryItem.name);
+        folderDirectories.push(directoryItem);
+        folderNodeIds.add(directoryItem.childId);
+        foldersToVisit.push({
+          folderNodeId: directoryItem.childId,
+          folderPath: childFolderPath
+        });
+        continue;
+      }
+
+      const fileNode = await getFileNodeById(userId, dockspaceId, directoryItem.childId);
+      if (!fileNode || fileStateFromNode(fileNode) !== 'ACTIVE') {
+        continue;
+      }
+
+      files.push({
+        fullPath: buildFullPath(current.folderPath, directoryItem.name),
+        folderPath: current.folderPath,
+        fileNode,
+        directory: directoryItem
+      });
+    }
+  }
+
+  return {
+    files,
+    folderDirectories,
+    folderNodeIds: Array.from(folderNodeIds)
+  };
 };
 
 export { listDirectoryChildrenByParentFolderNodeId } from './repository/folderChildren.js';
@@ -725,10 +852,11 @@ export const markResolvedFileNodeTrashed = async (
             },
             ConditionExpression: 'attribute_not_exists(deletedAt) AND attribute_not_exists(purgedAt)',
             UpdateExpression:
-              'SET deletedAt = :deletedAt, flaggedForDeleteAt = :flaggedForDeleteAt, updatedAt = :updatedAt',
+              'SET deletedAt = :deletedAt, flaggedForDeleteAt = :flaggedForDeleteAt, trashedPath = :trashedPath, updatedAt = :updatedAt',
             ExpressionAttributeValues: {
               ':deletedAt': nowIso,
               ':flaggedForDeleteAt': flaggedForDeleteAt,
+              ':trashedPath': resolved.fullPath,
               ':updatedAt': nowIso
             }
           }
@@ -746,6 +874,42 @@ export const markResolvedFileNodeTrashed = async (
       ]
     })
   );
+};
+
+export const deleteDirectoryItems = async (
+  userId: string,
+  dockspaceId: string,
+  directoryItems: DirectoryItem[]
+): Promise<void> => {
+  for (const directoryItem of directoryItems) {
+    await dynamoDoc.send(
+      new DeleteCommand({
+        TableName: env.tableName,
+        Key: {
+          PK: buildFilePk(userId, dockspaceId),
+          SK: directoryItem.SK
+        }
+      })
+    );
+  }
+};
+
+export const deleteFolderNodeItems = async (
+  userId: string,
+  dockspaceId: string,
+  folderNodeIds: string[]
+): Promise<void> => {
+  for (const folderNodeId of folderNodeIds) {
+    await dynamoDoc.send(
+      new DeleteCommand({
+        TableName: env.tableName,
+        Key: {
+          PK: buildFilePk(userId, dockspaceId),
+          SK: buildFolderNodeSk(folderNodeId)
+        }
+      })
+    );
+  }
 };
 
 export const moveOrRenameActiveFileNode = async (params: {
@@ -1088,10 +1252,12 @@ export const restoreFileNodeFromTrash = async (params: {
   userId: string;
   dockspaceId: string;
   fileNode: FileNodeItem;
+  parentFolderNodeId: string;
+  fileName: string;
   nowIso: string;
 }): Promise<void> => {
   const fileNodeId = getFileNodeIdFromSk(params.fileNode.SK);
-  const normalizedName = normalizeNodeName(params.fileNode.name);
+  const normalizedName = normalizeNodeName(params.fileName);
 
   await dynamoDoc.send(
     new TransactWriteCommand({
@@ -1104,8 +1270,14 @@ export const restoreFileNodeFromTrash = async (params: {
               SK: params.fileNode.SK
             },
             ConditionExpression: 'attribute_exists(deletedAt) AND attribute_not_exists(purgedAt)',
-            UpdateExpression: 'SET updatedAt = :updatedAt REMOVE deletedAt, flaggedForDeleteAt, purgedAt',
+            UpdateExpression:
+              'SET parentFolderNodeId = :parentFolderNodeId, #name = :name, updatedAt = :updatedAt REMOVE deletedAt, flaggedForDeleteAt, purgedAt, trashedPath',
+            ExpressionAttributeNames: {
+              '#name': 'name'
+            },
             ExpressionAttributeValues: {
+              ':parentFolderNodeId': params.parentFolderNodeId,
+              ':name': params.fileName,
               ':updatedAt': params.nowIso
             }
           }
@@ -1116,17 +1288,17 @@ export const restoreFileNodeFromTrash = async (params: {
             Item: {
               PK: buildFilePk(params.userId, params.dockspaceId),
               SK: buildDirectorySk(
-                params.fileNode.parentFolderNodeId,
+                params.parentFolderNodeId,
                 'L',
                 normalizedName,
                 fileNodeId
               ),
               type: 'DIRECTORY',
-              name: params.fileNode.name,
+              name: params.fileName,
               normalizedName,
               childId: fileNodeId,
               childType: 'file',
-              parentFolderNodeId: params.fileNode.parentFolderNodeId,
+              parentFolderNodeId: params.parentFolderNodeId,
               createdAt: params.fileNode.createdAt,
               updatedAt: params.nowIso
             } as DirectoryItem,

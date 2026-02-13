@@ -14,6 +14,7 @@ export interface FileNodeItem {
   etag: string;
   deletedAt?: string;
   flaggedForDeleteAt?: string;
+  trashedPath?: string;
   purgedAt?: string;
 }
 

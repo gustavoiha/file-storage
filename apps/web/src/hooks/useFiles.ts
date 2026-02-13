@@ -131,7 +131,8 @@ export const useMoveToTrash = (dockspaceId: string, folder: string) => {
   void folder;
 
   return useMutation({
-    mutationFn: (fullPath: string) => moveToTrash(dockspaceId, fullPath),
+    mutationFn: (params: { fullPath: string; targetType?: 'file' | 'folder' }) =>
+      moveToTrash(dockspaceId, params),
     onSuccess: async () => {
       if (!userId) {
         return;

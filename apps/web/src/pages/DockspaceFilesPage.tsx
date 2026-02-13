@@ -3,6 +3,7 @@ import { useParams } from '@tanstack/react-router';
 import { RequireAuth } from '@/components/auth/RequireAuth';
 import { UnauthorizedNotice } from '@/components/auth/UnauthorizedNotice';
 import { AddFolderDialog } from '@/components/files/AddFolderDialog';
+import { ConfirmFolderTrashDialog } from '@/components/files/ConfirmFolderTrashDialog';
 import { DockspaceSidebar } from '@/components/files/DockspaceSidebar';
 import { FileList } from '@/components/files/FileList';
 import { FileViewerDialog } from '@/components/files/FileViewerDialog';
@@ -75,6 +76,10 @@ export const DockspaceFilesPage = () => {
   const [renameFolderDialogValidationError, setRenameFolderDialogValidationError] = useState<
     string | null
   >(null);
+  const [trashFolderDialogPath, setTrashFolderDialogPath] = useState<string | null>(null);
+  const [trashFolderDialogError, setTrashFolderDialogError] = useState<string | null>(null);
+  const [isTrashingFolder, setIsTrashingFolder] = useState(false);
+  const [pendingFolderTrashPaths, setPendingFolderTrashPaths] = useState<string[]>([]);
   const [viewerFile, setViewerFile] = useState<FileRecord | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const folderInputRef = useRef<HTMLInputElement>(null);
@@ -214,9 +219,57 @@ export const DockspaceFilesPage = () => {
 
   const onMoveToTrash = useCallback(
     (fullPath: string) => {
-      void moveToTrash.mutateAsync(fullPath);
+      void moveToTrash.mutateAsync({ fullPath, targetType: 'file' });
     },
     [moveToTrash]
+  );
+
+  const openTrashFolderDialog = useCallback((folderPath: string) => {
+    setTrashFolderDialogPath(folderPath);
+    setTrashFolderDialogError(null);
+  }, []);
+
+  const closeTrashFolderDialog = useCallback(() => {
+    if (isTrashingFolder) {
+      return;
+    }
+
+    setTrashFolderDialogPath(null);
+    setTrashFolderDialogError(null);
+  }, [isTrashingFolder]);
+
+  const onTrashFolderSubmit = useCallback(
+    (event: FormEvent<HTMLFormElement>) => {
+      event.preventDefault();
+
+      if (!trashFolderDialogPath) {
+        return;
+      }
+
+      const folderPath = trashFolderDialogPath;
+      setTrashFolderDialogError(null);
+      setIsTrashingFolder(true);
+      setPendingFolderTrashPaths((previous) =>
+        previous.includes(folderPath) ? previous : previous.concat(folderPath)
+      );
+
+      void (async () => {
+        try {
+          await moveToTrash.mutateAsync({ fullPath: folderPath, targetType: 'folder' });
+          setTrashFolderDialogPath(null);
+        } catch (error) {
+          setTrashFolderDialogError(
+            error instanceof Error ? error.message : 'Failed to move folder to trash.'
+          );
+        } finally {
+          setPendingFolderTrashPaths((previous) =>
+            previous.filter((pendingPath) => pendingPath !== folderPath)
+          );
+          setIsTrashingFolder(false);
+        }
+      })();
+    },
+    [moveToTrash, trashFolderDialogPath]
   );
 
   const openFileViewer = useCallback((file: FileRecord) => {
@@ -456,10 +509,11 @@ export const DockspaceFilesPage = () => {
                     <FileList
                       files={files}
                       folders={folders}
-                      currentFolder={currentFolder.fullPath}
-                      pendingFolderPaths={addFolderDialog.pendingFolderPaths}
-                      pendingUploadFiles={pendingUploadFiles}
-                      pendingUploadFolderPaths={pendingUploadFolderPaths}
+                    currentFolder={currentFolder.fullPath}
+                    pendingFolderPaths={addFolderDialog.pendingFolderPaths}
+                    pendingFolderTrashPaths={pendingFolderTrashPaths}
+                    pendingUploadFiles={pendingUploadFiles}
+                    pendingUploadFolderPaths={pendingUploadFolderPaths}
                       actionLabel="Move to Trash"
                       downloadActionLabel="Download"
                       renameActionLabel="Rename"
@@ -488,12 +542,13 @@ export const DockspaceFilesPage = () => {
                       }
                       onRename={openRenameFileDialog}
                       onRenameFolder={openRenameFolderDialog}
-                      onOpenFile={openFileViewer}
-                      onDownload={onDownloadFile}
-                      onOpenFolder={onOpenFolder}
-                      onAction={onMoveToTrash}
-                    />
-                  )}
+                    onOpenFile={openFileViewer}
+                    onDownload={onDownloadFile}
+                    onOpenFolder={onOpenFolder}
+                    onActionFolder={openTrashFolderDialog}
+                    onAction={onMoveToTrash}
+                  />
+                )}
                 </Card>
               </div>
               <DockspaceSidebar
@@ -540,6 +595,14 @@ export const DockspaceFilesPage = () => {
                 }
               }}
               onSubmit={onRenameFolderSubmit}
+            />
+            <ConfirmFolderTrashDialog
+              errorMessage={trashFolderDialogError}
+              folderPath={trashFolderDialogPath}
+              isOpen={Boolean(trashFolderDialogPath)}
+              isSubmitting={isTrashingFolder}
+              onClose={closeTrashFolderDialog}
+              onSubmit={onTrashFolderSubmit}
             />
             {viewerFile ? (
               <FileViewerDialog

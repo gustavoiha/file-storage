@@ -224,6 +224,38 @@ describe('FileList', () => {
     expect(onRenameFolder).toHaveBeenCalledWith('/docs');
   });
 
+  it('moves a folder to trash from folder actions menu', () => {
+    const onAction = vi.fn();
+    const onOpenFolder = vi.fn();
+    const onActionFolder = vi.fn();
+
+    render(
+      <FileList
+        files={[]}
+        folders={[
+          {
+            folderNodeId: 'f_docs',
+            parentFolderNodeId: 'root',
+            fullPath: '/docs',
+            name: 'docs',
+            createdAt: '2026-01-01T00:00:00.000Z',
+            updatedAt: '2026-01-01T00:00:00.000Z'
+          }
+        ]}
+        currentFolder="/"
+        pendingFolderPaths={[]}
+        actionLabel="Move to Trash"
+        onActionFolder={onActionFolder}
+        onOpenFolder={onOpenFolder}
+        onAction={onAction}
+      />
+    );
+
+    fireEvent.contextMenu(screen.getByText('docs'));
+    fireEvent.click(screen.getByRole('menuitem', { name: /move to trash/i }));
+    expect(onActionFolder).toHaveBeenCalledWith('/docs');
+  });
+
   it('shows pending folder placeholder', () => {
     const onAction = vi.fn();
     const onOpenFolder = vi.fn();
@@ -242,6 +274,27 @@ describe('FileList', () => {
 
     expect(screen.getByText('photos')).toBeInTheDocument();
     expect(screen.getByText('Creating...')).toBeInTheDocument();
+  });
+
+  it('shows pending trash folder placeholder', () => {
+    const onAction = vi.fn();
+    const onOpenFolder = vi.fn();
+
+    render(
+      <FileList
+        files={[]}
+        folders={[]}
+        currentFolder="/"
+        pendingFolderPaths={[]}
+        pendingFolderTrashPaths={['/photos']}
+        actionLabel="Move to Trash"
+        onOpenFolder={onOpenFolder}
+        onAction={onAction}
+      />
+    );
+
+    expect(screen.getByText('photos')).toBeInTheDocument();
+    expect(screen.getByText('Trashing...')).toBeInTheDocument();
   });
 
   it('uses custom root breadcrumb label', () => {

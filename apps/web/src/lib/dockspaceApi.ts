@@ -135,10 +135,13 @@ export const uploadFile = async (
   });
 };
 
-export const moveToTrash = async (dockspaceId: string, fullPath: string): Promise<void> => {
+export const moveToTrash = async (
+  dockspaceId: string,
+  params: { fullPath: string; targetType?: 'file' | 'folder' }
+): Promise<void> => {
   await apiRequest(`/dockspaces/${dockspaceId}/files/trash`, {
     method: 'POST',
-    body: JSON.stringify({ fullPath })
+    body: JSON.stringify(params)
   });
 };
 

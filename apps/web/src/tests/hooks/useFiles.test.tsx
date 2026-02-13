@@ -91,8 +91,8 @@ describe('useFiles', () => {
       wrapper: ({ children }) => <QueryWrapper client={client}>{children}</QueryWrapper>
     });
 
-    await result.current.mutateAsync('/x.txt');
-    expect(moveToTrash).toHaveBeenCalledWith('v1', '/x.txt');
+    await result.current.mutateAsync({ fullPath: '/x.txt', targetType: 'file' });
+    expect(moveToTrash).toHaveBeenCalledWith('v1', { fullPath: '/x.txt', targetType: 'file' });
   });
 
   it('renames a file', async () => {

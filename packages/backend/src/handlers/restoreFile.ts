@@ -4,6 +4,7 @@ import { requireEntitledUser } from '../lib/auth.js';
 import { errorResponse, jsonResponse, safeJsonParse } from '../lib/http.js';
 import { normalizeFullPath, splitFullPath } from '../domain/path.js';
 import {
+  ensureFolderNodeIdByPath,
   findDirectoryFileByName,
   findTrashedFileByFullPath,
   markFileNodePurged,
@@ -47,13 +48,9 @@ export const handler = async (event: APIGatewayProxyEventV2) => {
       });
     }
 
-    const { fileName } = splitFullPath(fullPath);
-    const conflicting = await findDirectoryFileByName(
-      userId,
-      dockspaceId,
-      file.parentFolderNodeId,
-      fileName
-    );
+    const { fileName, folderPath } = splitFullPath(fullPath);
+    const parentFolderNodeId = await ensureFolderNodeIdByPath(userId, dockspaceId, folderPath, now);
+    const conflicting = await findDirectoryFileByName(userId, dockspaceId, parentFolderNodeId, fileName);
 
     if (conflicting && conflicting.childId !== file.SK.slice(2)) {
       return jsonResponse(409, {
@@ -61,7 +58,14 @@ export const handler = async (event: APIGatewayProxyEventV2) => {
       });
     }
 
-    await restoreFileNodeFromTrash({ userId, dockspaceId, fileNode: file, nowIso: now });
+    await restoreFileNodeFromTrash({
+      userId,
+      dockspaceId,
+      fileNode: file,
+      parentFolderNodeId,
+      fileName,
+      nowIso: now
+    });
     await clearTrashTag(objectKey);
 
     return jsonResponse(200, {

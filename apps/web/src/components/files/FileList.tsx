@@ -10,6 +10,7 @@ interface FileListProps {
   folders?: FolderRecord[];
   currentFolder?: string;
   pendingFolderPaths?: string[];
+  pendingFolderTrashPaths?: string[];
   pendingUploadFiles?: PendingUploadFileEntry[];
   pendingUploadFolderPaths?: string[];
   emptyState?: ReactNode;
@@ -24,6 +25,7 @@ interface FileListProps {
   onRenameFolder?: ((folderPath: string) => void) | undefined;
   onOpenFile?: ((file: FileRecord) => void) | undefined;
   onOpenFolder?: (folderPath: string) => void;
+  onActionFolder?: ((folderPath: string) => void) | undefined;
   onAction: (fullPath: string) => void;
 }
 
@@ -33,7 +35,7 @@ interface FolderEntry {
 }
 
 interface FolderListEntry extends FolderEntry {
-  pendingState: 'none' | 'creating' | 'uploading';
+  pendingState: 'none' | 'creating' | 'uploading' | 'trashing';
 }
 
 interface BreadcrumbItem {
@@ -211,15 +213,26 @@ const PendingFileRow = ({ filePath, progress, status }: PendingFileRowProps) => 
 };
 
 interface FolderRowProps {
+  actionLabel: string;
   folderEntry: FolderEntry;
+  onAction?: ((folderPath: string) => void) | undefined;
   onRenameFolder?: ((folderPath: string) => void) | undefined;
   onOpenFolder: (folderPath: string) => void;
   renameActionLabel?: string | undefined;
 }
 
-const FolderRow = ({ folderEntry, onOpenFolder, onRenameFolder, renameActionLabel }: FolderRowProps) => {
+const FolderRow = ({
+  actionLabel,
+  folderEntry,
+  onAction,
+  onOpenFolder,
+  onRenameFolder,
+  renameActionLabel
+}: FolderRowProps) => {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const [menuAnchor, setMenuAnchor] = useState<{ x: number; y: number } | null>(null);
+  const hasRenameAction = Boolean(onRenameFolder && renameActionLabel);
+  const hasMenuActions = hasRenameAction || Boolean(onAction);
   const menuStyle: CSSProperties | undefined = menuAnchor
     ? {
         position: 'fixed',
@@ -233,7 +246,7 @@ const FolderRow = ({ folderEntry, onOpenFolder, onRenameFolder, renameActionLabe
     <li
       className="resource-list__item dockspace-browser__folder-item"
       onContextMenu={(event) => {
-        if (!onRenameFolder || !renameActionLabel) {
+        if (!hasMenuActions) {
           return;
         }
 
@@ -258,7 +271,7 @@ const FolderRow = ({ folderEntry, onOpenFolder, onRenameFolder, renameActionLabe
             <span className="dockspace-browser__item-name">{folderEntry.name}</span>
           </span>
         </button>
-        {onRenameFolder && renameActionLabel ? (
+        {hasMenuActions ? (
           <DropdownMenu
             className="dockspace-browser__file-actions"
             isOpen={isMenuOpen}
@@ -284,12 +297,23 @@ const FolderRow = ({ folderEntry, onOpenFolder, onRenameFolder, renameActionLabe
               className="dockspace-browser__file-actions-menu"
               style={menuStyle}
             >
-              <DropdownMenu.Button
-                className="dockspace-browser__file-actions-item"
-                onClick={() => onRenameFolder(folderEntry.fullPath)}
-              >
-                {renameActionLabel}
-              </DropdownMenu.Button>
+              {hasRenameAction ? (
+                <DropdownMenu.Button
+                  className="dockspace-browser__file-actions-item"
+                  onClick={() => onRenameFolder?.(folderEntry.fullPath)}
+                >
+                  {renameActionLabel}
+                </DropdownMenu.Button>
+              ) : null}
+              {hasRenameAction && onAction ? <DropdownMenu.Separator /> : null}
+              {onAction ? (
+                <DropdownMenu.Button
+                  className="dockspace-browser__file-actions-item"
+                  onClick={() => onAction(folderEntry.fullPath)}
+                >
+                  {actionLabel}
+                </DropdownMenu.Button>
+              ) : null}
             </DropdownMenu.Content>
           </DropdownMenu>
         ) : null}
@@ -433,8 +457,10 @@ interface FolderModeListProps {
   onRename?: ((fullPath: string) => void) | undefined;
   onRenameFolder?: ((folderPath: string) => void) | undefined;
   onAction: (fullPath: string) => void;
+  onActionFolder?: ((folderPath: string) => void) | undefined;
   onOpenFolder: (folderPath: string) => void;
   pendingFolderPaths: string[];
+  pendingFolderTrashPaths: string[];
   pendingUploadFiles: PendingUploadFileEntry[];
   pendingUploadFolderPaths: string[];
   renameActionLabel?: string | undefined;
@@ -455,8 +481,10 @@ const FolderModeList = ({
   onRename,
   onRenameFolder,
   onAction,
+  onActionFolder,
   onOpenFolder,
   pendingFolderPaths,
+  pendingFolderTrashPaths,
   pendingUploadFiles,
   pendingUploadFolderPaths,
   renameActionLabel,
@@ -514,8 +542,26 @@ const FolderModeList = ({
       }
     }
 
+    for (const pendingPath of pendingFolderTrashPaths) {
+      if (parentFolderPath(pendingPath) !== normalizedCurrentFolder) {
+        continue;
+      }
+
+      nextFolders.set(pendingPath, {
+        fullPath: pendingPath,
+        name: folderName(pendingPath),
+        pendingState: 'trashing'
+      });
+    }
+
     return Array.from(nextFolders.values()).sort((left, right) => left.name.localeCompare(right.name));
-  }, [folders, normalizedCurrentFolder, pendingFolderPaths, pendingUploadFolderPaths]);
+  }, [
+    folders,
+    normalizedCurrentFolder,
+    pendingFolderPaths,
+    pendingFolderTrashPaths,
+    pendingUploadFolderPaths
+  ]);
 
   const pendingFileEntries = useMemo(
     () => {
@@ -562,12 +608,20 @@ const FolderModeList = ({
             <PendingFolderRow
               key={folderEntry.fullPath}
               name={folderEntry.name}
-              statusLabel={folderEntry.pendingState === 'creating' ? 'Creating...' : 'Uploading...'}
+              statusLabel={
+                folderEntry.pendingState === 'creating'
+                  ? 'Creating...'
+                  : folderEntry.pendingState === 'trashing'
+                    ? 'Trashing...'
+                    : 'Uploading...'
+              }
             />
           ) : (
             <FolderRow
               key={folderEntry.fullPath}
+              actionLabel={actionLabel}
               folderEntry={folderEntry}
+              onAction={onActionFolder}
               onRenameFolder={onRenameFolder}
               onOpenFolder={onOpenFolder}
               renameActionLabel={folderRenameActionLabel}
@@ -615,8 +669,10 @@ export const FileList = ({
   onRename,
   onRenameFolder,
   onAction,
+  onActionFolder,
   onOpenFolder,
   pendingFolderPaths = [],
+  pendingFolderTrashPaths = [],
   pendingUploadFiles = [],
   pendingUploadFolderPaths = [],
   renameActionLabel,
@@ -641,8 +697,10 @@ export const FileList = ({
       onRename={onRename}
       onRenameFolder={onRenameFolder}
       onAction={onAction}
+      onActionFolder={onActionFolder}
       onOpenFolder={onOpenFolder}
       pendingFolderPaths={pendingFolderPaths}
+      pendingFolderTrashPaths={pendingFolderTrashPaths}
       pendingUploadFiles={pendingUploadFiles}
       pendingUploadFolderPaths={pendingUploadFolderPaths}
       renameActionLabel={renameActionLabel}

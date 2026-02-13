@@ -1,7 +1,7 @@
 import type { APIGatewayProxyEventV2 } from 'aws-lambda';
 import { requireEntitledUser } from '../lib/auth.js';
 import { errorResponse, jsonResponse } from '../lib/http.js';
-import { fullPathFromFileNode, listPurgedFileNodes } from '../lib/repository.js';
+import { fullPathForTrashedFileNode, listPurgedFileNodes } from '../lib/repository.js';
 
 export const handler = async (event: APIGatewayProxyEventV2) => {
   try {
@@ -16,7 +16,7 @@ export const handler = async (event: APIGatewayProxyEventV2) => {
 
     const items = await Promise.all(
       files.map(async (file) => ({
-        fullPath: await fullPathFromFileNode(userId, dockspaceId, file),
+        fullPath: await fullPathForTrashedFileNode(userId, dockspaceId, file),
         purgedAt: file.purgedAt,
         state: 'PURGED' as const
       }))

@@ -2,6 +2,7 @@ import { renderHook, waitFor } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import {
   useCreateFolder,
+  useDiscoverFolder,
   useFiles,
   useMoveToTrash,
   useRenameFile,
@@ -93,6 +94,16 @@ describe('useFiles', () => {
 
     await result.current.mutateAsync({ fullPath: '/x.txt', targetType: 'file' });
     expect(moveToTrash).toHaveBeenCalledWith('v1', { fullPath: '/x.txt', targetType: 'file' });
+  });
+
+  it('discovers folder children', async () => {
+    const client = createTestQueryClient();
+    const { result } = renderHook(() => useDiscoverFolder('v1'), {
+      wrapper: ({ children }) => <QueryWrapper client={client}>{children}</QueryWrapper>
+    });
+
+    await result.current.mutateAsync('root');
+    expect(listFolderChildren).toHaveBeenCalledWith('v1', 'root');
   });
 
   it('renames a file', async () => {

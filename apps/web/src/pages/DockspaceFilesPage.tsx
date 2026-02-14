@@ -1,10 +1,18 @@
-import { useMemo, useRef, useState, useCallback, type ChangeEvent, type FormEvent } from 'react';
+import {
+  useMemo,
+  useRef,
+  useState,
+  useCallback,
+  useEffect,
+  type ChangeEvent,
+  type FormEvent
+} from 'react';
 import { useParams } from '@tanstack/react-router';
 import { RequireAuth } from '@/components/auth/RequireAuth';
 import { UnauthorizedNotice } from '@/components/auth/UnauthorizedNotice';
 import { AddFolderDialog } from '@/components/files/AddFolderDialog';
 import { ConfirmFolderTrashDialog } from '@/components/files/ConfirmFolderTrashDialog';
-import { DockspaceSidebar } from '@/components/files/DockspaceSidebar';
+import { DockspaceSidebar, type SidebarFolderTreeNode } from '@/components/files/DockspaceSidebar';
 import { FileList } from '@/components/files/FileList';
 import { FileViewerDialog } from '@/components/files/FileViewerDialog';
 import { RenameFileDialog } from '@/components/files/RenameFileDialog';
@@ -17,6 +25,7 @@ import { Page } from '@/components/ui/Page';
 import { useAddFolderDialog } from '@/hooks/useAddFolderDialog';
 import {
   useCreateFolder,
+  useDiscoverFolder,
   useFiles,
   useMoveToTrash,
   useRenameFile,
@@ -26,7 +35,7 @@ import {
 import { useDockspaceUploadDialog } from '@/hooks/useDockspaceUploadDialog';
 import { useDockspaces } from '@/hooks/useDockspaces';
 import { ApiError } from '@/lib/apiClient';
-import type { FileRecord } from '@/lib/apiTypes';
+import type { DirectoryChildRecord, FileRecord } from '@/lib/apiTypes';
 import { createFileDownloadSession } from '@/lib/dockspaceApi';
 
 interface FolderTrailEntry {
@@ -39,6 +48,123 @@ const ROOT_FOLDER: FolderTrailEntry = {
   folderNodeId: 'root',
   fullPath: '/',
   name: 'Root'
+};
+
+interface FolderDiscoveryNode {
+  folderNodeId: string;
+  parentFolderNodeId: string | null;
+  fullPath: string;
+  name: string;
+  childFolderNodeIds: string[] | null;
+  directFileCount: number | null;
+}
+
+const createRootDiscoveryNode = (name: string): FolderDiscoveryNode => ({
+  folderNodeId: ROOT_FOLDER.folderNodeId,
+  parentFolderNodeId: null,
+  fullPath: '/',
+  name,
+  childFolderNodeIds: null,
+  directFileCount: null
+});
+
+const mergeDiscoveredFolderItems = (
+  previous: Map<string, FolderDiscoveryNode>,
+  params: {
+    parentFolderNodeId: string;
+    parentFolderPath: string;
+    parentFolderName: string;
+    items: DirectoryChildRecord[];
+  }
+): Map<string, FolderDiscoveryNode> => {
+  const next = new Map(previous);
+  const parentExisting = next.get(params.parentFolderNodeId);
+  const childFolderNodeIds: string[] = [];
+  let directFileCount = 0;
+
+  for (const item of params.items) {
+    if (item.childType === 'file') {
+      directFileCount += 1;
+      continue;
+    }
+
+    const childFullPath = buildPathInFolder(params.parentFolderPath, item.name);
+    const childExisting = next.get(item.childId);
+    childFolderNodeIds.push(item.childId);
+    next.set(item.childId, {
+      folderNodeId: item.childId,
+      parentFolderNodeId: params.parentFolderNodeId,
+      fullPath: childFullPath,
+      name: item.name,
+      childFolderNodeIds: childExisting?.childFolderNodeIds ?? null,
+      directFileCount: childExisting?.directFileCount ?? null
+    });
+  }
+
+  next.set(params.parentFolderNodeId, {
+    folderNodeId: params.parentFolderNodeId,
+    parentFolderNodeId: parentExisting?.parentFolderNodeId ?? null,
+    fullPath: params.parentFolderPath,
+    name: params.parentFolderName,
+    childFolderNodeIds,
+    directFileCount
+  });
+
+  return next;
+};
+
+const buildSidebarFolderTreeNode = (
+  folderNodeId: string,
+  discoveredFoldersByNodeId: Map<string, FolderDiscoveryNode>,
+  expandedFolderNodeIds: Set<string>,
+  loadingFolderNodeIds: Set<string>,
+  currentFolderNodeId: string
+): SidebarFolderTreeNode | null => {
+  const node = discoveredFoldersByNodeId.get(folderNodeId);
+  if (!node) {
+    return null;
+  }
+
+  const childIds = node.childFolderNodeIds ?? [];
+  const children = childIds.flatMap((childId) => {
+    const childNode = buildSidebarFolderTreeNode(
+      childId,
+      discoveredFoldersByNodeId,
+      expandedFolderNodeIds,
+      loadingFolderNodeIds,
+      currentFolderNodeId
+    );
+
+    return childNode ? [childNode] : [];
+  });
+
+  return {
+    folderNodeId: node.folderNodeId,
+    name: node.name,
+    fullPath: node.fullPath,
+    directFileCount: node.directFileCount,
+    isCurrent: currentFolderNodeId === node.folderNodeId,
+    isExpanded: expandedFolderNodeIds.has(node.folderNodeId),
+    isLoading: loadingFolderNodeIds.has(node.folderNodeId),
+    canExpand: node.childFolderNodeIds === null || node.childFolderNodeIds.length > 0,
+    children
+  };
+};
+
+const collectUndiscoveredSidebarNodeIds = (nodes: SidebarFolderTreeNode[]): string[] => {
+  const nodeIds: string[] = [];
+
+  for (const node of nodes) {
+    if (node.directFileCount === null) {
+      nodeIds.push(node.folderNodeId);
+    }
+
+    if (node.isExpanded && node.children.length) {
+      nodeIds.push(...collectUndiscoveredSidebarNodeIds(node.children));
+    }
+  }
+
+  return nodeIds;
 };
 
 const folderNameFromPath = (folderPath: string): string => {
@@ -81,17 +207,29 @@ export const DockspaceFilesPage = () => {
   const [isTrashingFolder, setIsTrashingFolder] = useState(false);
   const [pendingFolderTrashPaths, setPendingFolderTrashPaths] = useState<string[]>([]);
   const [viewerFile, setViewerFile] = useState<FileRecord | null>(null);
+  const [discoveredFoldersByNodeId, setDiscoveredFoldersByNodeId] = useState<
+    Map<string, FolderDiscoveryNode>
+  >(() => new Map([[ROOT_FOLDER.folderNodeId, createRootDiscoveryNode(ROOT_FOLDER.name)]]));
+  const [expandedFolderNodeIds, setExpandedFolderNodeIds] = useState<Set<string>>(
+    () => new Set([ROOT_FOLDER.folderNodeId])
+  );
+  const [loadingFolderNodeIds, setLoadingFolderNodeIds] = useState<Set<string>>(
+    () => new Set()
+  );
   const fileInputRef = useRef<HTMLInputElement>(null);
   const folderInputRef = useRef<HTMLInputElement>(null);
   const currentFolder = folderTrail[folderTrail.length - 1] ?? ROOT_FOLDER;
 
   const dockspacesQuery = useDockspaces();
   const filesQuery = useFiles(dockspaceId, currentFolder.folderNodeId);
+  const discoverFolder = useDiscoverFolder(dockspaceId);
   const createFolder = useCreateFolder(dockspaceId);
   const moveToTrash = useMoveToTrash(dockspaceId, currentFolder.fullPath);
   const renameFile = useRenameFile(dockspaceId, currentFolder.fullPath);
   const renameFolder = useRenameFolder(dockspaceId, currentFolder.fullPath);
   const uploadFile = useUploadFile(dockspaceId, currentFolder.fullPath);
+  const dockspaceName =
+    dockspacesQuery.data?.find((dockspace) => dockspace.dockspaceId === dockspaceId)?.name ?? 'Dockspace';
 
   const unauthorized =
     filesQuery.error instanceof ApiError && filesQuery.error.statusCode === 403;
@@ -122,6 +260,57 @@ export const DockspaceFilesPage = () => {
     [currentFolder.fullPath, filesQuery.data?.items]
   );
 
+  useEffect(() => {
+    setDiscoveredFoldersByNodeId((previous) => {
+      const root = previous.get(ROOT_FOLDER.folderNodeId);
+      if (root?.name === dockspaceName) {
+        return previous;
+      }
+
+      const next = new Map(previous);
+      next.set(ROOT_FOLDER.folderNodeId, {
+        ...(root ?? createRootDiscoveryNode(dockspaceName)),
+        name: dockspaceName
+      });
+      return next;
+    });
+  }, [dockspaceName]);
+
+  useEffect(() => {
+    const items = filesQuery.data?.items;
+    if (!items) {
+      return;
+    }
+
+    setDiscoveredFoldersByNodeId((previous) =>
+      mergeDiscoveredFolderItems(previous, {
+        parentFolderNodeId: currentFolder.folderNodeId,
+        parentFolderPath: currentFolder.fullPath,
+        parentFolderName:
+          currentFolder.folderNodeId === ROOT_FOLDER.folderNodeId ? dockspaceName : currentFolder.name,
+        items
+      })
+    );
+  }, [
+    currentFolder.folderNodeId,
+    currentFolder.fullPath,
+    currentFolder.name,
+    dockspaceName,
+    filesQuery.data?.items
+  ]);
+
+  useEffect(() => {
+    setExpandedFolderNodeIds((previous) => {
+      if (previous.has(currentFolder.folderNodeId)) {
+        return previous;
+      }
+
+      const next = new Set(previous);
+      next.add(currentFolder.folderNodeId);
+      return next;
+    });
+  }, [currentFolder.folderNodeId]);
+
   const folderNodeIdByPath = useMemo(() => {
     const entries = new Map<string, string>();
 
@@ -129,12 +318,34 @@ export const DockspaceFilesPage = () => {
       entries.set(trailEntry.fullPath, trailEntry.folderNodeId);
     }
 
+    for (const folder of discoveredFoldersByNodeId.values()) {
+      entries.set(folder.fullPath, folder.folderNodeId);
+    }
+
     for (const item of folders) {
       entries.set(item.fullPath, item.folderNodeId);
     }
 
     return entries;
-  }, [folderTrail, folders]);
+  }, [discoveredFoldersByNodeId, folderTrail, folders]);
+
+  const folderNameByPath = useMemo(() => {
+    const names = new Map<string, string>();
+
+    for (const trailEntry of folderTrail) {
+      names.set(trailEntry.fullPath, trailEntry.name);
+    }
+
+    for (const folder of discoveredFoldersByNodeId.values()) {
+      names.set(folder.fullPath, folder.name);
+    }
+
+    for (const folder of folders) {
+      names.set(folder.fullPath, folder.name);
+    }
+
+    return names;
+  }, [discoveredFoldersByNodeId, folderTrail, folders]);
 
   const fetchedFolderPaths = useMemo(
     () => folders.map((folder) => folder.fullPath),
@@ -185,6 +396,70 @@ export const DockspaceFilesPage = () => {
     [uploadDialog.stageFolderFiles]
   );
 
+  const discoverFolderChildren = useCallback(
+    async (folderNodeId: string) => {
+      if (loadingFolderNodeIds.has(folderNodeId)) {
+        return;
+      }
+
+      const folderNode = discoveredFoldersByNodeId.get(folderNodeId);
+      if (!folderNode) {
+        return;
+      }
+
+      if (folderNode.childFolderNodeIds !== null && folderNode.directFileCount !== null) {
+        return;
+      }
+
+      setLoadingFolderNodeIds((previous) => {
+        const next = new Set(previous);
+        next.add(folderNodeId);
+        return next;
+      });
+
+      try {
+        const response = await discoverFolder.mutateAsync(folderNodeId);
+        setDiscoveredFoldersByNodeId((previous) =>
+          mergeDiscoveredFolderItems(previous, {
+            parentFolderNodeId: folderNodeId,
+            parentFolderPath: folderNode.fullPath,
+            parentFolderName: folderNode.name,
+            items: response.items
+          })
+        );
+      } finally {
+        setLoadingFolderNodeIds((previous) => {
+          const next = new Set(previous);
+          next.delete(folderNodeId);
+          return next;
+        });
+      }
+    },
+    [discoverFolder, discoveredFoldersByNodeId, loadingFolderNodeIds]
+  );
+
+  const onToggleSidebarFolder = useCallback(
+    (folderNodeId: string) => {
+      const isExpanded = expandedFolderNodeIds.has(folderNodeId);
+      setExpandedFolderNodeIds((previous) => {
+        const next = new Set(previous);
+        if (next.has(folderNodeId)) {
+          next.delete(folderNodeId);
+        } else {
+          next.add(folderNodeId);
+        }
+        return next;
+      });
+
+      if (isExpanded) {
+        return;
+      }
+
+      void discoverFolderChildren(folderNodeId);
+    },
+    [discoverFolderChildren, expandedFolderNodeIds]
+  );
+
   const onOpenFolder = useCallback(
     (nextFolderPath: string) => {
       const nextFolderNodeId = folderNodeIdByPath.get(nextFolderPath);
@@ -196,26 +471,59 @@ export const DockspaceFilesPage = () => {
         const existingIndex = previous.findIndex(
           (trailEntry) => trailEntry.fullPath === nextFolderPath
         );
-        if (existingIndex >= 0) {
-          return previous.slice(0, existingIndex + 1);
-        }
+        const nextTrail =
+          existingIndex >= 0
+            ? previous.slice(0, existingIndex + 1)
+            : [
+                ...previous,
+                {
+                  folderNodeId: nextFolderNodeId,
+                  fullPath: nextFolderPath,
+                  name: folderNameByPath.get(nextFolderPath) ?? folderNameFromPath(nextFolderPath)
+                }
+              ];
 
-        const nextFolderName =
-          folders.find((folderEntry) => folderEntry.fullPath === nextFolderPath)?.name ??
-          folderNameFromPath(nextFolderPath);
-
-        return [
-          ...previous,
-          {
-            folderNodeId: nextFolderNodeId,
-            fullPath: nextFolderPath,
-            name: nextFolderName
+        setExpandedFolderNodeIds((expanded) => {
+          const nextExpanded = new Set(expanded);
+          for (const trailEntry of nextTrail) {
+            nextExpanded.add(trailEntry.folderNodeId);
           }
-        ];
+          return nextExpanded;
+        });
+
+        return nextTrail;
       });
     },
-    [folderNodeIdByPath, folders]
+    [folderNameByPath, folderNodeIdByPath]
   );
+
+  const sidebarFolderTree = useMemo(() => {
+    const rootNode = buildSidebarFolderTreeNode(
+      ROOT_FOLDER.folderNodeId,
+      discoveredFoldersByNodeId,
+      expandedFolderNodeIds,
+      loadingFolderNodeIds,
+      currentFolder.folderNodeId
+    );
+
+    return rootNode ? [rootNode] : [];
+  }, [
+    currentFolder.folderNodeId,
+    discoveredFoldersByNodeId,
+    expandedFolderNodeIds,
+    loadingFolderNodeIds
+  ]);
+
+  useEffect(() => {
+    const undiscoveredNodeIds = collectUndiscoveredSidebarNodeIds(sidebarFolderTree);
+    for (const folderNodeId of undiscoveredNodeIds) {
+      if (loadingFolderNodeIds.has(folderNodeId)) {
+        continue;
+      }
+
+      void discoverFolderChildren(folderNodeId);
+    }
+  }, [discoverFolderChildren, loadingFolderNodeIds, sidebarFolderTree]);
 
   const onMoveToTrash = useCallback(
     (fullPath: string) => {
@@ -419,8 +727,6 @@ export const DockspaceFilesPage = () => {
 
   const uploadErrorMessage =
     uploadDialog.validationError ?? (uploadFile.error instanceof Error ? uploadFile.error.message : null);
-  const dockspaceName =
-    dockspacesQuery.data?.find((dockspace) => dockspace.dockspaceId === dockspaceId)?.name ?? 'Dockspace';
   const pendingUploadFiles = useMemo(
     () =>
       uploadDialog.activeUploads.map((upload) => ({
@@ -509,11 +815,11 @@ export const DockspaceFilesPage = () => {
                     <FileList
                       files={files}
                       folders={folders}
-                    currentFolder={currentFolder.fullPath}
-                    pendingFolderPaths={addFolderDialog.pendingFolderPaths}
-                    pendingFolderTrashPaths={pendingFolderTrashPaths}
-                    pendingUploadFiles={pendingUploadFiles}
-                    pendingUploadFolderPaths={pendingUploadFolderPaths}
+                      currentFolder={currentFolder.fullPath}
+                      pendingFolderPaths={addFolderDialog.pendingFolderPaths}
+                      pendingFolderTrashPaths={pendingFolderTrashPaths}
+                      pendingUploadFiles={pendingUploadFiles}
+                      pendingUploadFolderPaths={pendingUploadFolderPaths}
                       actionLabel="Move to Trash"
                       downloadActionLabel="Download"
                       renameActionLabel="Rename"
@@ -542,19 +848,22 @@ export const DockspaceFilesPage = () => {
                       }
                       onRename={openRenameFileDialog}
                       onRenameFolder={openRenameFolderDialog}
-                    onOpenFile={openFileViewer}
-                    onDownload={onDownloadFile}
-                    onOpenFolder={onOpenFolder}
-                    onActionFolder={openTrashFolderDialog}
-                    onAction={onMoveToTrash}
-                  />
-                )}
+                      onOpenFile={openFileViewer}
+                      onDownload={onDownloadFile}
+                      onOpenFolder={onOpenFolder}
+                      onActionFolder={openTrashFolderDialog}
+                      onAction={onMoveToTrash}
+                    />
+                  )}
                 </Card>
               </div>
               <DockspaceSidebar
+                folderTree={sidebarFolderTree}
                 activeUploads={uploadDialog.activeUploads}
                 uploadErrorMessage={uploadErrorMessage}
                 onAddFolder={addFolderDialog.openDialog}
+                onOpenFolder={onOpenFolder}
+                onToggleFolder={onToggleSidebarFolder}
                 onUploadFiles={openFilePicker}
                 onUploadFolder={openFolderPicker}
               />

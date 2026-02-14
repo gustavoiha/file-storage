@@ -36,6 +36,28 @@ export const useFiles = (dockspaceId: string, parentFolderNodeId: string) => {
   });
 };
 
+export const useDiscoverFolder = (dockspaceId: string) => {
+  const queryClient = useQueryClient();
+  const { session } = useStore(authStore);
+  const userId = session?.userId ?? '';
+
+  return useMutation({
+    mutationFn: async (parentFolderNodeId: string) => {
+      if (!userId) {
+        return {
+          parentFolderNodeId,
+          items: []
+        } as DirectoryChildrenRecord;
+      }
+
+      return queryClient.fetchQuery({
+        queryKey: filesQueryKey(userId, dockspaceId, parentFolderNodeId),
+        queryFn: () => listFolderChildren(dockspaceId, parentFolderNodeId)
+      });
+    }
+  });
+};
+
 export const useTrash = (dockspaceId: string) => {
   const { session } = useStore(authStore);
   const userId = session?.userId ?? '';

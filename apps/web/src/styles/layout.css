@@ -159,6 +159,12 @@
   gap: 0.55rem;
 }
 
+.dockspace-sidebar__section--folders {
+  margin-top: 0.55rem;
+  padding-top: 0.6rem;
+  border-top: 1px solid var(--border);
+}
+
 .dockspace-sidebar__top-scroll {
   flex: 1;
   min-height: 0;
@@ -191,6 +197,127 @@
   align-items: center;
   justify-content: flex-start;
   gap: 0.45rem;
+}
+
+.dockspace-sidebar__tree-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: 0.18rem;
+}
+
+.dockspace-sidebar__tree-item {
+  display: grid;
+  gap: 0.24rem;
+}
+
+.dockspace-sidebar__tree-row {
+  --dockspace-tree-depth: 0;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 0.3rem;
+  min-height: 1.9rem;
+  padding-left: calc(var(--dockspace-tree-depth) * 0.88rem);
+}
+
+.dockspace-sidebar__tree-main {
+  min-width: 0;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.05rem;
+  border-radius: 999px;
+  padding: 0.05rem 0.25rem;
+}
+
+.dockspace-sidebar__tree-main[data-current='true'] {
+  background: rgba(102, 187, 255, 0.14);
+  color: #e8f5ff;
+}
+
+.dockspace-sidebar__tree-main:hover,
+.dockspace-sidebar__tree-main:focus-within {
+  background: rgba(255, 255, 255, 0.08);
+}
+
+.dockspace-sidebar__tree-toggle,
+.dockspace-sidebar__tree-toggle-spacer {
+  width: 1.35rem;
+  height: 1.35rem;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 999px;
+  color: var(--text-muted);
+  flex-shrink: 0;
+}
+
+.dockspace-sidebar__tree-toggle {
+  border: 0;
+  background: transparent;
+  cursor: pointer;
+}
+
+.dockspace-sidebar__tree-toggle:hover,
+.dockspace-sidebar__tree-toggle:focus-visible {
+  color: var(--text);
+}
+
+.dockspace-sidebar__tree-spinner {
+  animation: dockspace-browser-spin 0.8s linear infinite;
+}
+
+.dockspace-sidebar__tree-chevron[data-expanded='true'] {
+  transform: rotate(90deg);
+}
+
+.dockspace-sidebar__tree-folder-button {
+  min-width: 0;
+  border: 0;
+  background: transparent;
+  color: var(--text);
+  display: inline-flex;
+  align-items: center;
+  gap: 0.38rem;
+  height: 1.7rem;
+  border-radius: 999px;
+  padding: 0 0.35rem 0 0.2rem;
+  text-align: left;
+  cursor: pointer;
+  flex: 1;
+}
+
+.dockspace-sidebar__tree-main[data-current='true'] .dockspace-sidebar__tree-folder-button,
+.dockspace-sidebar__tree-main[data-current='true'] .dockspace-sidebar__tree-toggle {
+  color: #e8f5ff;
+  font-weight: 600;
+}
+
+.dockspace-sidebar__tree-folder-name {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 0.82rem;
+}
+
+.dockspace-sidebar__tree-count {
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  min-width: 1.5rem;
+  padding: 0.06rem 0.4rem;
+  text-align: center;
+  font-size: 0.7rem;
+  color: var(--text-muted);
+  background: rgba(255, 255, 255, 0.03);
+}
+
+.dockspace-sidebar__tree-loading {
+  margin: 0;
+  padding-left: 2.2rem;
+  font-size: 0.72rem;
+  color: var(--text-muted);
 }
 
 .dockspace-sidebar__uploads-header {

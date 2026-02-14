@@ -59,6 +59,7 @@ vi.mock('@/components/files/FileList', () => ({
 
 vi.mock('@/hooks/useFiles', () => ({
   useFiles: () => mockState.filesResult,
+  useDiscoverFolder: () => ({ mutateAsync: vi.fn(async () => ({ parentFolderNodeId: 'root', items: [] })) }),
   useMoveToTrash: () => ({ mutateAsync: mockState.moveToTrash }),
   useRenameFile: () => ({ mutateAsync: mockState.renameFile, isPending: false, error: null }),
   useRenameFolder: () => ({ mutateAsync: mockState.renameFolder, isPending: false, error: null }),

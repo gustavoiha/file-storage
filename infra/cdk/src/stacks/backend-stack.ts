@@ -56,6 +56,10 @@ export class BackendStack extends Stack {
       createFolder: createHandler('createFolder'),
       renameFolder: createHandler('renameFolder'),
       createUploadSession: createHandler('createUploadSession'),
+      startMultipartUpload: createHandler('startMultipartUpload'),
+      getMultipartPartUrls: createHandler('getMultipartPartUrls'),
+      completeMultipartUpload: createHandler('completeMultipartUpload'),
+      abortMultipartUpload: createHandler('abortMultipartUpload'),
       createDownloadSession: createHandler('createDownloadSession'),
       confirmUpload: createHandler('confirmUpload'),
       listFolderChildren: createHandler('listFolderChildren'),
@@ -74,6 +78,8 @@ export class BackendStack extends Stack {
     props.table.grantReadWriteData(handlers.createFolder);
     props.table.grantReadWriteData(handlers.renameFolder);
     props.table.grantReadWriteData(handlers.createUploadSession);
+    props.table.grantReadWriteData(handlers.startMultipartUpload);
+    props.table.grantReadWriteData(handlers.completeMultipartUpload);
     props.table.grantReadData(handlers.createDownloadSession);
     props.table.grantReadWriteData(handlers.confirmUpload);
     props.table.grantReadWriteData(handlers.listFolderChildren);
@@ -86,6 +92,10 @@ export class BackendStack extends Stack {
     props.table.grantReadWriteData(purgeReconciliation);
 
     props.bucket.grantReadWrite(handlers.createUploadSession);
+    props.bucket.grantReadWrite(handlers.startMultipartUpload);
+    props.bucket.grantReadWrite(handlers.getMultipartPartUrls);
+    props.bucket.grantReadWrite(handlers.completeMultipartUpload);
+    props.bucket.grantReadWrite(handlers.abortMultipartUpload);
     props.bucket.grantRead(handlers.createDownloadSession);
     props.bucket.grantReadWrite(handlers.confirmUpload);
     props.bucket.grantReadWrite(handlers.moveToTrash);
@@ -155,6 +165,46 @@ export class BackendStack extends Stack {
       integration: new HttpLambdaIntegration(
         'CreateUploadSessionIntegration',
         handlers.createUploadSession
+      ),
+      authorizer
+    });
+
+    this.api.addRoutes({
+      path: '/dockspaces/{dockspaceId}/files/multipart/start',
+      methods: [HttpMethod.POST],
+      integration: new HttpLambdaIntegration(
+        'StartMultipartUploadIntegration',
+        handlers.startMultipartUpload
+      ),
+      authorizer
+    });
+
+    this.api.addRoutes({
+      path: '/dockspaces/{dockspaceId}/files/multipart/part-urls',
+      methods: [HttpMethod.POST],
+      integration: new HttpLambdaIntegration(
+        'GetMultipartPartUrlsIntegration',
+        handlers.getMultipartPartUrls
+      ),
+      authorizer
+    });
+
+    this.api.addRoutes({
+      path: '/dockspaces/{dockspaceId}/files/multipart/complete',
+      methods: [HttpMethod.POST],
+      integration: new HttpLambdaIntegration(
+        'CompleteMultipartUploadIntegration',
+        handlers.completeMultipartUpload
+      ),
+      authorizer
+    });
+
+    this.api.addRoutes({
+      path: '/dockspaces/{dockspaceId}/files/multipart/abort',
+      methods: [HttpMethod.POST],
+      integration: new HttpLambdaIntegration(
+        'AbortMultipartUploadIntegration',
+        handlers.abortMultipartUpload
       ),
       authorizer
     });

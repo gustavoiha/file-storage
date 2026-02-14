@@ -48,6 +48,10 @@ export class StorageStack extends Stack {
             state: 'TRASH'
           },
           expiration: Duration.days(30)
+        },
+        {
+          id: 'AbortIncompleteMultipart',
+          abortIncompleteMultipartUploadAfter: Duration.days(1)
         }
       ]
     });

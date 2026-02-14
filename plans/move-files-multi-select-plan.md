@@ -1,169 +1,103 @@
-# Move Files With Multi-Select Plan
+# Move Files With Multi-Select Plan (High Level)
 
-## Goal
+## Objective
 
-Add file-only move-to-folder support with multi-select in the file browser. Selection checkboxes should appear on hover, replacing the file/folder icon area.
+Implement file-only move-to-folder in the dockspace browser with multi-select support and hover checkboxes that replace row icons while selection mode is active.
 
-## Scope
+## User Experience
 
-### In Scope (MVP)
+1. User hovers a file row and sees a checkbox in the icon slot.
+2. User selects one or more files.
+3. A selection action bar appears with `Move` and `Cancel`.
+4. User chooses destination folder and confirms.
+5. UI shows completion summary and refreshes folder contents.
 
-- Multi-select UI for list items.
-- Hover behavior: checkbox shown in icon slot.
-- Selection toolbar actions for files.
-- Move selected files to an existing target folder.
-- File-only move support (folders cannot be selected for move).
+MVP constraints:
+- Move only files (not folders).
+- Keep existing single-file actions (rename, trash, open) intact.
 
-### Out of Scope (MVP)
-
-- Moving folders.
-- Drag-and-drop moves.
-- Cross-dockspace moves.
-- Persistent selection across route changes.
-
-## Current State
-
-- `FileList` renders file/folder rows with icons and context menus.
-- Backend has `moveOrRenameActiveFileNode` utility that can update parent folder and name.
-- No public API endpoint currently exposes file move to another folder.
-
-## UX Behavior
-
-1. User hovers row icon area and sees selection checkbox.
-2. User checks one or more files.
-3. A selection action bar appears (`Move`, `Cancel`).
-4. User clicks `Move`, chooses destination folder, confirms.
-5. Selected files are moved; list refreshes and selection clears.
-
-Notes:
-- Folder rows can show checkbox UI for consistency but must not become movable in MVP.
-- Move action is enabled only when at least one file is selected.
-
-## Technical Design
+## High-Level Implementation
 
 ### Frontend
 
-1. Add selection state in page container
-   - File: `/Users/gustavoiha/Personal/file-storage/apps/web/src/pages/DockspaceFilesPage.tsx`
-   - Maintain `selectedFilePaths: Set<string>`.
-   - Provide handlers:
-     - `toggleSelection(fullPath)`
-     - `clearSelection()`
-     - `selectAllVisibleFiles()`
+- Add selection state in the dockspace files page:
+  - selected file paths
+  - select/unselect handlers
+  - clear selection on cancel/success/navigation changes where appropriate
+- Update file list rows to support selection mode:
+  - checkbox replaces icon on hover/focus/selected state
+  - row remains keyboard accessible
+- Add move dialog:
+  - shows selected file count
+  - allows choosing an existing destination folder
+  - confirms move action
+- Add a `moveFiles` API client function and mutation hook.
+- Refresh files-related queries after move completion and clear selection.
 
-2. Extend list component for selectable rows
-   - File: `/Users/gustavoiha/Personal/file-storage/apps/web/src/components/files/FileList.tsx`
-   - Add props for selection mode:
-     - `selectedFilePaths`
-     - `onToggleFileSelection`
-     - `isSelectionEnabled`
-   - In file row:
-     - render checkbox in the icon position on hover/focus/selected.
-     - keep filename click behavior (open file) when not interacting with checkbox.
-   - In folder row:
-     - render visual checkbox placeholder on hover but disabled for move in MVP.
-
-3. Add list and row styling for hover checkbox replacement
-   - File: `/Users/gustavoiha/Personal/file-storage/apps/web/src/styles/layout.css`
-   - Add classes for checkbox container and selected-row emphasis.
-   - Ensure keyboard focus visibility and mobile fallback (always visible in touch contexts if needed).
-
-4. Add destination folder picker dialog
-   - New file: `/Users/gustavoiha/Personal/file-storage/apps/web/src/components/files/MoveFilesDialog.tsx`
-   - Inputs:
-     - selected file count
-     - destination folder path picker
-   - Actions:
-     - confirm move
-     - cancel
-
-5. Add API integration
-   - File: `/Users/gustavoiha/Personal/file-storage/apps/web/src/lib/dockspaceApi.ts`
-   - Add `moveFiles(dockspaceId, sourcePaths, targetFolderPath)`.
-
-6. Add mutation hook
-   - File: `/Users/gustavoiha/Personal/file-storage/apps/web/src/hooks/useFiles.ts`
-   - Add `useMoveFiles`.
-   - On success: invalidate affected file queries.
+Primary files:
+- `/Users/gustavoiha/Personal/file-storage/apps/web/src/pages/DockspaceFilesPage.tsx`
+- `/Users/gustavoiha/Personal/file-storage/apps/web/src/components/files/FileList.tsx`
+- `/Users/gustavoiha/Personal/file-storage/apps/web/src/components/files/MoveFilesDialog.tsx` (new)
+- `/Users/gustavoiha/Personal/file-storage/apps/web/src/lib/dockspaceApi.ts`
+- `/Users/gustavoiha/Personal/file-storage/apps/web/src/hooks/useFiles.ts`
+- `/Users/gustavoiha/Personal/file-storage/apps/web/src/styles/layout.css`
 
 ### Backend
 
-1. Add move-files handler
-   - New file: `/Users/gustavoiha/Personal/file-storage/packages/backend/src/handlers/moveFiles.ts`
-   - Request body:
-     - `sourcePaths: string[]`
-     - `targetFolderPath: string`
-   - Rules:
-     - reject empty source list.
-     - reject duplicate source paths.
-     - reject if any source path is not active file.
-     - reject folder sources in MVP.
+- Add a move endpoint for batch file moves.
+- Validate request:
+  - non-empty source list
+  - unique source paths
+  - destination folder exists
+  - sources are active files
+- Reuse existing repository move/rename primitive to move each file to new parent folder.
+- Return per-file results to support partial success handling.
 
-2. Add repository operation
-   - File: `/Users/gustavoiha/Personal/file-storage/packages/backend/src/lib/repository.ts`
-   - Reuse `moveOrRenameActiveFileNode` for each source file with same `newName` and new parent folder node id.
-   - Validate destination folder exists; return `404` if not found.
-   - Conflict handling:
-     - if destination contains same filename, return conflict for that file.
-   - Start with sequential processing for predictable failure reporting.
+Primary files:
+- `/Users/gustavoiha/Personal/file-storage/packages/backend/src/handlers/moveFiles.ts` (new)
+- `/Users/gustavoiha/Personal/file-storage/packages/backend/src/lib/repository.ts`
+- `/Users/gustavoiha/Personal/file-storage/infra/cdk/src/stacks/backend-stack.ts`
 
-3. Add route wiring in CDK
-   - File: `/Users/gustavoiha/Personal/file-storage/infra/cdk/src/stacks/backend-stack.ts`
-   - New route:
-     - `POST /dockspaces/{dockspaceId}/files/move`
+## API Shape (Proposed)
 
-## API Contract Proposal
-
-- Endpoint: `POST /dockspaces/{dockspaceId}/files/move`
+- `POST /dockspaces/{dockspaceId}/files/move`
 - Request:
   - `sourcePaths: string[]`
   - `targetFolderPath: string`
 - Response:
   - `moved: Array<{ from: string; to: string }>`
-  - `failed: Array<{ from: string; error: string; code: 'NOT_FOUND' | 'CONFLICT' | 'INVALID' }>`
+  - `failed: Array<{ from: string; code: 'NOT_FOUND' | 'CONFLICT' | 'INVALID'; error: string }>`
 
-Rationale:
-- Supports partial success without forcing all-or-nothing transactions for MVP.
+## Error/Conflict Behavior
 
-## Validation Rules
-
-- Cannot move file to same folder (report as skipped/unchanged).
-- Destination folder must exist.
-- Duplicate source path in request should be rejected.
-- Filename conflicts in destination should fail that item with explicit conflict.
-
-## Testing Plan
-
-### Frontend
-
-- File: `/Users/gustavoiha/Personal/file-storage/apps/web/src/tests/components/FileList.test.tsx`
-1. Checkbox appears on hover/focus and toggles selection state.
-2. Checkbox occupies icon slot when visible.
-3. Selection bar appears when one or more files selected.
-
-- File: `/Users/gustavoiha/Personal/file-storage/apps/web/src/tests/pages/DockspaceFilesPage.test.tsx`
-1. Move action enabled only for selected files.
-2. Confirming move calls API with selected paths and destination.
-3. Successful move clears selection and refreshes listing.
-
-### Backend
-
-- Files: `/Users/gustavoiha/Personal/file-storage/packages/backend/src/tests`
-1. Moves active file to destination folder.
-2. Returns per-item conflict when destination filename exists.
-3. Rejects missing destination folder.
-4. Rejects invalid/duplicate source path list.
+- Destination filename conflicts should fail that file with `CONFLICT`.
+- Missing files or invalid paths should return per-file failure entries.
+- Moving to the same folder can be treated as skipped/no-op.
+- UI should surface partial success clearly (`X moved, Y failed`).
 
 ## Delivery Phases
 
-1. Phase 1: backend endpoint + repository wiring for file moves.
-2. Phase 2: frontend multi-select state and hover checkbox UI.
-3. Phase 3: move dialog and API mutation integration.
-4. Phase 4: tests, polish, and accessibility verification.
+1. Backend endpoint and repository integration.
+2. Frontend selection mode and hover-checkbox behavior.
+3. Move dialog + mutation wiring + result handling.
+4. Test coverage and accessibility polish.
+
+## Test Strategy (High Level)
+
+- Frontend component tests:
+  - checkbox visibility/toggle behavior
+  - selection action bar behavior
+- Frontend page tests:
+  - move request payload from selected files
+  - selection clears on success
+- Backend tests:
+  - destination conflict handling
+  - invalid request validation
+  - partial success responses
 
 ## Acceptance Criteria
 
-- User can select multiple files and move them to another existing folder.
-- Selection checkbox appears in icon area on hover/focus.
-- Only files are movable in this release.
-- Conflicts and invalid moves are reported clearly without silent failures.
+- User can multi-select files and move them to another folder.
+- Hover checkbox replaces row icon in selection interaction.
+- Only files are moveable in this feature.
+- Conflicts and failures are reported without hiding successful moves.

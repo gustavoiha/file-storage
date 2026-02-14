@@ -14,7 +14,7 @@
 - [x] Implement trashing an entire folder recursively, including all descendant files and subfolders, with confirmation and clear progress/error feedback.
 - [x] Strengthen folder rename flow so renaming is blocked when the destination name conflicts with an existing sibling folder, with clear conflict messaging in the dialog.
 - [x] Add a sidebar directory tree (folders only) that shows direct file-count labels per folder, uses shared discoverable state with the main dockspace navigation, and supports accordion expansion with loading indicators for undiscovered children.
-- [ ] Implement move-to-folder for files only, with multi-select support and hover checkboxes that replace file/folder icons while selecting.
+- [ ] Implement move-to-folder for files only, with multi-select support and hover checkboxes that replace file/folder icons while selecting. Plan: `/Users/gustavoiha/Personal/file-storage/plans/move-files-multi-select-plan.md`.
 - [ ] Improve mutation cache handling for files/directories by applying targeted React Query cache updates (optimistic/patched state) instead of full refetch invalidation after each mutation.
 
 ## Data Lifecycle And Querying

@@ -60,6 +60,7 @@ export class BackendStack extends Stack {
       confirmUpload: createHandler('confirmUpload'),
       listFolderChildren: createHandler('listFolderChildren'),
       renameFile: createHandler('renameFile'),
+      moveFiles: createHandler('moveFiles'),
       moveToTrash: createHandler('moveToTrash'),
       restoreFile: createHandler('restoreFile'),
       listTrash: createHandler('listTrash'),
@@ -77,6 +78,7 @@ export class BackendStack extends Stack {
     props.table.grantReadWriteData(handlers.confirmUpload);
     props.table.grantReadWriteData(handlers.listFolderChildren);
     props.table.grantReadWriteData(handlers.renameFile);
+    props.table.grantReadWriteData(handlers.moveFiles);
     props.table.grantReadWriteData(handlers.moveToTrash);
     props.table.grantReadWriteData(handlers.restoreFile);
     props.table.grantReadWriteData(handlers.listTrash);
@@ -178,6 +180,13 @@ export class BackendStack extends Stack {
       path: '/dockspaces/{dockspaceId}/files/rename',
       methods: [HttpMethod.PATCH],
       integration: new HttpLambdaIntegration('RenameFileIntegration', handlers.renameFile),
+      authorizer
+    });
+
+    this.api.addRoutes({
+      path: '/dockspaces/{dockspaceId}/files/move',
+      methods: [HttpMethod.POST],
+      integration: new HttpLambdaIntegration('MoveFilesIntegration', handlers.moveFiles),
       authorizer
     });
 

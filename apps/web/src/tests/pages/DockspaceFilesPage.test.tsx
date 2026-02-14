@@ -13,6 +13,7 @@ const mockState = vi.hoisted(() => ({
     error: null as unknown
   },
   moveToTrash: vi.fn(async () => {}),
+  moveFiles: vi.fn(async () => ({ moved: [], failed: [] })),
   renameFile: vi.fn(async () => {}),
   renameFolder: vi.fn(async () => {})
 }));
@@ -60,6 +61,7 @@ vi.mock('@/components/files/FileList', () => ({
 vi.mock('@/hooks/useFiles', () => ({
   useFiles: () => mockState.filesResult,
   useDiscoverFolder: () => ({ mutateAsync: vi.fn(async () => ({ parentFolderNodeId: 'root', items: [] })) }),
+  useMoveFiles: () => ({ mutateAsync: mockState.moveFiles, isPending: false, error: null }),
   useMoveToTrash: () => ({ mutateAsync: mockState.moveToTrash }),
   useRenameFile: () => ({ mutateAsync: mockState.renameFile, isPending: false, error: null }),
   useRenameFolder: () => ({ mutateAsync: mockState.renameFolder, isPending: false, error: null }),

@@ -7,6 +7,7 @@ import {
   listFolderChildren,
   listPurged,
   listTrash,
+  moveFiles,
   moveToTrash,
   renameFile,
   renameFolder,
@@ -164,6 +165,25 @@ export const useMoveToTrash = (dockspaceId: string, folder: string) => {
         queryClient.invalidateQueries({ queryKey: ['files', userId, dockspaceId] }),
         queryClient.invalidateQueries({ queryKey: trashQueryKey(userId, dockspaceId) })
       ]);
+    }
+  });
+};
+
+export const useMoveFiles = (dockspaceId: string, folder: string) => {
+  const queryClient = useQueryClient();
+  const { session } = useStore(authStore);
+  const userId = session?.userId ?? '';
+  void folder;
+
+  return useMutation({
+    mutationFn: (params: { sourcePaths: string[]; targetFolderPath: string }) =>
+      moveFiles(dockspaceId, params),
+    onSuccess: async () => {
+      if (!userId) {
+        return;
+      }
+
+      await queryClient.invalidateQueries({ queryKey: ['files', userId, dockspaceId] });
     }
   });
 };

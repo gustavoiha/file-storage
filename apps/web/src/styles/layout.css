@@ -407,6 +407,35 @@
   flex-shrink: 0;
 }
 
+.dockspace-browser__selection-bar {
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  background: rgba(77, 168, 255, 0.12);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.65rem;
+  padding: 0.5rem 0.65rem;
+}
+
+.dockspace-browser__selection-meta {
+  margin: 0;
+  font-size: 0.84rem;
+  color: var(--text);
+}
+
+.dockspace-browser__selection-actions {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.dockspace-browser__selection-feedback {
+  margin: 0;
+  font-size: 0.78rem;
+  color: var(--text-muted);
+}
+
 .dockspace-page-menu {
   position: relative;
 }
@@ -653,9 +682,62 @@
   gap: 0.5rem;
 }
 
+.dockspace-browser__file-icon-slot {
+  width: 1rem;
+  height: 1rem;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  position: relative;
+  flex-shrink: 0;
+}
+
+.dockspace-browser__file-icon-wrap,
+.dockspace-browser__file-checkbox-wrap {
+  position: absolute;
+  inset: 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  transition: opacity 0.14s ease;
+}
+
+.dockspace-browser__file-checkbox-wrap {
+  opacity: 0;
+  pointer-events: none;
+}
+
+.dockspace-browser__file-item:hover .dockspace-browser__file-icon-slot[data-selection-mode='false'] .dockspace-browser__file-checkbox-wrap,
+.dockspace-browser__file-item:focus-within .dockspace-browser__file-icon-slot[data-selection-mode='false'] .dockspace-browser__file-checkbox-wrap,
+.dockspace-browser__file-icon-slot[data-selection-mode='true'] .dockspace-browser__file-checkbox-wrap,
+.dockspace-browser__file-icon-slot[data-selected='true'] .dockspace-browser__file-checkbox-wrap {
+  opacity: 1;
+  pointer-events: auto;
+}
+
+.dockspace-browser__file-item:hover .dockspace-browser__file-icon-slot[data-selection-mode='false'] .dockspace-browser__file-icon-wrap,
+.dockspace-browser__file-item:focus-within .dockspace-browser__file-icon-slot[data-selection-mode='false'] .dockspace-browser__file-icon-wrap,
+.dockspace-browser__file-icon-slot[data-selection-mode='true'] .dockspace-browser__file-icon-wrap,
+.dockspace-browser__file-icon-slot[data-selected='true'] .dockspace-browser__file-icon-wrap {
+  opacity: 0;
+}
+
 .dockspace-browser__file-icon {
   color: var(--text-muted);
   flex-shrink: 0;
+}
+
+.dockspace-browser__row-checkbox {
+  width: 0.95rem;
+  height: 0.95rem;
+  margin: 0;
+  accent-color: #6bb7ff;
+  cursor: pointer;
+}
+
+.dockspace-browser__row-checkbox--disabled {
+  cursor: not-allowed;
+  opacity: 0.65;
 }
 
 .dockspace-browser__file-name {
@@ -814,6 +896,12 @@
   text-transform: uppercase;
   letter-spacing: 0.08em;
   font-size: 1rem;
+}
+
+.dockspace-dialog__description {
+  margin: 0 0 0.8rem;
+  font-size: 0.86rem;
+  color: var(--text-muted);
 }
 
 .dockspace-file-viewer__header {

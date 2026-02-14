@@ -18,6 +18,9 @@ interface FileListProps {
   folderRenameActionLabel?: string | undefined;
   renameActionLabel?: string | undefined;
   rootBreadcrumbLabel?: string;
+  selectedFilePaths?: string[];
+  selectionActions?: ReactNode;
+  statusMessage?: string | null;
   toolbarActions?: ReactNode;
   actionLabel: string;
   onDownload?: ((file: FileRecord) => void) | undefined;
@@ -25,6 +28,7 @@ interface FileListProps {
   onRenameFolder?: ((folderPath: string) => void) | undefined;
   onOpenFile?: ((file: FileRecord) => void) | undefined;
   onOpenFolder?: (folderPath: string) => void;
+  onToggleFileSelection?: ((fullPath: string) => void) | undefined;
   onActionFolder?: ((folderPath: string) => void) | undefined;
   onAction: (fullPath: string) => void;
 }
@@ -218,6 +222,7 @@ interface FolderRowProps {
   onAction?: ((folderPath: string) => void) | undefined;
   onRenameFolder?: ((folderPath: string) => void) | undefined;
   onOpenFolder: (folderPath: string) => void;
+  selectionMode: boolean;
   renameActionLabel?: string | undefined;
 }
 
@@ -227,6 +232,7 @@ const FolderRow = ({
   onAction,
   onOpenFolder,
   onRenameFolder,
+  selectionMode,
   renameActionLabel
 }: FolderRowProps) => {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
@@ -262,12 +268,22 @@ const FolderRow = ({
           onClick={() => onOpenFolder(folderEntry.fullPath)}
         >
           <span className="dockspace-browser__item-main">
-            <Folder
-              className="dockspace-browser__folder-icon"
-              size={16}
-              strokeWidth={1.5}
-              aria-hidden="true"
-            />
+            {selectionMode ? (
+              <input
+                type="checkbox"
+                className="dockspace-browser__row-checkbox dockspace-browser__row-checkbox--disabled"
+                disabled
+                tabIndex={-1}
+                aria-hidden="true"
+              />
+            ) : (
+              <Folder
+                className="dockspace-browser__folder-icon"
+                size={16}
+                strokeWidth={1.5}
+                aria-hidden="true"
+              />
+            )}
             <span className="dockspace-browser__item-name">{folderEntry.name}</span>
           </span>
         </button>
@@ -326,8 +342,11 @@ interface FileRowProps {
   actionLabel: string;
   downloadActionLabel?: string | undefined;
   file: FileRecord;
+  isSelected: boolean;
+  selectionMode: boolean;
   onDownload?: ((file: FileRecord) => void) | undefined;
   onOpenFile?: ((file: FileRecord) => void) | undefined;
+  onToggleSelection?: ((fullPath: string) => void) | undefined;
   onRename?: ((fullPath: string) => void) | undefined;
   onAction: (fullPath: string) => void;
   renameActionLabel?: string | undefined;
@@ -337,8 +356,11 @@ const FileRow = ({
   actionLabel,
   downloadActionLabel,
   file,
+  isSelected,
+  selectionMode,
   onDownload,
   onOpenFile,
+  onToggleSelection,
   onAction,
   onRename,
   renameActionLabel
@@ -360,6 +382,11 @@ const FileRow = ({
     <li
       className="resource-list__item dockspace-browser__file-item"
       onContextMenu={(event) => {
+        if (selectionMode) {
+          event.preventDefault();
+          return;
+        }
+
         event.preventDefault();
         setMenuAnchor({ x: event.clientX, y: event.clientY });
         setIsMenuOpen(true);
@@ -369,16 +396,43 @@ const FileRow = ({
         <button
           type="button"
           className="dockspace-browser__file-open"
-          onClick={() => onOpenFile?.(file)}
+          onClick={() => {
+            if (selectionMode && onToggleSelection) {
+              onToggleSelection(file.fullPath);
+              return;
+            }
+
+            onOpenFile?.(file);
+          }}
         >
           <span className="dockspace-browser__file-summary">
             <span className="dockspace-browser__file-main">
-              <FileIcon
-                className="dockspace-browser__file-icon"
-                size={16}
-                strokeWidth={1.5}
-                aria-hidden="true"
-              />
+              <span
+                className="dockspace-browser__file-icon-slot"
+                data-selected={isSelected ? 'true' : 'false'}
+                data-selection-mode={selectionMode ? 'true' : 'false'}
+              >
+                <span className="dockspace-browser__file-icon-wrap">
+                  <FileIcon
+                    className="dockspace-browser__file-icon"
+                    size={16}
+                    strokeWidth={1.5}
+                    aria-hidden="true"
+                  />
+                </span>
+                {onToggleSelection ? (
+                  <span className="dockspace-browser__file-checkbox-wrap">
+                    <input
+                      type="checkbox"
+                      className="dockspace-browser__row-checkbox"
+                      checked={isSelected}
+                      onChange={() => onToggleSelection(file.fullPath)}
+                      onClick={(event) => event.stopPropagation()}
+                      aria-label={`Select ${fileName}`}
+                    />
+                  </span>
+                ) : null}
+              </span>
               <span className="dockspace-browser__file-name">{fileName}</span>
             </span>
             {typeof file.size === 'number' ? (
@@ -386,59 +440,61 @@ const FileRow = ({
             ) : null}
           </span>
         </button>
-        <DropdownMenu
-          className="dockspace-browser__file-actions"
-          isOpen={isMenuOpen}
-          onOpenChange={(nextOpen) => {
-            if (!nextOpen) {
-              setMenuAnchor(null);
-            }
+        {!selectionMode ? (
+          <DropdownMenu
+            className="dockspace-browser__file-actions"
+            isOpen={isMenuOpen}
+            onOpenChange={(nextOpen) => {
+              if (!nextOpen) {
+                setMenuAnchor(null);
+              }
 
-            setIsMenuOpen(nextOpen);
-          }}
-        >
-          <DropdownMenu.Trigger
-            className="dockspace-browser__file-actions-trigger"
-            aria-label={`Actions for ${fileName}`}
-            onClick={() => {
-              setMenuAnchor(null);
+              setIsMenuOpen(nextOpen);
             }}
           >
-            ⋯
-          </DropdownMenu.Trigger>
-          <DropdownMenu.Content
-            label={`Actions for ${fileName}`}
-            className="dockspace-browser__file-actions-menu"
-            style={menuStyle}
-          >
-            {onRename && renameActionLabel ? (
-              <DropdownMenu.Button
-                className="dockspace-browser__file-actions-item"
-                onClick={() => onRename(file.fullPath)}
-              >
-                {renameActionLabel}
-              </DropdownMenu.Button>
-            ) : null}
-            {onDownload && downloadActionLabel ? (
-              <DropdownMenu.Button
-                className="dockspace-browser__file-actions-item"
-                onClick={() => onDownload(file)}
-              >
-                {downloadActionLabel}
-              </DropdownMenu.Button>
-            ) : null}
-            {onRename && renameActionLabel ? <DropdownMenu.Separator /> : null}
-            {onDownload && downloadActionLabel && !(onRename && renameActionLabel) ? (
-              <DropdownMenu.Separator />
-            ) : null}
-            <DropdownMenu.Button
-              className="dockspace-browser__file-actions-item"
-              onClick={() => onAction(file.fullPath)}
+            <DropdownMenu.Trigger
+              className="dockspace-browser__file-actions-trigger"
+              aria-label={`Actions for ${fileName}`}
+              onClick={() => {
+                setMenuAnchor(null);
+              }}
             >
-              {actionLabel}
-            </DropdownMenu.Button>
-          </DropdownMenu.Content>
-        </DropdownMenu>
+              ⋯
+            </DropdownMenu.Trigger>
+            <DropdownMenu.Content
+              label={`Actions for ${fileName}`}
+              className="dockspace-browser__file-actions-menu"
+              style={menuStyle}
+            >
+              {onRename && renameActionLabel ? (
+                <DropdownMenu.Button
+                  className="dockspace-browser__file-actions-item"
+                  onClick={() => onRename(file.fullPath)}
+                >
+                  {renameActionLabel}
+                </DropdownMenu.Button>
+              ) : null}
+              {onDownload && downloadActionLabel ? (
+                <DropdownMenu.Button
+                  className="dockspace-browser__file-actions-item"
+                  onClick={() => onDownload(file)}
+                >
+                  {downloadActionLabel}
+                </DropdownMenu.Button>
+              ) : null}
+              {onRename && renameActionLabel ? <DropdownMenu.Separator /> : null}
+              {onDownload && downloadActionLabel && !(onRename && renameActionLabel) ? (
+                <DropdownMenu.Separator />
+              ) : null}
+              <DropdownMenu.Button
+                className="dockspace-browser__file-actions-item"
+                onClick={() => onAction(file.fullPath)}
+              >
+                {actionLabel}
+              </DropdownMenu.Button>
+            </DropdownMenu.Content>
+          </DropdownMenu>
+        ) : null}
       </div>
     </li>
   );
@@ -465,7 +521,11 @@ interface FolderModeListProps {
   pendingUploadFolderPaths: string[];
   renameActionLabel?: string | undefined;
   rootBreadcrumbLabel: string;
+  selectedFilePaths: string[];
+  selectionActions?: ReactNode;
+  statusMessage?: string | null;
   toolbarActions?: ReactNode;
+  onToggleFileSelection?: ((fullPath: string) => void) | undefined;
 }
 
 const FolderModeList = ({
@@ -489,9 +549,15 @@ const FolderModeList = ({
   pendingUploadFolderPaths,
   renameActionLabel,
   rootBreadcrumbLabel,
+  selectedFilePaths,
+  selectionActions,
+  statusMessage,
+  onToggleFileSelection,
   toolbarActions
 }: FolderModeListProps) => {
   const normalizedCurrentFolder = normalizeFolderPath(currentFolder);
+  const selectedFilePathSet = useMemo(() => new Set(selectedFilePaths), [selectedFilePaths]);
+  const selectionMode = selectedFilePaths.length > 0;
 
   const directFiles = useMemo(
     () =>
@@ -595,6 +661,12 @@ const FolderModeList = ({
           <div className="dockspace-browser__toolbar-actions">{toolbarActions}</div>
         ) : null}
       </div>
+      {statusMessage ? (
+        <p className="dockspace-browser__selection-feedback" role="status">
+          {statusMessage}
+        </p>
+      ) : null}
+      {selectionActions ? <div className="dockspace-browser__selection-bar">{selectionActions}</div> : null}
 
       <ul className="resource-list dockspace-browser__list">
         {!hasEntries ? (
@@ -624,6 +696,7 @@ const FolderModeList = ({
               onAction={onActionFolder}
               onRenameFolder={onRenameFolder}
               onOpenFolder={onOpenFolder}
+              selectionMode={selectionMode}
               renameActionLabel={folderRenameActionLabel}
             />
           )
@@ -644,8 +717,11 @@ const FolderModeList = ({
             actionLabel={actionLabel}
             downloadActionLabel={downloadActionLabel}
             file={file}
+            isSelected={selectedFilePathSet.has(file.fullPath)}
+            selectionMode={selectionMode}
             onDownload={onDownload}
             onOpenFile={onOpenFile}
+            onToggleSelection={onToggleFileSelection}
             onRename={onRename}
             onAction={onAction}
             renameActionLabel={renameActionLabel}
@@ -671,12 +747,16 @@ export const FileList = ({
   onAction,
   onActionFolder,
   onOpenFolder,
+  onToggleFileSelection,
   pendingFolderPaths = [],
   pendingFolderTrashPaths = [],
   pendingUploadFiles = [],
   pendingUploadFolderPaths = [],
   renameActionLabel,
   rootBreadcrumbLabel = 'Root',
+  selectedFilePaths = [],
+  selectionActions,
+  statusMessage,
   toolbarActions
 }: FileListProps) => {
   if (!onOpenFolder) {
@@ -705,6 +785,10 @@ export const FileList = ({
       pendingUploadFolderPaths={pendingUploadFolderPaths}
       renameActionLabel={renameActionLabel}
       rootBreadcrumbLabel={rootBreadcrumbLabel}
+      selectedFilePaths={selectedFilePaths}
+      selectionActions={selectionActions}
+      statusMessage={statusMessage ?? null}
+      onToggleFileSelection={onToggleFileSelection}
       toolbarActions={toolbarActions}
     />
   );

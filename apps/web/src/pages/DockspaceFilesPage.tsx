@@ -15,6 +15,7 @@ import { ConfirmFolderTrashDialog } from '@/components/files/ConfirmFolderTrashD
 import { DockspaceSidebar, type SidebarFolderTreeNode } from '@/components/files/DockspaceSidebar';
 import { FileList } from '@/components/files/FileList';
 import { FileViewerDialog } from '@/components/files/FileViewerDialog';
+import { MoveFilesDialog } from '@/components/files/MoveFilesDialog';
 import { RenameFileDialog } from '@/components/files/RenameFileDialog';
 import { RenameFolderDialog } from '@/components/files/RenameFolderDialog';
 import { DockspaceFilesHeaderActions } from '@/components/files/DockspaceFilesHeaderActions';
@@ -27,6 +28,7 @@ import {
   useCreateFolder,
   useDiscoverFolder,
   useFiles,
+  useMoveFiles,
   useMoveToTrash,
   useRenameFile,
   useRenameFolder,
@@ -205,6 +207,11 @@ export const DockspaceFilesPage = () => {
   const [trashFolderDialogPath, setTrashFolderDialogPath] = useState<string | null>(null);
   const [trashFolderDialogError, setTrashFolderDialogError] = useState<string | null>(null);
   const [isTrashingFolder, setIsTrashingFolder] = useState(false);
+  const [isMoveFilesDialogOpen, setIsMoveFilesDialogOpen] = useState(false);
+  const [moveFilesDialogDestinationPath, setMoveFilesDialogDestinationPath] = useState('/');
+  const [moveFilesDialogError, setMoveFilesDialogError] = useState<string | null>(null);
+  const [moveFilesSummary, setMoveFilesSummary] = useState<string | null>(null);
+  const [selectedFilePaths, setSelectedFilePaths] = useState<string[]>([]);
   const [pendingFolderTrashPaths, setPendingFolderTrashPaths] = useState<string[]>([]);
   const [viewerFile, setViewerFile] = useState<FileRecord | null>(null);
   const [discoveredFoldersByNodeId, setDiscoveredFoldersByNodeId] = useState<
@@ -224,6 +231,7 @@ export const DockspaceFilesPage = () => {
   const filesQuery = useFiles(dockspaceId, currentFolder.folderNodeId);
   const discoverFolder = useDiscoverFolder(dockspaceId);
   const createFolder = useCreateFolder(dockspaceId);
+  const moveFiles = useMoveFiles(dockspaceId, currentFolder.fullPath);
   const moveToTrash = useMoveToTrash(dockspaceId, currentFolder.fullPath);
   const renameFile = useRenameFile(dockspaceId, currentFolder.fullPath);
   const renameFolder = useRenameFolder(dockspaceId, currentFolder.fullPath);
@@ -310,6 +318,12 @@ export const DockspaceFilesPage = () => {
       return next;
     });
   }, [currentFolder.folderNodeId]);
+
+  useEffect(() => {
+    setSelectedFilePaths([]);
+    setIsMoveFilesDialogOpen(false);
+    setMoveFilesDialogError(null);
+  }, [currentFolder.fullPath]);
 
   const folderNodeIdByPath = useMemo(() => {
     const entries = new Map<string, string>();
@@ -514,6 +528,18 @@ export const DockspaceFilesPage = () => {
     loadingFolderNodeIds
   ]);
 
+  const moveFilesDestinationOptions = useMemo(
+    () =>
+      Array.from(discoveredFoldersByNodeId.values())
+        .slice()
+        .sort((left, right) => left.fullPath.localeCompare(right.fullPath))
+        .map((folder) => ({
+          path: folder.fullPath,
+          label: folder.fullPath === '/' ? dockspaceName : folder.fullPath
+        })),
+    [discoveredFoldersByNodeId, dockspaceName]
+  );
+
   useEffect(() => {
     const undiscoveredNodeIds = collectUndiscoveredSidebarNodeIds(sidebarFolderTree);
     for (const folderNodeId of undiscoveredNodeIds) {
@@ -530,6 +556,87 @@ export const DockspaceFilesPage = () => {
       void moveToTrash.mutateAsync({ fullPath, targetType: 'file' });
     },
     [moveToTrash]
+  );
+
+  const toggleFileSelection = useCallback((fullPath: string) => {
+    setMoveFilesSummary(null);
+    setSelectedFilePaths((previous) =>
+      previous.includes(fullPath)
+        ? previous.filter((selectedPath) => selectedPath !== fullPath)
+        : previous.concat(fullPath)
+    );
+  }, []);
+
+  const cancelSelectionMode = useCallback(() => {
+    setSelectedFilePaths([]);
+    setMoveFilesSummary(null);
+    setMoveFilesDialogError(null);
+    setIsMoveFilesDialogOpen(false);
+  }, []);
+
+  const openMoveFilesDialog = useCallback(() => {
+    if (!selectedFilePaths.length) {
+      return;
+    }
+
+    setMoveFilesDialogDestinationPath(currentFolder.fullPath);
+    setMoveFilesDialogError(null);
+    setIsMoveFilesDialogOpen(true);
+  }, [currentFolder.fullPath, selectedFilePaths.length]);
+
+  const closeMoveFilesDialog = useCallback(() => {
+    if (moveFiles.isPending) {
+      return;
+    }
+
+    setIsMoveFilesDialogOpen(false);
+    setMoveFilesDialogError(null);
+  }, [moveFiles.isPending]);
+
+  const onMoveFilesSubmit = useCallback(
+    (event: FormEvent<HTMLFormElement>) => {
+      event.preventDefault();
+
+      if (!selectedFilePaths.length) {
+        return;
+      }
+
+      setMoveFilesDialogError(null);
+      void (async () => {
+        try {
+          const response = await moveFiles.mutateAsync({
+            sourcePaths: selectedFilePaths,
+            targetFolderPath: moveFilesDialogDestinationPath
+          });
+
+          const movedCount = response.moved.length;
+          const failedCount = response.failed.length;
+          setMoveFilesSummary(
+            failedCount
+              ? `${movedCount} moved, ${failedCount} failed.`
+              : `${movedCount} file${movedCount === 1 ? '' : 's'} moved.`
+          );
+
+          if (!failedCount) {
+            setSelectedFilePaths([]);
+            setIsMoveFilesDialogOpen(false);
+            return;
+          }
+
+          setSelectedFilePaths(response.failed.map((entry) => entry.from));
+          setMoveFilesDialogError(
+            failedCount === 1
+              ? response.failed[0]?.error ?? 'Failed to move selected file.'
+              : `${failedCount} files failed to move.`
+          );
+        } catch (error) {
+          setMoveFilesDialogError(
+            error instanceof Error ? error.message : 'Failed to move selected files.'
+          );
+        }
+      })();
+    },
+    [moveFiles, moveFilesDialogDestinationPath, selectedFilePaths]
   );
 
   const openTrashFolderDialog = useCallback((folderPath: string) => {
@@ -755,6 +862,28 @@ export const DockspaceFilesPage = () => {
     return Array.from(folderPaths);
   }, [uploadDialog.activeUploads]);
 
+  const selectionActions =
+    selectedFilePaths.length > 0 ? (
+      <>
+        <p className="dockspace-browser__selection-meta">
+          {selectedFilePaths.length} file{selectedFilePaths.length === 1 ? '' : 's'} selected
+        </p>
+        <div className="dockspace-browser__selection-actions">
+          {moveFilesSummary ? (
+            <p className="dockspace-browser__selection-feedback" aria-live="polite">
+              {moveFilesSummary}
+            </p>
+          ) : null}
+          <Button type="button" onClick={openMoveFilesDialog}>
+            Move
+          </Button>
+          <Button type="button" variant="secondary" onClick={cancelSelectionMode}>
+            Cancel
+          </Button>
+        </div>
+      </>
+    ) : null;
+
   const emptyDockspaceState = (
     <div className="dockspace-browser-empty">
       <svg
@@ -820,6 +949,9 @@ export const DockspaceFilesPage = () => {
                       pendingFolderTrashPaths={pendingFolderTrashPaths}
                       pendingUploadFiles={pendingUploadFiles}
                       pendingUploadFolderPaths={pendingUploadFolderPaths}
+                      selectedFilePaths={selectedFilePaths}
+                      selectionActions={selectionActions}
+                      statusMessage={moveFilesSummary}
                       actionLabel="Move to Trash"
                       downloadActionLabel="Download"
                       renameActionLabel="Rename"
@@ -851,6 +983,7 @@ export const DockspaceFilesPage = () => {
                       onOpenFile={openFileViewer}
                       onDownload={onDownloadFile}
                       onOpenFolder={onOpenFolder}
+                      onToggleFileSelection={toggleFileSelection}
                       onActionFolder={openTrashFolderDialog}
                       onAction={onMoveToTrash}
                     />
@@ -912,6 +1045,22 @@ export const DockspaceFilesPage = () => {
               isSubmitting={isTrashingFolder}
               onClose={closeTrashFolderDialog}
               onSubmit={onTrashFolderSubmit}
+            />
+            <MoveFilesDialog
+              destinationFolderPath={moveFilesDialogDestinationPath}
+              destinationOptions={moveFilesDestinationOptions}
+              errorMessage={moveFilesDialogError}
+              isOpen={isMoveFilesDialogOpen}
+              isSubmitting={moveFiles.isPending}
+              selectedFileCount={selectedFilePaths.length}
+              onClose={closeMoveFilesDialog}
+              onDestinationFolderPathChange={(nextValue) => {
+                setMoveFilesDialogDestinationPath(nextValue);
+                if (moveFilesDialogError) {
+                  setMoveFilesDialogError(null);
+                }
+              }}
+              onSubmit={onMoveFilesSubmit}
             />
             {viewerFile ? (
               <FileViewerDialog

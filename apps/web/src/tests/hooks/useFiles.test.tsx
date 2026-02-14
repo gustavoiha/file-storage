@@ -4,6 +4,7 @@ import {
   useCreateFolder,
   useDiscoverFolder,
   useFiles,
+  useMoveFiles,
   useMoveToTrash,
   useRenameFile,
   useRenameFolder,
@@ -12,7 +13,7 @@ import {
 import { clearSession, setSession } from '@/lib/authStore';
 import { createTestQueryClient, QueryWrapper } from '@/tests/testUtils';
 
-const { listFolderChildren, createFolder, uploadFile, moveToTrash, renameFile, renameFolder } = vi.hoisted(() => ({
+const { listFolderChildren, createFolder, uploadFile, moveFiles, moveToTrash, renameFile, renameFolder } = vi.hoisted(() => ({
   listFolderChildren: vi.fn(async () => ({
     parentFolderNodeId: 'root',
     items: [
@@ -33,6 +34,7 @@ const { listFolderChildren, createFolder, uploadFile, moveToTrash, renameFile, r
     created: true
   })),
   uploadFile: vi.fn(async () => {}),
+  moveFiles: vi.fn(async () => ({ moved: [], failed: [] })),
   moveToTrash: vi.fn(async () => {}),
   renameFile: vi.fn(async () => {}),
   renameFolder: vi.fn(async () => {})
@@ -44,6 +46,7 @@ vi.mock('@/lib/dockspaceApi', () => ({
   listPurged: vi.fn(async () => []),
   createFolder,
   uploadFile,
+  moveFiles,
   moveToTrash,
   renameFile,
   renameFolder,
@@ -94,6 +97,23 @@ describe('useFiles', () => {
 
     await result.current.mutateAsync({ fullPath: '/x.txt', targetType: 'file' });
     expect(moveToTrash).toHaveBeenCalledWith('v1', { fullPath: '/x.txt', targetType: 'file' });
+  });
+
+  it('moves multiple files to a folder', async () => {
+    const client = createTestQueryClient();
+    const { result } = renderHook(() => useMoveFiles('v1', '/'), {
+      wrapper: ({ children }) => <QueryWrapper client={client}>{children}</QueryWrapper>
+    });
+
+    await result.current.mutateAsync({
+      sourcePaths: ['/x.txt', '/y.txt'],
+      targetFolderPath: '/docs'
+    });
+
+    expect(moveFiles).toHaveBeenCalledWith('v1', {
+      sourcePaths: ['/x.txt', '/y.txt'],
+      targetFolderPath: '/docs'
+    });
   });
 
   it('discovers folder children', async () => {

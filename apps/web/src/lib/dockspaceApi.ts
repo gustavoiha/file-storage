@@ -71,6 +71,16 @@ export interface FileDownloadSessionResponse {
   expiresInSeconds: number;
 }
 
+export interface MoveFilesResponse {
+  targetFolderPath: string;
+  moved: Array<{ from: string; to: string }>;
+  failed: Array<{
+    from: string;
+    code: 'NOT_FOUND' | 'CONFLICT' | 'INVALID';
+    error: string;
+  }>;
+}
+
 export const uploadFile = async (
   dockspaceId: string,
   fullPath: string,
@@ -144,6 +154,15 @@ export const moveToTrash = async (
     body: JSON.stringify(params)
   });
 };
+
+export const moveFiles = async (
+  dockspaceId: string,
+  params: { sourcePaths: string[]; targetFolderPath: string }
+): Promise<MoveFilesResponse> =>
+  apiRequest<MoveFilesResponse>(`/dockspaces/${dockspaceId}/files/move`, {
+    method: 'POST',
+    body: JSON.stringify(params)
+  });
 
 export const createFileDownloadSession = async (
   dockspaceId: string,

@@ -162,6 +162,73 @@ describe('FileList', () => {
     expect(onAction).toHaveBeenCalledWith('/x.txt');
   });
 
+  it('toggles file selection when selection mode is active', () => {
+    const onAction = vi.fn();
+    const onOpenFolder = vi.fn();
+    const onOpenFile = vi.fn();
+    const onToggleFileSelection = vi.fn();
+
+    render(
+      <FileList
+        files={[
+          {
+            fullPath: '/x.txt',
+            size: 1,
+            state: 'ACTIVE'
+          }
+        ]}
+        folders={[]}
+        currentFolder="/"
+        pendingFolderPaths={[]}
+        selectedFilePaths={['/x.txt']}
+        actionLabel="Trash"
+        onToggleFileSelection={onToggleFileSelection}
+        onOpenFile={onOpenFile}
+        onOpenFolder={onOpenFolder}
+        onAction={onAction}
+      />
+    );
+
+    fireEvent.click(screen.getByText('x.txt'));
+    expect(onToggleFileSelection).toHaveBeenCalledWith('/x.txt');
+    expect(onOpenFile).not.toHaveBeenCalled();
+  });
+
+  it('renders folder checkbox placeholder when selection mode is active', () => {
+    const onAction = vi.fn();
+    const onOpenFolder = vi.fn();
+
+    render(
+      <FileList
+        files={[
+          {
+            fullPath: '/x.txt',
+            size: 1,
+            state: 'ACTIVE'
+          }
+        ]}
+        folders={[
+          {
+            folderNodeId: 'f_docs',
+            parentFolderNodeId: 'root',
+            fullPath: '/docs',
+            name: 'docs',
+            createdAt: '2026-01-01T00:00:00.000Z',
+            updatedAt: '2026-01-01T00:00:00.000Z'
+          }
+        ]}
+        currentFolder="/"
+        pendingFolderPaths={[]}
+        selectedFilePaths={['/x.txt']}
+        actionLabel="Trash"
+        onOpenFolder={onOpenFolder}
+        onAction={onAction}
+      />
+    );
+
+    expect(document.querySelector('.dockspace-browser__row-checkbox--disabled')).toBeInTheDocument();
+  });
+
   it('opens a folder', () => {
     const onAction = vi.fn();
     const onOpenFolder = vi.fn();

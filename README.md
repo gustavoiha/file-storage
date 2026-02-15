@@ -278,13 +278,13 @@ If the object no longer exists, restore fails and the item should be transitione
 
 Runs daily.
 
-Algorithm (per dockspace):
+Algorithm:
 
-1. Query GSI1:
+1. Query GSI1 (paginated):
 
-   * `begins_with(GSI1SK, S#TRASH#T#)`
-   * Stop when `flaggedForDeleteAt > now`
-2. For each eligible item:
+   * `GSI1PK = "PURGE_DUE"`
+   * `GSI1SK <= "{nowIso}#~"`
+2. For each due item:
 
    * `HEAD` the S3 object
 
@@ -380,6 +380,8 @@ Create this parameter before first production signup:
 * Type: `StringList`
 * Value example: `you@example.com`
 
+---
+
 ### Onboarding a User
 
 1. Add the email to `/dockspace/auth/allowed-signup-emails`
@@ -391,3 +393,28 @@ Create this parameter before first production signup:
 
 1. Remove user from Cognito group `entitled-users` to block API access
 2. Optionally remove email from SSM allowlist to block future signups
+
+---
+
+## 18. One-Time Backfill For Purge GSI
+
+When introducing purge-due indexing for already-trashed records, run this one-time backfill:
+
+```bash
+TABLE_NAME=<your-table-name> \
+BACKFILL_DRY_RUN=true \
+npm run --workspace @dockspace/backend backfill:purge-gsi
+```
+
+Then execute the write run:
+
+```bash
+TABLE_NAME=<your-table-name> \
+BACKFILL_DRY_RUN=false \
+npm run --workspace @dockspace/backend backfill:purge-gsi
+```
+
+Optional controls:
+
+* `BACKFILL_PAGE_SIZE` (default `200`)
+* `BACKFILL_MAX_PAGES` (unset by default; process all pages)

@@ -19,10 +19,10 @@
 
 ## Data Lifecycle And Querying
 
-- [ ] Phase 1: Add GSI index-key maintenance in repository write paths for trash/restore/purge transitions. Plan: `/Users/gustavoiha/Personal/file-storage/plans/purge-reconciliation-gsi-plan.md`.
-- [ ] Phase 2: Add and run backfill for existing trashed records to populate GSI purge-due keys. Plan: `/Users/gustavoiha/Personal/file-storage/plans/purge-reconciliation-gsi-plan.md`.
-- [ ] Phase 3: Switch `purgeReconciliation` from scan flow to `GSI1` query flow. Plan: `/Users/gustavoiha/Personal/file-storage/plans/purge-reconciliation-gsi-plan.md`.
-- [ ] Phase 4: Remove temporary fallback logic and keep only the GSI reconciliation path. Plan: `/Users/gustavoiha/Personal/file-storage/plans/purge-reconciliation-gsi-plan.md`.
+- [x] Phase 1: Add GSI index-key maintenance in repository write paths for trash/restore/purge transitions. Plan: `/Users/gustavoiha/Personal/file-storage/plans/purge-reconciliation-gsi-plan.md`.
+- [x] Phase 2: Add and run backfill for existing trashed records to populate GSI purge-due keys. Plan: `/Users/gustavoiha/Personal/file-storage/plans/purge-reconciliation-gsi-plan.md`.
+- [x] Phase 3: Switch `purgeReconciliation` from scan flow to `GSI1` query flow. Plan: `/Users/gustavoiha/Personal/file-storage/plans/purge-reconciliation-gsi-plan.md`.
+- [x] Phase 4: Remove temporary fallback logic and keep only the GSI reconciliation path. Plan: `/Users/gustavoiha/Personal/file-storage/plans/purge-reconciliation-gsi-plan.md`.
 - [ ] Rework querying for trash or purged file nodes so state information is encoded directly in PK or SK keys, avoiding filter-based reads.
 
 ## Platform Configuration

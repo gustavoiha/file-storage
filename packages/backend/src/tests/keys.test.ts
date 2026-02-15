@@ -6,6 +6,10 @@ import {
   buildFilePk,
   buildFileNodeSk,
   buildFolderNodeSk,
+  buildPurgeDueGsi1Sk,
+  buildPurgeDueUpperBoundGsi1Sk,
+  parseDockspacePartitionSk,
+  PURGE_DUE_GSI1_PK,
   ROOT_FOLDER_NODE_ID,
   buildDockspacePk,
   buildDockspaceSk
@@ -30,5 +34,21 @@ describe('keys', () => {
     expect(buildDirectoryNamePrefix('root', 'L', 'photo.jpg')).toBe(
       'D#root#L#photo.jpg#'
     );
+  });
+
+  it('builds purge-due index keys', () => {
+    expect(PURGE_DUE_GSI1_PK).toBe('PURGE_DUE');
+    expect(buildPurgeDueGsi1Sk('2026-02-16T00:00:00.000Z', 'U#u1#S#v1', 'L#file_1')).toBe(
+      '2026-02-16T00:00:00.000Z#U#u1#S#v1#L#file_1'
+    );
+    expect(buildPurgeDueUpperBoundGsi1Sk('2026-02-16T00:00:00.000Z')).toBe(
+      '2026-02-16T00:00:00.000Z#~'
+    );
+  });
+
+  it('parses dockspace partition key', () => {
+    expect(parseDockspacePartitionSk('U#u1#S#v1')).toEqual({ userId: 'u1', dockspaceId: 'v1' });
+    expect(parseDockspacePartitionSk('U##S#v1')).toBeNull();
+    expect(parseDockspacePartitionSk('invalid')).toBeNull();
   });
 });

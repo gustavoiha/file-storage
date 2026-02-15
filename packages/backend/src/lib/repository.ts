@@ -13,6 +13,8 @@ import {
   buildFilePk,
   buildFolderNodeSk,
   buildDockspacePk,
+  buildPurgeDueGsi1Sk,
+  PURGE_DUE_GSI1_PK,
   ROOT_FOLDER_NODE_ID,
   type DirectoryKind
 } from '../domain/keys.js';
@@ -449,7 +451,7 @@ export const upsertActiveFileByPath = async (params: {
               },
               ConditionExpression: 'attribute_exists(PK) AND attribute_exists(SK)',
               UpdateExpression:
-                'SET parentFolderNodeId = :parentFolderNodeId, s3Key = :s3Key, #name = :name, #size = :size, contentType = :contentType, etag = :etag, updatedAt = :updatedAt REMOVE deletedAt, flaggedForDeleteAt, purgedAt',
+                'SET parentFolderNodeId = :parentFolderNodeId, s3Key = :s3Key, #name = :name, #size = :size, contentType = :contentType, etag = :etag, updatedAt = :updatedAt REMOVE deletedAt, flaggedForDeleteAt, purgedAt, GSI1PK, GSI1SK',
               ExpressionAttributeNames: {
                 '#name': 'name',
                 '#size': 'size'
@@ -840,6 +842,9 @@ export const markResolvedFileNodeTrashed = async (
   nowIso: string,
   flaggedForDeleteAt: string
 ): Promise<void> => {
+  const filePk = buildFilePk(userId, dockspaceId);
+  const gsi1Sk = buildPurgeDueGsi1Sk(flaggedForDeleteAt, filePk, resolved.fileNode.SK);
+
   await dynamoDoc.send(
     new TransactWriteCommand({
       TransactItems: [
@@ -847,17 +852,19 @@ export const markResolvedFileNodeTrashed = async (
           Update: {
             TableName: env.tableName,
             Key: {
-              PK: buildFilePk(userId, dockspaceId),
+              PK: filePk,
               SK: resolved.fileNode.SK
             },
             ConditionExpression: 'attribute_not_exists(deletedAt) AND attribute_not_exists(purgedAt)',
             UpdateExpression:
-              'SET deletedAt = :deletedAt, flaggedForDeleteAt = :flaggedForDeleteAt, trashedPath = :trashedPath, updatedAt = :updatedAt',
+              'SET deletedAt = :deletedAt, flaggedForDeleteAt = :flaggedForDeleteAt, trashedPath = :trashedPath, updatedAt = :updatedAt, GSI1PK = :gsi1pk, GSI1SK = :gsi1sk',
             ExpressionAttributeValues: {
               ':deletedAt': nowIso,
               ':flaggedForDeleteAt': flaggedForDeleteAt,
               ':trashedPath': resolved.fullPath,
-              ':updatedAt': nowIso
+              ':updatedAt': nowIso,
+              ':gsi1pk': PURGE_DUE_GSI1_PK,
+              ':gsi1sk': gsi1Sk
             }
           }
         },
@@ -865,7 +872,7 @@ export const markResolvedFileNodeTrashed = async (
           Delete: {
             TableName: env.tableName,
             Key: {
-              PK: buildFilePk(userId, dockspaceId),
+              PK: filePk,
               SK: resolved.directory.SK
             },
             ConditionExpression: 'attribute_exists(PK) AND attribute_exists(SK)'
@@ -1271,7 +1278,7 @@ export const restoreFileNodeFromTrash = async (params: {
             },
             ConditionExpression: 'attribute_exists(deletedAt) AND attribute_not_exists(purgedAt)',
             UpdateExpression:
-              'SET parentFolderNodeId = :parentFolderNodeId, #name = :name, updatedAt = :updatedAt REMOVE deletedAt, flaggedForDeleteAt, purgedAt, trashedPath',
+              'SET parentFolderNodeId = :parentFolderNodeId, #name = :name, updatedAt = :updatedAt REMOVE deletedAt, flaggedForDeleteAt, purgedAt, trashedPath, GSI1PK, GSI1SK',
             ExpressionAttributeNames: {
               '#name': 'name'
             },
@@ -1327,7 +1334,7 @@ export const markFileNodePurged = async (params: {
               SK: params.fileNode.SK
             },
             ConditionExpression: 'attribute_exists(deletedAt) AND attribute_not_exists(purgedAt)',
-            UpdateExpression: 'SET purgedAt = :purgedAt, updatedAt = :updatedAt',
+            UpdateExpression: 'SET purgedAt = :purgedAt, updatedAt = :updatedAt REMOVE GSI1PK, GSI1SK',
             ExpressionAttributeValues: {
               ':purgedAt': params.nowIso,
               ':updatedAt': params.nowIso

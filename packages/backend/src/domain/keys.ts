@@ -1,4 +1,5 @@
 export const ROOT_FOLDER_NODE_ID = 'root';
+export const PURGE_DUE_GSI1_PK = 'PURGE_DUE';
 
 export type DirectoryKind = 'L' | 'F';
 
@@ -33,3 +34,33 @@ export const buildDirectoryNamePrefix = (
 export const buildDockspacePk = (userId: string): string => `U#${userId}`;
 
 export const buildDockspaceSk = (dockspaceId: string): string => `S#${dockspaceId}`;
+
+export const buildPurgeDueGsi1Sk = (
+  flaggedForDeleteAt: string,
+  filePk: string,
+  fileNodeSk: string
+): string => `${flaggedForDeleteAt}#${filePk}#${fileNodeSk}`;
+
+export const buildPurgeDueUpperBoundGsi1Sk = (nowIso: string): string => `${nowIso}#~`;
+
+export const parseDockspacePartitionSk = (
+  filePk: string
+): { userId: string; dockspaceId: string } | null => {
+  if (!filePk.startsWith('U#')) {
+    return null;
+  }
+
+  const separatorIndex = filePk.indexOf('#S#', 2);
+  if (separatorIndex < 0) {
+    return null;
+  }
+
+  const userId = filePk.slice(2, separatorIndex);
+  const dockspaceId = filePk.slice(separatorIndex + 3);
+
+  if (!userId || !dockspaceId) {
+    return null;
+  }
+
+  return { userId, dockspaceId };
+};

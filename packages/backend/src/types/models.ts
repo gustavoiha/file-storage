@@ -16,6 +16,8 @@ export interface FileNodeItem {
   flaggedForDeleteAt?: string;
   trashedPath?: string;
   purgedAt?: string;
+  GSI1PK?: string;
+  GSI1SK?: string;
 }
 
 export interface FolderNodeItem {

@@ -2,7 +2,7 @@
 
 ## Dockspace Insights
 
-- [ ] Show 3 featured metrics for each dockspace, including total number of files, total size, and one additional metric (for example: last upload date).
+- [ ] Show 3 featured metrics for each dockspace, including total number of files, total size, and one additional metric (for example: last upload date). Plan: `/Users/gustavoiha/Personal/file-storage/plans/dockspace-featured-metrics-records-plan.md`.
 
 ## Upload Experience
 

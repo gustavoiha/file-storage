@@ -8,6 +8,7 @@ import {
   HeadObjectCommand,
   PutObjectCommand,
   PutObjectTaggingCommand,
+  StorageClass,
   S3ServiceException,
   UploadPartCommand
 } from '@aws-sdk/client-s3';
@@ -59,7 +60,8 @@ export const createUploadUrl = async (
   const command = new PutObjectCommand({
     Bucket: env.bucketName,
     Key: key,
-    ContentType: contentType
+    ContentType: contentType,
+    StorageClass: StorageClass.INTELLIGENT_TIERING
   });
 
   return getSignedUrl(s3Client, command, { expiresIn: 900 });
@@ -70,7 +72,8 @@ export const startMultipartUpload = async (key: string, contentType: string): Pr
     new CreateMultipartUploadCommand({
       Bucket: env.bucketName,
       Key: key,
-      ContentType: contentType
+      ContentType: contentType,
+      StorageClass: StorageClass.INTELLIGENT_TIERING
     })
   );
 

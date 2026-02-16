@@ -7,6 +7,31 @@ afterEach(() => {
 });
 
 describe('FileList', () => {
+  it('calls secondary action in flat mode', () => {
+    const onAction = vi.fn();
+    const onSecondaryAction = vi.fn();
+
+    render(
+      <FileList
+        files={[
+          {
+            fullPath: '/x.txt',
+            size: 1,
+            state: 'TRASH'
+          }
+        ]}
+        actionLabel="Restore"
+        secondaryActionLabel="Purge now"
+        secondaryActionVariant="danger"
+        onSecondaryAction={onSecondaryAction}
+        onAction={onAction}
+      />
+    );
+
+    fireEvent.click(screen.getByRole('button', { name: 'Purge now' }));
+    expect(onSecondaryAction).toHaveBeenCalledWith('/x.txt');
+  });
+
   it('calls action', () => {
     const onAction = vi.fn();
     const onOpenFolder = vi.fn();

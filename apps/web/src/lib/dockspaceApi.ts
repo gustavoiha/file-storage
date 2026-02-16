@@ -466,3 +466,18 @@ export const restoreFile = async (dockspaceId: string, fullPath: string): Promis
     body: JSON.stringify({ fullPath })
   });
 };
+
+export interface PurgeFileNowResponse {
+  fullPath: string;
+  state: 'PURGED';
+  purgedAt: string;
+}
+
+export const purgeFileNow = async (
+  dockspaceId: string,
+  fullPath: string
+): Promise<PurgeFileNowResponse> =>
+  apiRequest<PurgeFileNowResponse>(`/dockspaces/${dockspaceId}/files/purge`, {
+    method: 'POST',
+    body: JSON.stringify({ fullPath })
+  });

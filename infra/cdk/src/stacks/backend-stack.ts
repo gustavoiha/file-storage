@@ -70,6 +70,7 @@ export class BackendStack extends Stack {
       moveFiles: createHandler('moveFiles'),
       moveToTrash: createHandler('moveToTrash'),
       restoreFile: createHandler('restoreFile'),
+      purgeFileNow: createHandler('purgeFileNow'),
       listTrash: createHandler('listTrash'),
       listPurged: createHandler('listPurged')
     };
@@ -90,6 +91,7 @@ export class BackendStack extends Stack {
     props.table.grantReadWriteData(handlers.moveFiles);
     props.table.grantReadWriteData(handlers.moveToTrash);
     props.table.grantReadWriteData(handlers.restoreFile);
+    props.table.grantReadWriteData(handlers.purgeFileNow);
     props.table.grantReadWriteData(handlers.listTrash);
     props.table.grantReadWriteData(handlers.listPurged);
     props.table.grantReadWriteData(purgeReconciliation);
@@ -103,6 +105,7 @@ export class BackendStack extends Stack {
     props.bucket.grantReadWrite(handlers.confirmUpload);
     props.bucket.grantReadWrite(handlers.moveToTrash);
     props.bucket.grantReadWrite(handlers.restoreFile);
+    props.bucket.grantReadWrite(handlers.purgeFileNow);
     props.bucket.grantReadWrite(purgeReconciliation);
 
     this.api = new HttpApi(this, 'HttpApi', {
@@ -254,6 +257,13 @@ export class BackendStack extends Stack {
       path: '/dockspaces/{dockspaceId}/files/restore',
       methods: [HttpMethod.POST],
       integration: new HttpLambdaIntegration('RestoreFileIntegration', handlers.restoreFile),
+      authorizer
+    });
+
+    this.api.addRoutes({
+      path: '/dockspaces/{dockspaceId}/files/purge',
+      methods: [HttpMethod.POST],
+      integration: new HttpLambdaIntegration('PurgeFileNowIntegration', handlers.purgeFileNow),
       authorizer
     });
 

@@ -9,6 +9,7 @@ import {
   listTrash,
   moveFiles,
   moveToTrash,
+  purgeFileNow,
   renameFile,
   renameFolder,
   restoreFile,
@@ -224,6 +225,26 @@ export const useRestoreFile = (dockspaceId: string) => {
         queryClient.invalidateQueries({
           queryKey: filesQueryKey(userId, dockspaceId, ROOT_FOLDER_NODE_ID)
         })
+      ]);
+    }
+  });
+};
+
+export const usePurgeFileNow = (dockspaceId: string) => {
+  const queryClient = useQueryClient();
+  const { session } = useStore(authStore);
+  const userId = session?.userId ?? '';
+
+  return useMutation({
+    mutationFn: (fullPath: string) => purgeFileNow(dockspaceId, fullPath),
+    onSuccess: async () => {
+      if (!userId) {
+        return;
+      }
+
+      await Promise.all([
+        queryClient.invalidateQueries({ queryKey: trashQueryKey(userId, dockspaceId) }),
+        queryClient.invalidateQueries({ queryKey: purgedQueryKey(userId, dockspaceId) })
       ]);
     }
   });

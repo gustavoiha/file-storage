@@ -6,6 +6,7 @@ import {
   useFiles,
   useMoveFiles,
   useMoveToTrash,
+  usePurgeFileNow,
   useRenameFile,
   useRenameFolder,
   useUploadFile
@@ -13,7 +14,16 @@ import {
 import { clearSession, setSession } from '@/lib/authStore';
 import { createTestQueryClient, QueryWrapper } from '@/tests/testUtils';
 
-const { listFolderChildren, createFolder, uploadFile, moveFiles, moveToTrash, renameFile, renameFolder } = vi.hoisted(() => ({
+const {
+  listFolderChildren,
+  createFolder,
+  uploadFile,
+  moveFiles,
+  moveToTrash,
+  purgeFileNow,
+  renameFile,
+  renameFolder
+} = vi.hoisted(() => ({
   listFolderChildren: vi.fn(async () => ({
     parentFolderNodeId: 'root',
     items: [
@@ -36,6 +46,11 @@ const { listFolderChildren, createFolder, uploadFile, moveFiles, moveToTrash, re
   uploadFile: vi.fn(async () => {}),
   moveFiles: vi.fn(async () => ({ moved: [], failed: [] })),
   moveToTrash: vi.fn(async () => {}),
+  purgeFileNow: vi.fn(async () => ({
+    fullPath: '/x.txt',
+    state: 'PURGED' as const,
+    purgedAt: '2026-02-17T00:00:00.000Z'
+  })),
   renameFile: vi.fn(async () => {}),
   renameFolder: vi.fn(async () => {})
 }));
@@ -48,6 +63,7 @@ vi.mock('@/lib/dockspaceApi', () => ({
   uploadFile,
   moveFiles,
   moveToTrash,
+  purgeFileNow,
   renameFile,
   renameFolder,
   restoreFile: vi.fn(async () => {})
@@ -97,6 +113,16 @@ describe('useFiles', () => {
 
     await result.current.mutateAsync({ fullPath: '/x.txt', targetType: 'file' });
     expect(moveToTrash).toHaveBeenCalledWith('v1', { fullPath: '/x.txt', targetType: 'file' });
+  });
+
+  it('purges trashed file immediately', async () => {
+    const client = createTestQueryClient();
+    const { result } = renderHook(() => usePurgeFileNow('v1'), {
+      wrapper: ({ children }) => <QueryWrapper client={client}>{children}</QueryWrapper>
+    });
+
+    await result.current.mutateAsync('/x.txt');
+    expect(purgeFileNow).toHaveBeenCalledWith('v1', '/x.txt');
   });
 
   it('moves multiple files to a folder', async () => {

@@ -143,6 +143,13 @@
   align-items: center;
 }
 
+.resource-list__item-actions {
+  display: flex;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+}
+
 .dockspace-browser {
   display: grid;
   gap: 0.8rem;

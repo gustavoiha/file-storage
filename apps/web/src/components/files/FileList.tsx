@@ -23,6 +23,12 @@ interface FileListProps {
   statusMessage?: string | null;
   toolbarActions?: ReactNode;
   actionLabel: string;
+  actionLabelWhilePending?: string | undefined;
+  pendingActionPath?: string | null;
+  secondaryActionLabel?: string | undefined;
+  secondaryActionLabelWhilePending?: string | undefined;
+  pendingSecondaryActionPath?: string | null;
+  secondaryActionVariant?: 'primary' | 'secondary' | 'danger' | undefined;
   onDownload?: ((file: FileRecord) => void) | undefined;
   onRename?: ((fullPath: string) => void) | undefined;
   onRenameFolder?: ((folderPath: string) => void) | undefined;
@@ -30,6 +36,7 @@ interface FileListProps {
   onOpenFolder?: (folderPath: string) => void;
   onToggleFileSelection?: ((fullPath: string) => void) | undefined;
   onActionFolder?: ((folderPath: string) => void) | undefined;
+  onSecondaryAction?: ((fullPath: string) => void) | undefined;
   onAction: (fullPath: string) => void;
 }
 
@@ -105,11 +112,29 @@ const breadcrumbItems = (folderPath: string, rootLabel: string): BreadcrumbItem[
 
 interface FlatFileListProps {
   actionLabel: string;
+  actionLabelWhilePending?: string | undefined;
   files: FileRecord[];
+  pendingActionPath?: string | null;
+  pendingSecondaryActionPath?: string | null;
+  secondaryActionLabel?: string | undefined;
+  secondaryActionLabelWhilePending?: string | undefined;
+  secondaryActionVariant?: 'primary' | 'secondary' | 'danger' | undefined;
+  onSecondaryAction?: ((fullPath: string) => void) | undefined;
   onAction: (fullPath: string) => void;
 }
 
-const FlatFileList = ({ actionLabel, files, onAction }: FlatFileListProps) => {
+const FlatFileList = ({
+  actionLabel,
+  actionLabelWhilePending,
+  files,
+  pendingActionPath,
+  pendingSecondaryActionPath,
+  secondaryActionLabel,
+  secondaryActionLabelWhilePending,
+  secondaryActionVariant = 'secondary',
+  onSecondaryAction,
+  onAction
+}: FlatFileListProps) => {
   if (!files.length) {
     return <p>No files found.</p>;
   }
@@ -122,9 +147,28 @@ const FlatFileList = ({ actionLabel, files, onAction }: FlatFileListProps) => {
             <strong>{file.fullPath}</strong>
             {typeof file.size === 'number' ? <p>{file.size} bytes</p> : null}
           </div>
-          <Button variant="secondary" onClick={() => onAction(file.fullPath)}>
-            {actionLabel}
-          </Button>
+          <div className="resource-list__item-actions">
+            {onSecondaryAction && secondaryActionLabel ? (
+              <Button
+                variant={secondaryActionVariant}
+                onClick={() => onSecondaryAction(file.fullPath)}
+                disabled={pendingSecondaryActionPath === file.fullPath}
+              >
+                {pendingSecondaryActionPath === file.fullPath
+                  ? (secondaryActionLabelWhilePending ?? secondaryActionLabel)
+                  : secondaryActionLabel}
+              </Button>
+            ) : null}
+            <Button
+              variant="secondary"
+              onClick={() => onAction(file.fullPath)}
+              disabled={pendingActionPath === file.fullPath}
+            >
+              {pendingActionPath === file.fullPath
+                ? (actionLabelWhilePending ?? actionLabel)
+                : actionLabel}
+            </Button>
+          </div>
         </li>
       ))}
     </ul>
@@ -734,6 +778,7 @@ const FolderModeList = ({
 
 export const FileList = ({
   actionLabel,
+  actionLabelWhilePending,
   currentFolder = '/',
   downloadActionLabel,
   emptyState,
@@ -749,18 +794,37 @@ export const FileList = ({
   onOpenFolder,
   onToggleFileSelection,
   pendingFolderPaths = [],
+  pendingActionPath = null,
+  pendingSecondaryActionPath = null,
   pendingFolderTrashPaths = [],
   pendingUploadFiles = [],
   pendingUploadFolderPaths = [],
   renameActionLabel,
   rootBreadcrumbLabel = 'Root',
+  secondaryActionLabel,
+  secondaryActionLabelWhilePending,
+  secondaryActionVariant = 'secondary',
   selectedFilePaths = [],
   selectionActions,
   statusMessage,
-  toolbarActions
+  toolbarActions,
+  onSecondaryAction
 }: FileListProps) => {
   if (!onOpenFolder) {
-    return <FlatFileList actionLabel={actionLabel} files={files} onAction={onAction} />;
+    return (
+      <FlatFileList
+        actionLabel={actionLabel}
+        actionLabelWhilePending={actionLabelWhilePending}
+        files={files}
+        pendingActionPath={pendingActionPath}
+        pendingSecondaryActionPath={pendingSecondaryActionPath}
+        secondaryActionLabel={secondaryActionLabel}
+        secondaryActionLabelWhilePending={secondaryActionLabelWhilePending}
+        secondaryActionVariant={secondaryActionVariant}
+        onSecondaryAction={onSecondaryAction}
+        onAction={onAction}
+      />
+    );
   }
 
   return (

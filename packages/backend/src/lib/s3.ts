@@ -1,11 +1,13 @@
 import {
   AbortMultipartUploadCommand,
   CompleteMultipartUploadCommand,
+  DeleteObjectsCommand,
   CreateMultipartUploadCommand,
   DeleteObjectTaggingCommand,
   GetObjectCommand,
   GetObjectTaggingCommand,
   HeadObjectCommand,
+  ListObjectVersionsCommand,
   PutObjectCommand,
   PutObjectTaggingCommand,
   StorageClass,
@@ -216,4 +218,103 @@ export const clearTrashTag = async (key: string): Promise<void> => {
       }
     })
   );
+};
+
+interface ObjectVersionRef {
+  Key: string;
+  VersionId?: string;
+}
+
+const listObjectVersionRefs = async (key: string): Promise<ObjectVersionRef[]> => {
+  const refs: ObjectVersionRef[] = [];
+  let keyMarker: string | undefined;
+  let versionIdMarker: string | undefined;
+  let hasMore = true;
+
+  while (hasMore) {
+    const page = await s3Client.send(
+      new ListObjectVersionsCommand({
+        Bucket: env.bucketName,
+        Prefix: key,
+        KeyMarker: keyMarker,
+        VersionIdMarker: versionIdMarker
+      })
+    );
+
+    refs.push(
+      ...(page.Versions ?? [])
+        .filter((entry) => entry.Key === key)
+        .map((entry) => ({
+          Key: key,
+          ...(entry.VersionId ? { VersionId: entry.VersionId } : {})
+        }))
+    );
+    refs.push(
+      ...(page.DeleteMarkers ?? [])
+        .filter((entry) => entry.Key === key)
+        .map((entry) => ({
+          Key: key,
+          ...(entry.VersionId ? { VersionId: entry.VersionId } : {})
+        }))
+    );
+
+    keyMarker = page.NextKeyMarker;
+    versionIdMarker = page.NextVersionIdMarker;
+    hasMore = Boolean(page.IsTruncated);
+  }
+
+  return refs;
+};
+
+const deleteObjectVersionRefs = async (refs: ObjectVersionRef[]): Promise<number> => {
+  if (!refs.length) {
+    return 0;
+  }
+
+  let deletedCount = 0;
+
+  for (let index = 0; index < refs.length; index += 1000) {
+    const batch = refs.slice(index, index + 1000);
+    const response = await s3Client.send(
+      new DeleteObjectsCommand({
+        Bucket: env.bucketName,
+        Delete: {
+          Objects: batch,
+          Quiet: true
+        }
+      })
+    );
+
+    if ((response.Errors?.length ?? 0) > 0) {
+      const firstError = response.Errors?.[0];
+      throw new Error(
+        `Failed to delete S3 object versions for key "${batch[0]?.Key ?? 'unknown'}"${firstError?.Code ? ` (${firstError.Code})` : ''}`
+      );
+    }
+
+    deletedCount += response.Deleted?.length ?? batch.length;
+  }
+
+  return deletedCount;
+};
+
+export const objectHasAnyVersion = async (key: string): Promise<boolean> =>
+  (await listObjectVersionRefs(key)).length > 0;
+
+export interface PurgeObjectVersionsResult {
+  discoveredVersionCount: number;
+  deletedVersionCount: number;
+  remainingVersionCount: number;
+}
+
+export const purgeObjectVersions = async (key: string): Promise<PurgeObjectVersionsResult> => {
+  const discoveredRefs = await listObjectVersionRefs(key);
+  const deletedVersionCount = await deleteObjectVersionRefs(discoveredRefs);
+  const remainingVersionCount = (await listObjectVersionRefs(key)).length;
+
+  return {
+    discoveredVersionCount: discoveredRefs.length,
+    deletedVersionCount,
+    remainingVersionCount
+  };
 };

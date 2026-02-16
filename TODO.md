@@ -27,5 +27,5 @@
 ## Platform Configuration
 
 - [x] Tighten CORS `allowOrigins` from `*` to environment domains (`dev: dockspace-dev.officiarte.it`, `prod: dockspace.officiarte.it`).
-- [ ] Tighten S3 data resiliency by enabling versioning for dockspace files, with updated trash/purge semantics and controls for resiliency, availability, and security. Plan: `/Users/gustavoiha/Personal/file-storage/plans/s3-versioning-resiliency-plan.md`.
+- [x] Tighten S3 data resiliency by enabling versioning for dockspace files, with updated trash/purge semantics and controls for resiliency, availability, and security. Plan: `/Users/gustavoiha/Personal/file-storage/plans/s3-versioning-resiliency-plan.md`.
 - [ ] Enable S3 bucket replication (CRR or SRR) for dockspace files to improve disaster recovery resiliency.

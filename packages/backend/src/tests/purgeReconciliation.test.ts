@@ -1,8 +1,8 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
-const { sendMock, objectExistsMock, markFileNodePurgedMock } = vi.hoisted(() => ({
+const { sendMock, purgeObjectVersionsMock, markFileNodePurgedMock } = vi.hoisted(() => ({
   sendMock: vi.fn(),
-  objectExistsMock: vi.fn(),
+  purgeObjectVersionsMock: vi.fn(),
   markFileNodePurgedMock: vi.fn()
 }));
 
@@ -13,7 +13,7 @@ vi.mock('../lib/clients.js', () => ({
 }));
 
 vi.mock('../lib/s3.js', () => ({
-  objectExists: objectExistsMock
+  purgeObjectVersions: purgeObjectVersionsMock
 }));
 
 vi.mock('../lib/repository.js', () => ({
@@ -24,14 +24,14 @@ beforeEach(() => {
   process.env.TABLE_NAME = 'table';
   process.env.BUCKET_NAME = 'bucket';
   sendMock.mockReset();
-  objectExistsMock.mockReset();
+  purgeObjectVersionsMock.mockReset();
   markFileNodePurgedMock.mockReset();
   vi.useRealTimers();
   vi.resetModules();
 });
 
 describe('purgeReconciliation handler', () => {
-  it('queries GSI1 due items and purges only missing objects', async () => {
+  it('queries GSI1 due items and marks purged only when no versions remain', async () => {
     vi.useFakeTimers();
     vi.setSystemTime(new Date('2026-02-15T12:00:00.000Z'));
 
@@ -49,13 +49,42 @@ describe('purgeReconciliation handler', () => {
         }
       ]
     });
-    objectExistsMock.mockResolvedValueOnce(true).mockResolvedValueOnce(false);
+    sendMock
+      .mockResolvedValueOnce({
+        Item: {
+          PK: 'U#user-1#S#dock-1',
+          SK: 'L#file-1',
+          s3Key: 'key-1',
+          deletedAt: '2026-02-01T00:00:00.000Z',
+          flaggedForDeleteAt: '2026-02-15T00:00:00.000Z'
+        }
+      })
+      .mockResolvedValueOnce({
+        Item: {
+          PK: 'U#user-2#S#dock-2',
+          SK: 'L#file-2',
+          s3Key: 'key-2',
+          deletedAt: '2026-02-01T00:00:00.000Z',
+          flaggedForDeleteAt: '2026-02-15T00:00:00.000Z'
+        }
+      });
+    purgeObjectVersionsMock
+      .mockResolvedValueOnce({
+        discoveredVersionCount: 2,
+        deletedVersionCount: 1,
+        remainingVersionCount: 1
+      })
+      .mockResolvedValueOnce({
+        discoveredVersionCount: 2,
+        deletedVersionCount: 2,
+        remainingVersionCount: 0
+      });
     markFileNodePurgedMock.mockResolvedValue(undefined);
 
     const { handler } = await import('../handlers/purgeReconciliation.js');
     const response = await handler({} as never);
 
-    expect(sendMock).toHaveBeenCalledTimes(1);
+    expect(sendMock).toHaveBeenCalledTimes(3);
 
     const queryCommand = sendMock.mock.calls[0]?.[0] as {
       input: { IndexName: string; KeyConditionExpression: string; ExpressionAttributeValues: Record<string, string> };
@@ -69,16 +98,16 @@ describe('purgeReconciliation handler', () => {
       '2026-02-15T12:00:00.000Z#~'
     );
 
-    expect(objectExistsMock).toHaveBeenCalledTimes(2);
+    expect(purgeObjectVersionsMock).toHaveBeenCalledTimes(2);
     expect(markFileNodePurgedMock).toHaveBeenCalledTimes(1);
     expect(markFileNodePurgedMock).toHaveBeenCalledWith({
       userId: 'user-2',
       dockspaceId: 'dock-2',
-      fileNode: {
+      fileNode: expect.objectContaining({
         PK: 'U#user-2#S#dock-2',
         SK: 'L#file-2',
         s3Key: 'key-2'
-      },
+      }),
       nowIso: '2026-02-15T12:00:00.000Z'
     });
 
@@ -105,6 +134,15 @@ describe('purgeReconciliation handler', () => {
         }
       })
       .mockResolvedValueOnce({
+        Item: {
+          PK: 'U#user-1#S#dock-1',
+          SK: 'L#file-1',
+          s3Key: 'key-1',
+          deletedAt: '2026-02-01T00:00:00.000Z',
+          flaggedForDeleteAt: '2026-02-15T00:00:00.000Z'
+        }
+      })
+      .mockResolvedValueOnce({
         Items: [
           {
             PK: 'U#user-2#S#dock-2',
@@ -112,18 +150,31 @@ describe('purgeReconciliation handler', () => {
             s3Key: 'key-2'
           }
         ]
+      })
+      .mockResolvedValueOnce({
+        Item: {
+          PK: 'U#user-2#S#dock-2',
+          SK: 'L#file-2',
+          s3Key: 'key-2',
+          deletedAt: '2026-02-01T00:00:00.000Z',
+          flaggedForDeleteAt: '2026-02-15T00:00:00.000Z'
+        }
       });
 
-    objectExistsMock.mockResolvedValue(false);
+    purgeObjectVersionsMock.mockResolvedValue({
+      discoveredVersionCount: 1,
+      deletedVersionCount: 1,
+      remainingVersionCount: 0
+    });
     markFileNodePurgedMock.mockResolvedValue(undefined);
 
     const { handler } = await import('../handlers/purgeReconciliation.js');
     await handler({} as never);
 
-    expect(sendMock).toHaveBeenCalledTimes(2);
+    expect(sendMock).toHaveBeenCalledTimes(4);
 
     const firstQuery = sendMock.mock.calls[0]?.[0] as { input: { ExclusiveStartKey?: unknown } };
-    const secondQuery = sendMock.mock.calls[1]?.[0] as { input: { ExclusiveStartKey?: unknown } };
+    const secondQuery = sendMock.mock.calls[2]?.[0] as { input: { ExclusiveStartKey?: unknown } };
 
     expect(firstQuery.input.ExclusiveStartKey).toBeUndefined();
     expect(secondQuery.input.ExclusiveStartKey).toEqual({
@@ -151,7 +202,37 @@ describe('purgeReconciliation handler', () => {
     const { handler } = await import('../handlers/purgeReconciliation.js');
     const response = await handler({} as never);
 
-    expect(objectExistsMock).not.toHaveBeenCalled();
+    expect(purgeObjectVersionsMock).not.toHaveBeenCalled();
+    expect(markFileNodePurgedMock).not.toHaveBeenCalled();
+    expect(response.body).toBe(JSON.stringify({ processed: 0 }));
+  });
+
+  it('skips stale GSI items that are no longer trashed on a consistent read', async () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date('2026-02-15T12:00:00.000Z'));
+
+    sendMock
+      .mockResolvedValueOnce({
+        Items: [
+          {
+            PK: 'U#user-1#S#dock-1',
+            SK: 'L#file-1',
+            s3Key: 'key-1'
+          }
+        ]
+      })
+      .mockResolvedValueOnce({
+        Item: {
+          PK: 'U#user-1#S#dock-1',
+          SK: 'L#file-1',
+          s3Key: 'key-1'
+        }
+      });
+
+    const { handler } = await import('../handlers/purgeReconciliation.js');
+    const response = await handler({} as never);
+
+    expect(purgeObjectVersionsMock).not.toHaveBeenCalled();
     expect(markFileNodePurgedMock).not.toHaveBeenCalled();
     expect(response.body).toBe(JSON.stringify({ processed: 0 }));
   });

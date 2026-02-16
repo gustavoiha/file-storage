@@ -1,6 +1,6 @@
 import type { EventBridgeEvent } from 'aws-lambda';
-import { QueryCommand } from '@aws-sdk/lib-dynamodb';
-import { objectExists } from '../lib/s3.js';
+import { GetCommand, QueryCommand } from '@aws-sdk/lib-dynamodb';
+import { purgeObjectVersions } from '../lib/s3.js';
 import { dynamoDoc } from '../lib/clients.js';
 import { env } from '../lib/env.js';
 import { markFileNodePurged } from '../lib/repository.js';
@@ -39,17 +39,48 @@ export const handler = async (_event: EventBridgeEvent<string, unknown>) => {
         continue;
       }
 
-      const exists = await objectExists(item.s3Key);
+      const latest = await dynamoDoc.send(
+        new GetCommand({
+          TableName: env.tableName,
+          Key: {
+            PK: item.PK,
+            SK: item.SK
+          },
+          ConsistentRead: true
+        })
+      );
 
-      if (exists) {
+      const latestFileNode = latest.Item as FileNodeItem | undefined;
+      if (
+        !latestFileNode ||
+        !latestFileNode.deletedAt ||
+        !latestFileNode.flaggedForDeleteAt ||
+        Boolean(latestFileNode.purgedAt)
+      ) {
+        continue;
+      }
+
+      const purgeResult = await purgeObjectVersions(latestFileNode.s3Key);
+      if (purgeResult.remainingVersionCount > 0) {
+        console.warn('purge-reconciliation:versions-remain', {
+          s3Key: latestFileNode.s3Key,
+          discoveredVersionCount: purgeResult.discoveredVersionCount,
+          deletedVersionCount: purgeResult.deletedVersionCount,
+          remainingVersionCount: purgeResult.remainingVersionCount
+        });
         continue;
       }
 
       await markFileNodePurged({
         userId: partition.userId,
         dockspaceId: partition.dockspaceId,
-        fileNode: item,
+        fileNode: latestFileNode,
         nowIso: now
+      });
+      console.info('purge-reconciliation:purged', {
+        s3Key: latestFileNode.s3Key,
+        discoveredVersionCount: purgeResult.discoveredVersionCount,
+        deletedVersionCount: purgeResult.deletedVersionCount
       });
       processed += 1;
     }

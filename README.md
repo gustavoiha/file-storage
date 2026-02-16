@@ -64,7 +64,7 @@ The system is designed for personal use and open-source redistribution. Each dep
 
 * Single private bucket
 * Block Public Access enabled
-* No versioning (MVP)
+* Versioning enabled
 
 ### Object Key Format
 
@@ -86,7 +86,10 @@ Rules:
 ### Lifecycle Rule
 
 * Filter: tag `state=TRASH`
-* Expiration: 30 days
+* Expiration: 30 days for current version (creates delete marker in versioned buckets)
+* Noncurrent version expiration for `state=TRASH`: 30 days
+* Global noncurrent version expiration: 90 days
+* Expired delete marker cleanup enabled
 
 Lifecycle timing is approximate; correctness is enforced via reconciliation.
 
@@ -271,6 +274,7 @@ Steps:
    * Remove `state=TRASH` tag (or set `state=ACTIVE`)
 
 If the object no longer exists, restore fails and the item should be transitioned to `PURGED`.
+If only the current version is unavailable but older versions still exist, restore fails and item remains in `TRASH`.
 
 ---
 
@@ -286,16 +290,15 @@ Algorithm:
    * `GSI1SK <= "{nowIso}#~"`
 2. For each due item:
 
-   * `HEAD` the S3 object
+   * List and delete all S3 versions and delete markers for the key
+   * Re-list versions for the key
+   * Only when no versions remain:
 
-     * If object exists → skip
-     * If object does not exist:
+     * DynamoDB conditional update:
 
-       * DynamoDB conditional update:
-
-         * `state` must still be `TRASH`
-         * Set `state = PURGED`
-         * Set `purgedAt = now`
+       * `state` must still be `TRASH`
+       * Set `state = PURGED`
+       * Set `purgedAt = now`
 
 Guarantee:
 
@@ -349,7 +352,6 @@ Future sharing can be added via new item types without schema changes.
 
 * No multi-tenant SaaS model
 * No cross-user sharing
-* No object versioning
 * No server-side ZIP downloads
 * No automatic metadata hard deletion
 

@@ -23,6 +23,7 @@ export class StorageStack extends Stack {
       bucketName: fileBucketName,
       blockPublicAccess: BlockPublicAccess.BLOCK_ALL,
       enforceSSL: true,
+      versioned: true,
       removalPolicy: RemovalPolicy.RETAIN,
       autoDeleteObjects: false,
       cors: [
@@ -41,6 +42,21 @@ export class StorageStack extends Stack {
             state: 'TRASH'
           },
           expiration: Duration.days(30)
+        },
+        {
+          id: 'TrashNoncurrentVersionLifecycle',
+          tagFilters: {
+            state: 'TRASH'
+          },
+          noncurrentVersionExpiration: Duration.days(30)
+        },
+        {
+          id: 'NoncurrentVersionLifecycle',
+          noncurrentVersionExpiration: Duration.days(90)
+        },
+        {
+          id: 'DeleteMarkerCleanup',
+          expiredObjectDeleteMarker: true
         },
         {
           id: 'AbortIncompleteMultipart',

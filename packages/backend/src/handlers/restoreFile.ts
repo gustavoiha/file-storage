@@ -10,7 +10,7 @@ import {
   markFileNodePurged,
   restoreFileNodeFromTrash
 } from '../lib/repository.js';
-import { clearTrashTag, objectExists } from '../lib/s3.js';
+import { clearTrashTag, objectExists, objectHasAnyVersion } from '../lib/s3.js';
 
 const bodySchema = z.object({
   fullPath: z.string().trim().min(2)
@@ -41,6 +41,13 @@ export const handler = async (event: APIGatewayProxyEventV2) => {
     const now = new Date().toISOString();
 
     if (!(await objectExists(objectKey))) {
+      if (await objectHasAnyVersion(objectKey)) {
+        return jsonResponse(409, {
+          error: 'Object current version is unavailable and cannot be restored',
+          state: 'TRASH'
+        });
+      }
+
       await markFileNodePurged({ userId, dockspaceId, fileNode: file, nowIso: now });
       return jsonResponse(409, {
         error: 'Object already purged from S3',

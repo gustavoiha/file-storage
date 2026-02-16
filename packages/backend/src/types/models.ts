@@ -53,6 +53,17 @@ export interface DockspaceItem {
   createdAt: string;
 }
 
+export interface DockspaceMetricsItem {
+  PK: string;
+  SK: string;
+  type: 'DOCKSPACE_METRICS';
+  dockspaceId: string;
+  totalFileCount: number;
+  totalSizeBytes: number;
+  lastUploadAt?: string;
+  updatedAt: string;
+}
+
 export interface FileStateIndexItem {
   PK: string;
   SK: string;
@@ -84,4 +95,5 @@ export type TableItem =
   | FolderNodeItem
   | DirectoryItem
   | DockspaceItem
+  | DockspaceMetricsItem
   | FileStateIndexItem;

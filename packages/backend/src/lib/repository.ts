@@ -13,6 +13,8 @@ import {
   buildFilePk,
   buildFileStateIndexPrefix,
   buildFileStateIndexSk,
+  buildDockspaceMetricsPrefix,
+  buildDockspaceMetricsSk,
   buildFolderNodeSk,
   buildDockspacePk,
   buildPurgeDueGsi1Sk,
@@ -33,7 +35,8 @@ import type {
   FileNodeItem,
   FileStateIndexItem,
   FolderNodeItem,
-  DockspaceItem
+  DockspaceItem,
+  DockspaceMetricsItem
 } from '../types/models.js';
 import { fileStateFromNode } from '../types/models.js';
 import { dynamoDoc } from './clients.js';
@@ -54,6 +57,56 @@ const buildTrashFileStateIndexSk = (
 
 const buildPurgedFileStateIndexSk = (purgedAt: string, fileNodeId: string): string =>
   buildFileStateIndexSk('PURGED', purgedAt, fileNodeId);
+
+const buildDockspaceMetricsItem = (
+  userId: string,
+  dockspaceId: string,
+  nowIso: string
+): DockspaceMetricsItem => ({
+  PK: buildDockspacePk(userId),
+  SK: buildDockspaceMetricsSk(dockspaceId),
+  type: 'DOCKSPACE_METRICS',
+  dockspaceId,
+  totalFileCount: 0,
+  totalSizeBytes: 0,
+  updatedAt: nowIso
+});
+
+const buildDockspaceMetricsDeltaUpdate = (params: {
+  userId: string;
+  dockspaceId: string;
+  totalFileCountDelta: number;
+  totalSizeBytesDelta: number;
+  nowIso: string;
+  setLastUploadAt: boolean;
+}) => {
+  const baseSetExpression =
+    '#type = if_not_exists(#type, :metricsType), dockspaceId = if_not_exists(dockspaceId, :dockspaceId), totalFileCount = if_not_exists(totalFileCount, :initialCount) + :countDelta, totalSizeBytes = if_not_exists(totalSizeBytes, :initialSize) + :sizeDelta, updatedAt = :updatedAt';
+
+  return {
+    Update: {
+      TableName: env.tableName,
+      Key: {
+        PK: buildDockspacePk(params.userId),
+        SK: buildDockspaceMetricsSk(params.dockspaceId)
+      },
+      UpdateExpression: `SET ${baseSetExpression}${params.setLastUploadAt ? ', lastUploadAt = :lastUploadAt' : ''}`,
+      ExpressionAttributeNames: {
+        '#type': 'type'
+      },
+      ExpressionAttributeValues: {
+        ':metricsType': 'DOCKSPACE_METRICS',
+        ':dockspaceId': params.dockspaceId,
+        ':initialCount': params.totalFileCountDelta < 0 ? -params.totalFileCountDelta : 0,
+        ':countDelta': params.totalFileCountDelta,
+        ':initialSize': params.totalSizeBytesDelta < 0 ? -params.totalSizeBytesDelta : 0,
+        ':sizeDelta': params.totalSizeBytesDelta,
+        ':updatedAt': params.nowIso,
+        ...(params.setLastUploadAt ? { ':lastUploadAt': params.nowIso } : {})
+      }
+    }
+  };
+};
 
 const queryAll = async <T>(
   input: Omit<ConstructorParameters<typeof QueryCommand>[0], 'TableName'>
@@ -229,6 +282,13 @@ export const putDockspaceWithRootFolder = async (
             } as FolderNodeItem,
             ConditionExpression: 'attribute_not_exists(PK) AND attribute_not_exists(SK)'
           }
+        },
+        {
+          Put: {
+            TableName: env.tableName,
+            Item: buildDockspaceMetricsItem(dockspace.userId, dockspace.dockspaceId, nowIso),
+            ConditionExpression: 'attribute_not_exists(PK) AND attribute_not_exists(SK)'
+          }
         }
       ]
     })
@@ -248,6 +308,23 @@ export const listDockspaces = async (userId: string): Promise<DockspaceItem[]> =
   );
 
   return (response.Items ?? []) as DockspaceItem[];
+};
+
+export const listDockspaceMetrics = async (
+  userId: string
+): Promise<DockspaceMetricsItem[]> => {
+  const response = await dynamoDoc.send(
+    new QueryCommand({
+      TableName: env.tableName,
+      KeyConditionExpression: 'PK = :pk AND begins_with(SK, :skPrefix)',
+      ExpressionAttributeValues: {
+        ':pk': buildDockspacePk(userId),
+        ':skPrefix': buildDockspaceMetricsPrefix()
+      }
+    })
+  );
+
+  return (response.Items ?? []) as DockspaceMetricsItem[];
 };
 
 const findDirectoryEntryByNameInternal = async (
@@ -455,6 +532,7 @@ export const upsertActiveFileByPath = async (params: {
       params.dockspaceId,
       existingDirectory.childId
     );
+    const existingSize = existingFileNode?.size ?? params.size;
     const staleStateDeletes: Array<{ Delete: { TableName: string; Key: { PK: string; SK: string } } }> =
       [];
 
@@ -531,6 +609,14 @@ export const upsertActiveFileByPath = async (params: {
               }
             }
           },
+          buildDockspaceMetricsDeltaUpdate({
+            userId: params.userId,
+            dockspaceId: params.dockspaceId,
+            totalFileCountDelta: 0,
+            totalSizeBytesDelta: params.size - existingSize,
+            nowIso: params.nowIso,
+            setLastUploadAt: true
+          }),
           ...staleStateDeletes
         ]
       })
@@ -583,7 +669,15 @@ export const upsertActiveFileByPath = async (params: {
             } as DirectoryItem,
             ConditionExpression: 'attribute_not_exists(PK) AND attribute_not_exists(SK)'
           }
-        }
+        },
+        buildDockspaceMetricsDeltaUpdate({
+          userId: params.userId,
+          dockspaceId: params.dockspaceId,
+          totalFileCountDelta: 1,
+          totalSizeBytesDelta: params.size,
+          nowIso: params.nowIso,
+          setLastUploadAt: true
+        })
       ]
     })
   );
@@ -1435,6 +1529,14 @@ export const markFileNodePurged = async (params: {
             }
           }
         },
+        buildDockspaceMetricsDeltaUpdate({
+          userId: params.userId,
+          dockspaceId: params.dockspaceId,
+          totalFileCountDelta: -1,
+          totalSizeBytesDelta: -params.fileNode.size,
+          nowIso: params.nowIso,
+          setLastUploadAt: false
+        }),
         {
           Put: {
             TableName: env.tableName,

@@ -938,56 +938,58 @@ export const DockspaceFilesPage = () => {
             <div className="dockspace-page-shell">
               <div className="dockspace-page-main">
                 <Card>
-                  {filesQuery.isLoading ? (
-                    <p>Loading...</p>
-                  ) : (
-                    <FileList
-                      files={files}
-                      folders={folders}
-                      currentFolder={currentFolder.fullPath}
-                      pendingFolderPaths={addFolderDialog.pendingFolderPaths}
-                      pendingFolderTrashPaths={pendingFolderTrashPaths}
-                      pendingUploadFiles={pendingUploadFiles}
-                      pendingUploadFolderPaths={pendingUploadFolderPaths}
-                      selectedFilePaths={selectedFilePaths}
-                      selectionActions={selectionActions}
-                      statusMessage={moveFilesSummary}
-                      actionLabel="Move to Trash"
-                      downloadActionLabel="Download"
-                      renameActionLabel="Rename"
-                      folderRenameActionLabel="Rename"
-                      emptyState={emptyDockspaceState}
-                      rootBreadcrumbLabel={dockspaceName}
-                      toolbarActions={
-                        <DockspaceFilesHeaderActions
-                          fileInputRef={fileInputRef}
-                          folderInputRef={folderInputRef}
-                          isMenuOpen={isDockspaceMenuOpen}
-                          onMenuOpenChange={setIsDockspaceMenuOpen}
-                          dockspaceId={dockspaceId}
-                          onAddFolder={() => {
-                            addFolderDialog.openDialog();
-                          }}
-                          onUploadFolder={() => {
-                            openFolderPicker();
-                          }}
-                          onUploadFiles={() => {
-                            openFilePicker();
-                          }}
-                          onUploadFolderSelection={onUploadFolderSelection}
-                          onUploadSelection={onUploadSelection}
-                        />
-                      }
-                      onRename={openRenameFileDialog}
-                      onRenameFolder={openRenameFolderDialog}
-                      onOpenFile={openFileViewer}
-                      onDownload={onDownloadFile}
-                      onOpenFolder={onOpenFolder}
-                      onToggleFileSelection={toggleFileSelection}
-                      onActionFolder={openTrashFolderDialog}
-                      onAction={onMoveToTrash}
-                    />
-                  )}
+                  <FileList
+                    files={files}
+                    folders={folders}
+                    currentFolder={currentFolder.fullPath}
+                    pendingFolderPaths={addFolderDialog.pendingFolderPaths}
+                    pendingFolderTrashPaths={pendingFolderTrashPaths}
+                    pendingUploadFiles={pendingUploadFiles}
+                    pendingUploadFolderPaths={pendingUploadFolderPaths}
+                    selectedFilePaths={selectedFilePaths}
+                    selectionActions={selectionActions}
+                    statusMessage={moveFilesSummary}
+                    actionLabel="Move to Trash"
+                    downloadActionLabel="Download"
+                    renameActionLabel="Rename"
+                    folderRenameActionLabel="Rename"
+                    emptyState={
+                      filesQuery.isLoading ? (
+                        <p>Loading...</p>
+                      ) : (
+                        emptyDockspaceState
+                      )
+                    }
+                    rootBreadcrumbLabel={dockspaceName}
+                    toolbarActions={
+                      <DockspaceFilesHeaderActions
+                        fileInputRef={fileInputRef}
+                        folderInputRef={folderInputRef}
+                        isMenuOpen={isDockspaceMenuOpen}
+                        onMenuOpenChange={setIsDockspaceMenuOpen}
+                        dockspaceId={dockspaceId}
+                        onAddFolder={() => {
+                          addFolderDialog.openDialog();
+                        }}
+                        onUploadFolder={() => {
+                          openFolderPicker();
+                        }}
+                        onUploadFiles={() => {
+                          openFilePicker();
+                        }}
+                        onUploadFolderSelection={onUploadFolderSelection}
+                        onUploadSelection={onUploadSelection}
+                      />
+                    }
+                    onRename={openRenameFileDialog}
+                    onRenameFolder={openRenameFolderDialog}
+                    onOpenFile={openFileViewer}
+                    onDownload={onDownloadFile}
+                    onOpenFolder={onOpenFolder}
+                    onToggleFileSelection={toggleFileSelection}
+                    onActionFolder={openTrashFolderDialog}
+                    onAction={onMoveToTrash}
+                  />
                 </Card>
               </div>
               <DockspaceSidebar

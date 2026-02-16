@@ -2,6 +2,9 @@ export interface Dockspace {
   dockspaceId: string;
   name: string;
   createdAt: string;
+  totalFileCount: number;
+  totalSizeBytes: number;
+  lastUploadAt?: string;
 }
 
 export interface FileRecord {

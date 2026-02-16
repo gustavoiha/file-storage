@@ -14,7 +14,9 @@ import {
   PURGE_DUE_GSI1_PK,
   ROOT_FOLDER_NODE_ID,
   buildDockspacePk,
-  buildDockspaceSk
+  buildDockspaceSk,
+  buildDockspaceMetricsSk,
+  buildDockspaceMetricsPrefix
 } from '../domain/keys.js';
 
 describe('keys', () => {
@@ -24,6 +26,8 @@ describe('keys', () => {
     expect(buildFolderNodeSk('folder_1')).toBe('F#folder_1');
     expect(buildDockspacePk('u1')).toBe('U#u1');
     expect(buildDockspaceSk('v1')).toBe('S#v1');
+    expect(buildDockspaceMetricsSk('v1')).toBe('M#S#v1');
+    expect(buildDockspaceMetricsPrefix()).toBe('M#S#');
     expect(ROOT_FOLDER_NODE_ID).toBe('root');
   });
 

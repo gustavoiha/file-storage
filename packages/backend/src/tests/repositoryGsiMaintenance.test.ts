@@ -52,6 +52,35 @@ beforeEach(() => {
 });
 
 describe('repository GSI maintenance on file state transitions', () => {
+  it('initializes dockspace metrics record when creating dockspace root data', async () => {
+    sendMock.mockResolvedValue({});
+
+    const { putDockspaceWithRootFolder } = await import('../lib/repository.js');
+
+    await putDockspaceWithRootFolder(
+      {
+        PK: 'U#user-1',
+        SK: 'S#dock-1',
+        type: 'DOCKSPACE',
+        userId: 'user-1',
+        dockspaceId: 'dock-1',
+        name: 'Main',
+        createdAt: '2026-02-15T10:00:00.000Z'
+      },
+      '2026-02-15T10:00:00.000Z'
+    );
+
+    const command = sendMock.mock.calls[0]?.[0] as { input: { TransactItems: unknown[] } };
+    const metricsPut = command.input.TransactItems[2] as {
+      Put: { Item: { SK: string; type: string; totalFileCount: number; totalSizeBytes: number } };
+    };
+
+    expect(metricsPut.Put.Item.type).toBe('DOCKSPACE_METRICS');
+    expect(metricsPut.Put.Item.SK).toBe('M#S#dock-1');
+    expect(metricsPut.Put.Item.totalFileCount).toBe(0);
+    expect(metricsPut.Put.Item.totalSizeBytes).toBe(0);
+  });
+
   it('sets purge-due GSI keys when trashing a file node', async () => {
     sendMock.mockResolvedValue({});
 
@@ -142,14 +171,22 @@ describe('repository GSI maintenance on file state transitions', () => {
 
     const command = sendMock.mock.calls[0]?.[0] as { input: { TransactItems: unknown[] } };
     const update = (command.input.TransactItems[0] as { Update: { UpdateExpression: string } }).Update;
-    const purgedStateIndexPut = command.input.TransactItems[1] as {
+    const metricsUpdate = command.input.TransactItems[1] as {
+      Update: { UpdateExpression: string; ExpressionAttributeValues: Record<string, number> };
+    };
+    const purgedStateIndexPut = command.input.TransactItems[2] as {
       Put: { Item: { SK: string; state: string } };
     };
-    const trashStateIndexDelete = command.input.TransactItems[2] as {
+    const trashStateIndexDelete = command.input.TransactItems[3] as {
       Delete: { Key: { SK: string } };
     };
 
     expect(update.UpdateExpression).toContain('REMOVE GSI1PK, GSI1SK');
+    expect(metricsUpdate.Update.UpdateExpression).toContain(
+      'totalFileCount = if_not_exists(totalFileCount, :initialCount) + :countDelta'
+    );
+    expect(metricsUpdate.Update.ExpressionAttributeValues[':countDelta']).toBe(-1);
+    expect(metricsUpdate.Update.ExpressionAttributeValues[':sizeDelta']).toBe(-123);
     expect(purgedStateIndexPut.Put.Item.state).toBe('PURGED');
     expect(purgedStateIndexPut.Put.Item.SK).toBe(
       buildFileStateIndexSk('PURGED', '2026-02-15T10:00:00.000Z', 'file-1')
@@ -189,13 +226,19 @@ describe('repository GSI maintenance on file state transitions', () => {
 
     const command = sendMock.mock.calls[3]?.[0] as { input: { TransactItems: unknown[] } };
     const fileNodeUpdate = (command.input.TransactItems[0] as { Update: { UpdateExpression: string } }).Update;
-    const staleStateIndexDelete = command.input.TransactItems[2] as {
+    const metricsUpdate = command.input.TransactItems[2] as {
+      Update: { UpdateExpression: string; ExpressionAttributeValues: Record<string, number> };
+    };
+    const staleStateIndexDelete = command.input.TransactItems[3] as {
       Delete: { Key: { SK: string } };
     };
 
     expect(fileNodeUpdate.UpdateExpression).toContain(
       'REMOVE deletedAt, flaggedForDeleteAt, purgedAt, trashedPath, GSI1PK, GSI1SK'
     );
+    expect(metricsUpdate.Update.UpdateExpression).toContain('lastUploadAt = :lastUploadAt');
+    expect(metricsUpdate.Update.ExpressionAttributeValues[':countDelta']).toBe(0);
+    expect(metricsUpdate.Update.ExpressionAttributeValues[':sizeDelta']).toBe(111);
     expect(staleStateIndexDelete.Delete.Key.SK).toBe(
       buildFileStateIndexSk('TRASH', '2026-03-10T00:00:00.000Z', 'file-1')
     );

@@ -33,16 +33,19 @@ vi.mock('@/components/auth/UnauthorizedNotice', () => ({
 
 vi.mock('@/components/files/FileList', () => ({
   FileList: ({
+    currentFolder,
     toolbarActions,
     onRenameFolder,
     onActionFolder
   }: {
+    currentFolder?: string;
     toolbarActions?: unknown;
     onRenameFolder?: (folderPath: string) => void;
     onActionFolder?: (folderPath: string) => void;
   }) => (
     <div>
       {toolbarActions as any}
+      <p>Current folder: {currentFolder}</p>
       {onRenameFolder ? (
         <button type="button" onClick={() => onRenameFolder('/docs')}>
           Open rename folder
@@ -102,6 +105,22 @@ describe('DockspaceFilesPage', () => {
     expect(screen.getByRole('menuitem', { name: 'Upload folder' })).toBeInTheDocument();
     expect(screen.getByText('Trash')).toBeInTheDocument();
     expect(screen.getByText('FileList')).toBeInTheDocument();
+  });
+
+  it('keeps file list mounted while files are loading', () => {
+    mockState.filesResult = {
+      isLoading: true,
+      data: {
+        parentFolderNodeId: 'root',
+        items: []
+      },
+      error: null
+    };
+
+    render(<DockspaceFilesPage />);
+
+    expect(screen.getByText('FileList')).toBeInTheDocument();
+    expect(screen.getByText('Current folder: /')).toBeInTheDocument();
   });
 
   it('renders unauthorized notice for 403', () => {

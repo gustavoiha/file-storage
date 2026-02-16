@@ -443,3 +443,28 @@ Optional controls:
 
 * `BACKFILL_PAGE_SIZE` (default `200`)
 * `BACKFILL_MAX_PAGES` (unset by default; process all pages)
+
+---
+
+## 20. One-Time Backfill For Dockspace Metrics
+
+When introducing `DOCKSPACE_METRICS` records (`M#S#{dockspaceId}`), run:
+
+```bash
+TABLE_NAME=<your-table-name> \
+BACKFILL_DRY_RUN=true \
+npm run --workspace @dockspace/backend backfill:dockspace-metrics
+```
+
+Then execute the write run:
+
+```bash
+TABLE_NAME=<your-table-name> \
+BACKFILL_DRY_RUN=false \
+npm run --workspace @dockspace/backend backfill:dockspace-metrics
+```
+
+Optional controls:
+
+* `BACKFILL_PAGE_SIZE` (default `100`)
+* `BACKFILL_MAX_PAGES` (unset by default; process all pages)

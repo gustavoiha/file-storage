@@ -38,7 +38,9 @@ export const handler = async (event: APIGatewayProxyEventV2) => {
     return jsonResponse(201, {
       dockspaceId,
       name: parsed.data.name,
-      createdAt: now
+      createdAt: now,
+      totalFileCount: 0,
+      totalSizeBytes: 0
     });
   } catch (error) {
     return errorResponse(error);

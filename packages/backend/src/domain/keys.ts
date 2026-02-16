@@ -35,6 +35,9 @@ export const buildDockspacePk = (userId: string): string => `U#${userId}`;
 
 export const buildDockspaceSk = (dockspaceId: string): string => `S#${dockspaceId}`;
 
+export const buildDockspaceMetricsSk = (dockspaceId: string): string => `M#S#${dockspaceId}`;
+export const buildDockspaceMetricsPrefix = (): string => 'M#S#';
+
 export const buildPurgeDueGsi1Sk = (
   flaggedForDeleteAt: string,
   filePk: string,

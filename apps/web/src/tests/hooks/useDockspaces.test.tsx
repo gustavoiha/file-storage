@@ -9,13 +9,17 @@ const { listDockspaces, createDockspace } = vi.hoisted(() => ({
     {
       dockspaceId: 'v1',
       name: 'Main',
-      createdAt: '2026-01-01T00:00:00.000Z'
+      createdAt: '2026-01-01T00:00:00.000Z',
+      totalFileCount: 0,
+      totalSizeBytes: 0
     }
   ]),
   createDockspace: vi.fn(async () => ({
     dockspaceId: 'v2',
     name: 'Docs',
-    createdAt: '2026-01-02T00:00:00.000Z'
+    createdAt: '2026-01-02T00:00:00.000Z',
+    totalFileCount: 0,
+    totalSizeBytes: 0
   }))
 }));
 

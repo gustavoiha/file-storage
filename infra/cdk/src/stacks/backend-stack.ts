@@ -16,6 +16,7 @@ import type { UserPool, UserPoolClient } from 'aws-cdk-lib/aws-cognito';
 import type { Table } from 'aws-cdk-lib/aws-dynamodb';
 import type { Bucket } from 'aws-cdk-lib/aws-s3';
 import type { Construct } from 'constructs';
+import { resolveWebAppOrigins } from '../config/web-origins.js';
 
 interface BackendStackProps extends StackProps {
   userPool: UserPool;
@@ -23,6 +24,7 @@ interface BackendStackProps extends StackProps {
   table: Table;
   bucket: Bucket;
   entitledGroupName: string;
+  deploymentEnvironment: string;
 }
 
 export class BackendStack extends Stack {
@@ -30,6 +32,7 @@ export class BackendStack extends Stack {
 
   constructor(scope: Construct, id: string, props: BackendStackProps) {
     super(scope, id, props);
+    const webAppOrigins = resolveWebAppOrigins(props.deploymentEnvironment);
 
     const currentFilePath = fileURLToPath(import.meta.url);
     const currentDir = path.dirname(currentFilePath);
@@ -113,7 +116,7 @@ export class BackendStack extends Stack {
           CorsHttpMethod.DELETE,
           CorsHttpMethod.OPTIONS
         ],
-        allowOrigins: ['*']
+        allowOrigins: webAppOrigins
       }
     });
 

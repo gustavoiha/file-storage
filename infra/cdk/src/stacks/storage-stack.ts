@@ -2,6 +2,7 @@ import { CfnOutput, Duration, RemovalPolicy, Stack, type StackProps } from 'aws-
 import { AttributeType, BillingMode, Table } from 'aws-cdk-lib/aws-dynamodb';
 import { BlockPublicAccess, Bucket, HttpMethods } from 'aws-cdk-lib/aws-s3';
 import type { Construct } from 'constructs';
+import { resolveWebAppOrigins } from '../config/web-origins.js';
 
 interface StorageStackProps extends StackProps {
   deploymentEnvironment: string;
@@ -13,6 +14,7 @@ export class StorageStack extends Stack {
 
   constructor(scope: Construct, id: string, props: StorageStackProps) {
     super(scope, id, props);
+    const webAppOrigins = resolveWebAppOrigins(props.deploymentEnvironment);
 
     const fileBucketName = `dockspace-files-${this.account}-${this.region}-${props.deploymentEnvironment}`;
     const metadataTableName = `dockspace-metadata-${props.deploymentEnvironment}`;
@@ -26,7 +28,7 @@ export class StorageStack extends Stack {
       cors: [
         {
           allowedMethods: [HttpMethods.PUT, HttpMethods.GET, HttpMethods.HEAD],
-          allowedOrigins: ['*'],
+          allowedOrigins: webAppOrigins,
           allowedHeaders: ['*'],
           exposedHeaders: ['ETag'],
           maxAge: 3000

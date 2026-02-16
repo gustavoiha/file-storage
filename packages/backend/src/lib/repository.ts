@@ -11,6 +11,8 @@ import {
   buildDirectorySk,
   buildFileNodeSk,
   buildFilePk,
+  buildFileStateIndexPrefix,
+  buildFileStateIndexSk,
   buildFolderNodeSk,
   buildDockspacePk,
   buildPurgeDueGsi1Sk,
@@ -29,7 +31,7 @@ import {
 import type {
   DirectoryItem,
   FileNodeItem,
-  FileState,
+  FileStateIndexItem,
   FolderNodeItem,
   DockspaceItem
 } from '../types/models.js';
@@ -44,6 +46,14 @@ const isConditionalFailure = (error: unknown): boolean =>
     error.name === 'TransactionCanceledException');
 
 const getFileNodeIdFromSk = (sk: string): string => sk.replace(/^L#/, '');
+
+const buildTrashFileStateIndexSk = (
+  flaggedForDeleteAt: string,
+  fileNodeId: string
+): string => buildFileStateIndexSk('TRASH', flaggedForDeleteAt, fileNodeId);
+
+const buildPurgedFileStateIndexSk = (purgedAt: string, fileNodeId: string): string =>
+  buildFileStateIndexSk('PURGED', purgedAt, fileNodeId);
 
 const queryAll = async <T>(
   input: Omit<ConstructorParameters<typeof QueryCommand>[0], 'TableName'>
@@ -430,6 +440,7 @@ export const upsertActiveFileByPath = async (params: {
     params.nowIso
   );
   const normalizedName = normalizeNodeName(fileName);
+  const filePk = buildFilePk(params.userId, params.dockspaceId);
   const existingDirectory = await findDirectoryEntryByNameInternal(
     params.userId,
     params.dockspaceId,
@@ -439,6 +450,38 @@ export const upsertActiveFileByPath = async (params: {
   );
 
   if (existingDirectory) {
+    const existingFileNode = await getFileNodeById(
+      params.userId,
+      params.dockspaceId,
+      existingDirectory.childId
+    );
+    const staleStateDeletes: Array<{ Delete: { TableName: string; Key: { PK: string; SK: string } } }> =
+      [];
+
+    if (existingFileNode?.flaggedForDeleteAt) {
+      staleStateDeletes.push({
+        Delete: {
+          TableName: env.tableName,
+          Key: {
+            PK: filePk,
+            SK: buildTrashFileStateIndexSk(existingFileNode.flaggedForDeleteAt, existingDirectory.childId)
+          }
+        }
+      });
+    }
+
+    if (existingFileNode?.purgedAt) {
+      staleStateDeletes.push({
+        Delete: {
+          TableName: env.tableName,
+          Key: {
+            PK: filePk,
+            SK: buildPurgedFileStateIndexSk(existingFileNode.purgedAt, existingDirectory.childId)
+          }
+        }
+      });
+    }
+
     await dynamoDoc.send(
       new TransactWriteCommand({
         TransactItems: [
@@ -446,12 +489,12 @@ export const upsertActiveFileByPath = async (params: {
             Update: {
               TableName: env.tableName,
               Key: {
-                PK: buildFilePk(params.userId, params.dockspaceId),
+                PK: filePk,
                 SK: buildFileNodeSk(existingDirectory.childId)
               },
               ConditionExpression: 'attribute_exists(PK) AND attribute_exists(SK)',
               UpdateExpression:
-                'SET parentFolderNodeId = :parentFolderNodeId, s3Key = :s3Key, #name = :name, #size = :size, contentType = :contentType, etag = :etag, updatedAt = :updatedAt REMOVE deletedAt, flaggedForDeleteAt, purgedAt, GSI1PK, GSI1SK',
+                'SET parentFolderNodeId = :parentFolderNodeId, s3Key = :s3Key, #name = :name, #size = :size, contentType = :contentType, etag = :etag, updatedAt = :updatedAt REMOVE deletedAt, flaggedForDeleteAt, purgedAt, trashedPath, GSI1PK, GSI1SK',
               ExpressionAttributeNames: {
                 '#name': 'name',
                 '#size': 'size'
@@ -471,7 +514,7 @@ export const upsertActiveFileByPath = async (params: {
             Update: {
               TableName: env.tableName,
               Key: {
-                PK: buildFilePk(params.userId, params.dockspaceId),
+                PK: filePk,
                 SK: existingDirectory.SK
               },
               ConditionExpression: 'attribute_exists(PK) AND attribute_exists(SK)',
@@ -487,7 +530,8 @@ export const upsertActiveFileByPath = async (params: {
                 ':updatedAt': params.nowIso
               }
             }
-          }
+          },
+          ...staleStateDeletes
         ]
       })
     );
@@ -507,7 +551,7 @@ export const upsertActiveFileByPath = async (params: {
           Put: {
             TableName: env.tableName,
             Item: {
-              PK: buildFilePk(params.userId, params.dockspaceId),
+              PK: filePk,
               SK: buildFileNodeSk(fileNodeId),
               type: 'FILE_NODE',
               parentFolderNodeId,
@@ -526,7 +570,7 @@ export const upsertActiveFileByPath = async (params: {
           Put: {
             TableName: env.tableName,
             Item: {
-              PK: buildFilePk(params.userId, params.dockspaceId),
+              PK: filePk,
               SK: buildDirectorySk(parentFolderNodeId, 'L', normalizedName, fileNodeId),
               type: 'DIRECTORY',
               name: fileName,
@@ -670,12 +714,16 @@ export const findTrashedFileByFullPath = async (
   fullPath: string
 ): Promise<FileNodeItem | null> => {
   const normalizedFullPath = normalizeFullPath(fullPath);
-  const files = await listTrashedFileNodes(userId, dockspaceId);
+  const stateItems = await listTrashedFileStateIndex(userId, dockspaceId);
 
-  for (const file of files) {
-    const path = await fullPathForTrashedFileNode(userId, dockspaceId, file);
-    if (path === normalizedFullPath) {
-      return file;
+  for (const stateItem of stateItems) {
+    if (!stateItem.trashedPath || normalizeFullPath(stateItem.trashedPath) !== normalizedFullPath) {
+      continue;
+    }
+
+    const fileNode = await getFileNodeById(userId, dockspaceId, stateItem.fileNodeId);
+    if (fileNode && fileStateFromNode(fileNode) === 'TRASH') {
+      return fileNode;
     }
   }
 
@@ -843,7 +891,9 @@ export const markResolvedFileNodeTrashed = async (
   flaggedForDeleteAt: string
 ): Promise<void> => {
   const filePk = buildFilePk(userId, dockspaceId);
+  const fileNodeId = getFileNodeIdFromSk(resolved.fileNode.SK);
   const gsi1Sk = buildPurgeDueGsi1Sk(flaggedForDeleteAt, filePk, resolved.fileNode.SK);
+  const trashStateIndexSk = buildTrashFileStateIndexSk(flaggedForDeleteAt, fileNodeId);
 
   await dynamoDoc.send(
     new TransactWriteCommand({
@@ -866,6 +916,24 @@ export const markResolvedFileNodeTrashed = async (
               ':gsi1pk': PURGE_DUE_GSI1_PK,
               ':gsi1sk': gsi1Sk
             }
+          }
+        },
+        {
+          Put: {
+            TableName: env.tableName,
+            Item: {
+              PK: filePk,
+              SK: trashStateIndexSk,
+              type: 'FILE_STATE_INDEX',
+              state: 'TRASH',
+              fileNodeId,
+              trashedPath: resolved.fullPath,
+              size: resolved.fileNode.size,
+              deletedAt: nowIso,
+              flaggedForDeleteAt,
+              updatedAt: nowIso
+            } as FileStateIndexItem,
+            ConditionExpression: 'attribute_not_exists(PK) AND attribute_not_exists(SK)'
           }
         },
         {
@@ -1264,7 +1332,25 @@ export const restoreFileNodeFromTrash = async (params: {
   nowIso: string;
 }): Promise<void> => {
   const fileNodeId = getFileNodeIdFromSk(params.fileNode.SK);
+  const filePk = buildFilePk(params.userId, params.dockspaceId);
   const normalizedName = normalizeNodeName(params.fileName);
+  const trashStateIndexSk = params.fileNode.flaggedForDeleteAt
+    ? buildTrashFileStateIndexSk(params.fileNode.flaggedForDeleteAt, fileNodeId)
+    : null;
+  const stateIndexDeleteItems: Array<{ Delete: { TableName: string; Key: { PK: string; SK: string } } }> =
+    [];
+
+  if (trashStateIndexSk) {
+    stateIndexDeleteItems.push({
+      Delete: {
+        TableName: env.tableName,
+        Key: {
+          PK: filePk,
+          SK: trashStateIndexSk
+        }
+      }
+    });
+  }
 
   await dynamoDoc.send(
     new TransactWriteCommand({
@@ -1273,7 +1359,7 @@ export const restoreFileNodeFromTrash = async (params: {
           Update: {
             TableName: env.tableName,
             Key: {
-              PK: buildFilePk(params.userId, params.dockspaceId),
+              PK: filePk,
               SK: params.fileNode.SK
             },
             ConditionExpression: 'attribute_exists(deletedAt) AND attribute_not_exists(purgedAt)',
@@ -1293,7 +1379,7 @@ export const restoreFileNodeFromTrash = async (params: {
           Put: {
             TableName: env.tableName,
             Item: {
-              PK: buildFilePk(params.userId, params.dockspaceId),
+              PK: filePk,
               SK: buildDirectorySk(
                 params.parentFolderNodeId,
                 'L',
@@ -1311,7 +1397,8 @@ export const restoreFileNodeFromTrash = async (params: {
             } as DirectoryItem,
             ConditionExpression: 'attribute_not_exists(PK) AND attribute_not_exists(SK)'
           }
-        }
+        },
+        ...stateIndexDeleteItems
       ]
     })
   );
@@ -1323,6 +1410,13 @@ export const markFileNodePurged = async (params: {
   fileNode: FileNodeItem;
   nowIso: string;
 }): Promise<void> => {
+  const filePk = buildFilePk(params.userId, params.dockspaceId);
+  const fileNodeId = getFileNodeIdFromSk(params.fileNode.SK);
+  const trashStateIndexSk = params.fileNode.flaggedForDeleteAt
+    ? buildTrashFileStateIndexSk(params.fileNode.flaggedForDeleteAt, fileNodeId)
+    : null;
+  const purgedStateIndexSk = buildPurgedFileStateIndexSk(params.nowIso, fileNodeId);
+
   await dynamoDoc.send(
     new TransactWriteCommand({
       TransactItems: [
@@ -1330,7 +1424,7 @@ export const markFileNodePurged = async (params: {
           Update: {
             TableName: env.tableName,
             Key: {
-              PK: buildFilePk(params.userId, params.dockspaceId),
+              PK: filePk,
               SK: params.fileNode.SK
             },
             ConditionExpression: 'attribute_exists(deletedAt) AND attribute_not_exists(purgedAt)',
@@ -1340,41 +1434,87 @@ export const markFileNodePurged = async (params: {
               ':updatedAt': params.nowIso
             }
           }
-        }
+        },
+        {
+          Put: {
+            TableName: env.tableName,
+            Item: {
+              PK: filePk,
+              SK: purgedStateIndexSk,
+              type: 'FILE_STATE_INDEX',
+              state: 'PURGED',
+              fileNodeId,
+              trashedPath: params.fileNode.trashedPath,
+              purgedAt: params.nowIso,
+              updatedAt: params.nowIso
+            } as FileStateIndexItem,
+            ConditionExpression: 'attribute_not_exists(PK) AND attribute_not_exists(SK)'
+          }
+        },
+        ...(trashStateIndexSk
+          ? [
+              {
+                Delete: {
+                  TableName: env.tableName,
+                  Key: {
+                    PK: filePk,
+                    SK: trashStateIndexSk
+                  }
+                }
+              }
+            ]
+          : [])
       ]
     })
   );
 };
 
-const listFileNodesForDockspace = async (
+export const listTrashedFileStateIndex = async (
   userId: string,
   dockspaceId: string
-): Promise<FileNodeItem[]> =>
-  queryAll<FileNodeItem>({
+): Promise<FileStateIndexItem[]> =>
+  queryAll<FileStateIndexItem>({
     KeyConditionExpression: 'PK = :pk AND begins_with(SK, :skPrefix)',
     ExpressionAttributeValues: {
       ':pk': buildFilePk(userId, dockspaceId),
-      ':skPrefix': 'L#'
+      ':skPrefix': buildFileStateIndexPrefix('TRASH')
     }
   });
 
-export const listFilesByState = async (
+export const listPurgedFileStateIndex = async (
   userId: string,
-  dockspaceId: string,
-  state: FileState
-): Promise<FileNodeItem[]> => {
-  const files = await listFileNodesForDockspace(userId, dockspaceId);
-
-  return files.filter((file) => fileStateFromNode(file) === state);
-};
+  dockspaceId: string
+): Promise<FileStateIndexItem[]> =>
+  queryAll<FileStateIndexItem>({
+    KeyConditionExpression: 'PK = :pk AND begins_with(SK, :skPrefix)',
+    ExpressionAttributeValues: {
+      ':pk': buildFilePk(userId, dockspaceId),
+      ':skPrefix': buildFileStateIndexPrefix('PURGED')
+    },
+    ScanIndexForward: false
+  });
 
 export const listTrashedFileNodes = async (
   userId: string,
   dockspaceId: string
 ): Promise<FileNodeItem[]> => {
-  const files = await listFilesByState(userId, dockspaceId, 'TRASH');
-  return files.sort((a, b) =>
-    (a.flaggedForDeleteAt ?? '').localeCompare(b.flaggedForDeleteAt ?? '')
+  const stateItems = await listTrashedFileStateIndex(userId, dockspaceId);
+  if (!stateItems.length) {
+    return [];
+  }
+
+  const fileNodes = await Promise.all(
+    stateItems.map((item) => getFileNodeById(userId, dockspaceId, item.fileNodeId))
+  );
+
+  return fileNodes.filter(
+    (fileNode): fileNode is FileNodeItem => {
+      if (!fileNode) {
+        return false;
+      }
+
+      return fileStateFromNode(fileNode) === 'TRASH';
+    }
   );
 };
 
@@ -1382,8 +1522,24 @@ export const listPurgedFileNodes = async (
   userId: string,
   dockspaceId: string
 ): Promise<FileNodeItem[]> => {
-  const files = await listFilesByState(userId, dockspaceId, 'PURGED');
-  return files.sort((a, b) => (b.purgedAt ?? '').localeCompare(a.purgedAt ?? ''));
+  const stateItems = await listPurgedFileStateIndex(userId, dockspaceId);
+  if (!stateItems.length) {
+    return [];
+  }
+
+  const fileNodes = await Promise.all(
+    stateItems.map((item) => getFileNodeById(userId, dockspaceId, item.fileNodeId))
+  );
+
+  return fileNodes.filter(
+    (fileNode): fileNode is FileNodeItem => {
+      if (!fileNode) {
+        return false;
+      }
+
+      return fileStateFromNode(fileNode) === 'PURGED';
+    }
+  );
 };
 
 export const fullPathFromS3Key = (

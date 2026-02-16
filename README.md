@@ -418,3 +418,28 @@ Optional controls:
 
 * `BACKFILL_PAGE_SIZE` (default `200`)
 * `BACKFILL_MAX_PAGES` (unset by default; process all pages)
+
+---
+
+## 19. One-Time Backfill For Trash/Purged State Index
+
+When introducing `FILE_STATE_INDEX` records (`X#TRASH#...` / `X#PURGED#...`), run:
+
+```bash
+TABLE_NAME=<your-table-name> \
+BACKFILL_DRY_RUN=true \
+npm run --workspace @dockspace/backend backfill:file-state-index
+```
+
+Then execute the write run:
+
+```bash
+TABLE_NAME=<your-table-name> \
+BACKFILL_DRY_RUN=false \
+npm run --workspace @dockspace/backend backfill:file-state-index
+```
+
+Optional controls:
+
+* `BACKFILL_PAGE_SIZE` (default `200`)
+* `BACKFILL_MAX_PAGES` (unset by default; process all pages)

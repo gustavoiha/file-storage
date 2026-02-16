@@ -1,7 +1,8 @@
 import type { APIGatewayProxyEventV2 } from 'aws-lambda';
 import { requireEntitledUser } from '../lib/auth.js';
 import { errorResponse, jsonResponse } from '../lib/http.js';
-import { fullPathForTrashedFileNode, listTrashedFileNodes } from '../lib/repository.js';
+import { normalizeFullPath } from '../domain/path.js';
+import { listTrashedFileStateIndex } from '../lib/repository.js';
 
 export const handler = async (event: APIGatewayProxyEventV2) => {
   try {
@@ -12,17 +13,17 @@ export const handler = async (event: APIGatewayProxyEventV2) => {
       return jsonResponse(400, { error: 'dockspaceId is required' });
     }
 
-    const files = await listTrashedFileNodes(userId, dockspaceId);
+    const stateItems = await listTrashedFileStateIndex(userId, dockspaceId);
 
-    const items = await Promise.all(
-      files.map(async (file) => ({
-        fullPath: await fullPathForTrashedFileNode(userId, dockspaceId, file),
-        size: file.size,
-        deletedAt: file.deletedAt,
-        flaggedForDeleteAt: file.flaggedForDeleteAt,
+    const items = stateItems
+      .filter((item) => Boolean(item.trashedPath))
+      .map((item) => ({
+        fullPath: normalizeFullPath(item.trashedPath ?? '/'),
+        size: item.size,
+        deletedAt: item.deletedAt,
+        flaggedForDeleteAt: item.flaggedForDeleteAt,
         state: 'TRASH' as const
-      }))
-    );
+      }));
 
     return jsonResponse(200, { items });
   } catch (error) {

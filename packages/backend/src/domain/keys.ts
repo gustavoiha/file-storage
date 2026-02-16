@@ -41,6 +41,16 @@ export const buildPurgeDueGsi1Sk = (
   fileNodeSk: string
 ): string => `${flaggedForDeleteAt}#${filePk}#${fileNodeSk}`;
 
+export type FileStateIndexKind = 'TRASH' | 'PURGED';
+
+export const buildFileStateIndexSk = (
+  kind: FileStateIndexKind,
+  timestampIso: string,
+  fileNodeId: string
+): string => `X#${kind}#${timestampIso}#${fileNodeId}`;
+
+export const buildFileStateIndexPrefix = (kind: FileStateIndexKind): string => `X#${kind}#`;
+
 export const buildPurgeDueUpperBoundGsi1Sk = (nowIso: string): string => `${nowIso}#~`;
 
 export const parseDockspacePartitionSk = (

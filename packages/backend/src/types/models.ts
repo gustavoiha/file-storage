@@ -53,6 +53,20 @@ export interface DockspaceItem {
   createdAt: string;
 }
 
+export interface FileStateIndexItem {
+  PK: string;
+  SK: string;
+  type: 'FILE_STATE_INDEX';
+  state: Exclude<FileState, 'ACTIVE'>;
+  fileNodeId: string;
+  trashedPath?: string;
+  size?: number;
+  deletedAt?: string;
+  flaggedForDeleteAt?: string;
+  purgedAt?: string;
+  updatedAt: string;
+}
+
 export const fileStateFromNode = (file: FileNodeItem): FileState => {
   if (file.purgedAt) {
     return 'PURGED';
@@ -65,4 +79,9 @@ export const fileStateFromNode = (file: FileNodeItem): FileState => {
   return 'ACTIVE';
 };
 
-export type TableItem = FileNodeItem | FolderNodeItem | DirectoryItem | DockspaceItem;
+export type TableItem =
+  | FileNodeItem
+  | FolderNodeItem
+  | DirectoryItem
+  | DockspaceItem
+  | FileStateIndexItem;

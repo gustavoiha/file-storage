@@ -5,6 +5,8 @@ import {
   buildDirectorySk,
   buildFilePk,
   buildFileNodeSk,
+  buildFileStateIndexPrefix,
+  buildFileStateIndexSk,
   buildFolderNodeSk,
   buildPurgeDueGsi1Sk,
   buildPurgeDueUpperBoundGsi1Sk,
@@ -50,5 +52,16 @@ describe('keys', () => {
     expect(parseDockspacePartitionSk('U#u1#S#v1')).toEqual({ userId: 'u1', dockspaceId: 'v1' });
     expect(parseDockspacePartitionSk('U##S#v1')).toBeNull();
     expect(parseDockspacePartitionSk('invalid')).toBeNull();
+  });
+
+  it('builds file-state index keys', () => {
+    expect(buildFileStateIndexSk('TRASH', '2026-02-16T00:00:00.000Z', 'file_1')).toBe(
+      'X#TRASH#2026-02-16T00:00:00.000Z#file_1'
+    );
+    expect(buildFileStateIndexSk('PURGED', '2026-02-16T00:00:00.000Z', 'file_1')).toBe(
+      'X#PURGED#2026-02-16T00:00:00.000Z#file_1'
+    );
+    expect(buildFileStateIndexPrefix('TRASH')).toBe('X#TRASH#');
+    expect(buildFileStateIndexPrefix('PURGED')).toBe('X#PURGED#');
   });
 });

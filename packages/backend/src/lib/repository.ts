@@ -7,6 +7,10 @@ import {
   TransactWriteCommand
 } from '@aws-sdk/lib-dynamodb';
 import {
+  buildAlbumMembershipPrefix,
+  buildAlbumMembershipSk,
+  buildAlbumPrefix,
+  buildAlbumSk,
   buildDirectoryNamePrefix,
   buildDirectorySk,
   buildFileNodeSk,
@@ -17,6 +21,8 @@ import {
   buildDockspaceMetricsSk,
   buildFolderNodeSk,
   buildDockspacePk,
+  buildMediaAlbumLinkPrefix,
+  buildMediaAlbumLinkSk,
   buildPurgeDueGsi1Sk,
   PURGE_DUE_GSI1_PK,
   ROOT_FOLDER_NODE_ID,
@@ -36,7 +42,10 @@ import type {
   FileStateIndexItem,
   FolderNodeItem,
   DockspaceItem,
-  DockspaceMetricsItem
+  DockspaceMetricsItem,
+  AlbumItem,
+  AlbumMembershipItem,
+  MediaAlbumLinkItem
 } from '../types/models.js';
 import { fileStateFromNode } from '../types/models.js';
 import { dynamoDoc } from './clients.js';
@@ -310,6 +319,23 @@ export const listDockspaces = async (userId: string): Promise<DockspaceItem[]> =
   return (response.Items ?? []) as DockspaceItem[];
 };
 
+export const getDockspaceById = async (
+  userId: string,
+  dockspaceId: string
+): Promise<DockspaceItem | null> => {
+  const response = await dynamoDoc.send(
+    new GetCommand({
+      TableName: env.tableName,
+      Key: {
+        PK: buildDockspacePk(userId),
+        SK: `S#${dockspaceId}`
+      }
+    })
+  );
+
+  return (response.Item as DockspaceItem | undefined) ?? null;
+};
+
 export const listDockspaceMetrics = async (
   userId: string
 ): Promise<DockspaceMetricsItem[]> => {
@@ -325,6 +351,327 @@ export const listDockspaceMetrics = async (
   );
 
   return (response.Items ?? []) as DockspaceMetricsItem[];
+};
+
+export const findFileNodeById = async (
+  userId: string,
+  dockspaceId: string,
+  fileNodeId: string
+): Promise<FileNodeItem | null> => getFileNodeById(userId, dockspaceId, fileNodeId);
+
+export const listFileNodes = async (
+  userId: string,
+  dockspaceId: string
+): Promise<FileNodeItem[]> =>
+  queryAll<FileNodeItem>({
+    KeyConditionExpression: 'PK = :pk AND begins_with(SK, :skPrefix)',
+    ExpressionAttributeValues: {
+      ':pk': buildFilePk(userId, dockspaceId),
+      ':skPrefix': 'L#'
+    }
+  });
+
+export const listAlbums = async (userId: string, dockspaceId: string): Promise<AlbumItem[]> => {
+  const response = await dynamoDoc.send(
+    new QueryCommand({
+      TableName: env.tableName,
+      KeyConditionExpression: 'PK = :pk AND begins_with(SK, :skPrefix)',
+      ExpressionAttributeValues: {
+        ':pk': buildFilePk(userId, dockspaceId),
+        ':skPrefix': buildAlbumPrefix()
+      }
+    })
+  );
+
+  return (response.Items ?? []) as AlbumItem[];
+};
+
+export const getAlbumById = async (
+  userId: string,
+  dockspaceId: string,
+  albumId: string
+): Promise<AlbumItem | null> => {
+  const response = await dynamoDoc.send(
+    new GetCommand({
+      TableName: env.tableName,
+      Key: {
+        PK: buildFilePk(userId, dockspaceId),
+        SK: buildAlbumSk(albumId)
+      }
+    })
+  );
+
+  return (response.Item as AlbumItem | undefined) ?? null;
+};
+
+export const createAlbum = async (params: {
+  userId: string;
+  dockspaceId: string;
+  albumId: string;
+  name: string;
+  nowIso: string;
+}): Promise<AlbumItem> => {
+  const item: AlbumItem = {
+    PK: buildFilePk(params.userId, params.dockspaceId),
+    SK: buildAlbumSk(params.albumId),
+    type: 'ALBUM',
+    albumId: params.albumId,
+    name: params.name,
+    createdAt: params.nowIso,
+    updatedAt: params.nowIso
+  };
+
+  await dynamoDoc.send(
+    new PutCommand({
+      TableName: env.tableName,
+      Item: item,
+      ConditionExpression: 'attribute_not_exists(PK) AND attribute_not_exists(SK)'
+    })
+  );
+
+  return item;
+};
+
+export const renameAlbum = async (params: {
+  userId: string;
+  dockspaceId: string;
+  albumId: string;
+  name: string;
+  nowIso: string;
+}): Promise<void> => {
+  await dynamoDoc.send(
+    new TransactWriteCommand({
+      TransactItems: [
+        {
+          Update: {
+            TableName: env.tableName,
+            Key: {
+              PK: buildFilePk(params.userId, params.dockspaceId),
+              SK: buildAlbumSk(params.albumId)
+            },
+            ConditionExpression: 'attribute_exists(PK) AND attribute_exists(SK)',
+            UpdateExpression: 'SET #name = :name, updatedAt = :updatedAt',
+            ExpressionAttributeNames: {
+              '#name': 'name'
+            },
+            ExpressionAttributeValues: {
+              ':name': params.name,
+              ':updatedAt': params.nowIso
+            }
+          }
+        }
+      ]
+    })
+  );
+};
+
+export const listAlbumMemberships = async (
+  userId: string,
+  dockspaceId: string,
+  albumId: string
+): Promise<AlbumMembershipItem[]> => {
+  const response = await dynamoDoc.send(
+    new QueryCommand({
+      TableName: env.tableName,
+      KeyConditionExpression: 'PK = :pk AND begins_with(SK, :skPrefix)',
+      ExpressionAttributeValues: {
+        ':pk': buildFilePk(userId, dockspaceId),
+        ':skPrefix': buildAlbumMembershipPrefix(albumId)
+      }
+    })
+  );
+
+  return (response.Items ?? []) as AlbumMembershipItem[];
+};
+
+export const listMediaAlbumLinks = async (
+  userId: string,
+  dockspaceId: string,
+  fileNodeId: string
+): Promise<MediaAlbumLinkItem[]> => {
+  const response = await dynamoDoc.send(
+    new QueryCommand({
+      TableName: env.tableName,
+      KeyConditionExpression: 'PK = :pk AND begins_with(SK, :skPrefix)',
+      ExpressionAttributeValues: {
+        ':pk': buildFilePk(userId, dockspaceId),
+        ':skPrefix': buildMediaAlbumLinkPrefix(fileNodeId)
+      }
+    })
+  );
+
+  return (response.Items ?? []) as MediaAlbumLinkItem[];
+};
+
+export const assignMediaToAlbum = async (params: {
+  userId: string;
+  dockspaceId: string;
+  albumId: string;
+  fileNodeIds: string[];
+  nowIso: string;
+}): Promise<void> => {
+  const pk = buildFilePk(params.userId, params.dockspaceId);
+  const uniqueIds = Array.from(new Set(params.fileNodeIds));
+
+  for (const fileNodeId of uniqueIds) {
+    try {
+      await dynamoDoc.send(
+        new TransactWriteCommand({
+          TransactItems: [
+            {
+              Put: {
+                TableName: env.tableName,
+                Item: {
+                  PK: pk,
+                  SK: buildAlbumMembershipSk(params.albumId, fileNodeId),
+                  type: 'ALBUM_MEMBERSHIP',
+                  albumId: params.albumId,
+                  fileNodeId,
+                  createdAt: params.nowIso
+                } as AlbumMembershipItem,
+                ConditionExpression: 'attribute_not_exists(PK) AND attribute_not_exists(SK)'
+              }
+            },
+            {
+              Put: {
+                TableName: env.tableName,
+                Item: {
+                  PK: pk,
+                  SK: buildMediaAlbumLinkSk(fileNodeId, params.albumId),
+                  type: 'MEDIA_ALBUM_LINK',
+                  albumId: params.albumId,
+                  fileNodeId,
+                  createdAt: params.nowIso
+                } as MediaAlbumLinkItem,
+                ConditionExpression: 'attribute_not_exists(PK) AND attribute_not_exists(SK)'
+              }
+            }
+          ]
+        })
+      );
+    } catch (error) {
+      if (!isConditionalFailure(error)) {
+        throw error;
+      }
+    }
+  }
+};
+
+export const removeAlbumMembership = async (params: {
+  userId: string;
+  dockspaceId: string;
+  albumId: string;
+  fileNodeId: string;
+}): Promise<void> => {
+  const pk = buildFilePk(params.userId, params.dockspaceId);
+
+  await dynamoDoc.send(
+    new TransactWriteCommand({
+      TransactItems: [
+        {
+          Delete: {
+            TableName: env.tableName,
+            Key: {
+              PK: pk,
+              SK: buildAlbumMembershipSk(params.albumId, params.fileNodeId)
+            }
+          }
+        },
+        {
+          Delete: {
+            TableName: env.tableName,
+            Key: {
+              PK: pk,
+              SK: buildMediaAlbumLinkSk(params.fileNodeId, params.albumId)
+            }
+          }
+        }
+      ]
+    })
+  );
+};
+
+export const removeAllAlbumMembershipsForFile = async (
+  userId: string,
+  dockspaceId: string,
+  fileNodeId: string
+): Promise<void> => {
+  const pk = buildFilePk(userId, dockspaceId);
+  const links = await listMediaAlbumLinks(userId, dockspaceId, fileNodeId);
+
+  for (const link of links) {
+    await dynamoDoc.send(
+      new TransactWriteCommand({
+        TransactItems: [
+          {
+            Delete: {
+              TableName: env.tableName,
+              Key: {
+                PK: pk,
+                SK: buildMediaAlbumLinkSk(fileNodeId, link.albumId)
+              }
+            }
+          },
+          {
+            Delete: {
+              TableName: env.tableName,
+              Key: {
+                PK: pk,
+                SK: buildAlbumMembershipSk(link.albumId, fileNodeId)
+              }
+            }
+          }
+        ]
+      })
+    );
+  }
+};
+
+export const deleteAlbumAndMemberships = async (
+  userId: string,
+  dockspaceId: string,
+  albumId: string
+): Promise<void> => {
+  const pk = buildFilePk(userId, dockspaceId);
+  const memberships = await listAlbumMemberships(userId, dockspaceId, albumId);
+
+  await dynamoDoc.send(
+    new DeleteCommand({
+      TableName: env.tableName,
+      Key: {
+        PK: pk,
+        SK: buildAlbumSk(albumId)
+      },
+      ConditionExpression: 'attribute_exists(PK) AND attribute_exists(SK)'
+    })
+  );
+
+  for (const membership of memberships) {
+    await dynamoDoc.send(
+      new TransactWriteCommand({
+        TransactItems: [
+          {
+            Delete: {
+              TableName: env.tableName,
+              Key: {
+                PK: pk,
+                SK: buildAlbumMembershipSk(albumId, membership.fileNodeId)
+              }
+            }
+          },
+          {
+            Delete: {
+              TableName: env.tableName,
+              Key: {
+                PK: pk,
+                SK: buildMediaAlbumLinkSk(membership.fileNodeId, albumId)
+              }
+            }
+          }
+        ]
+      })
+    );
+  }
 };
 
 const findDirectoryEntryByNameInternal = async (
@@ -1043,6 +1390,8 @@ export const markResolvedFileNodeTrashed = async (
       ]
     })
   );
+
+  await removeAllAlbumMembershipsForFile(userId, dockspaceId, fileNodeId);
 };
 
 export const deleteDirectoryItems = async (
@@ -1569,6 +1918,8 @@ export const markFileNodePurged = async (params: {
       ]
     })
   );
+
+  await removeAllAlbumMembershipsForFile(params.userId, params.dockspaceId, fileNodeId);
 };
 
 export const listTrashedFileStateIndex = async (

@@ -1,4 +1,7 @@
 export type FileState = 'ACTIVE' | 'TRASH' | 'PURGED';
+export const DOCKSPACE_TYPES = ['GENERIC_FILES', 'PHOTOS_VIDEOS'] as const;
+export type DockspaceType = (typeof DOCKSPACE_TYPES)[number];
+export const DEFAULT_DOCKSPACE_TYPE: DockspaceType = 'GENERIC_FILES';
 
 export interface FileNodeItem {
   PK: string;
@@ -50,6 +53,8 @@ export interface DockspaceItem {
   userId: string;
   dockspaceId: string;
   name: string;
+  dockspaceType?: DockspaceType;
+  features?: Record<string, boolean>;
   createdAt: string;
 }
 
@@ -62,6 +67,34 @@ export interface DockspaceMetricsItem {
   totalSizeBytes: number;
   lastUploadAt?: string;
   updatedAt: string;
+}
+
+export interface AlbumItem {
+  PK: string;
+  SK: string;
+  type: 'ALBUM';
+  albumId: string;
+  name: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface AlbumMembershipItem {
+  PK: string;
+  SK: string;
+  type: 'ALBUM_MEMBERSHIP';
+  albumId: string;
+  fileNodeId: string;
+  createdAt: string;
+}
+
+export interface MediaAlbumLinkItem {
+  PK: string;
+  SK: string;
+  type: 'MEDIA_ALBUM_LINK';
+  albumId: string;
+  fileNodeId: string;
+  createdAt: string;
 }
 
 export interface FileStateIndexItem {
@@ -90,10 +123,26 @@ export const fileStateFromNode = (file: FileNodeItem): FileState => {
   return 'ACTIVE';
 };
 
+export const dockspaceTypeFromItem = (
+  dockspace: Pick<DockspaceItem, 'dockspaceType'>
+): DockspaceType =>
+  dockspace.dockspaceType === 'PHOTOS_VIDEOS' ? 'PHOTOS_VIDEOS' : DEFAULT_DOCKSPACE_TYPE;
+
+export const isMediaDockspaceType = (dockspaceType: DockspaceType): boolean =>
+  dockspaceType === 'PHOTOS_VIDEOS';
+
+export const isMediaContentType = (contentType: string): boolean => {
+  const normalized = contentType.trim().toLowerCase();
+  return normalized.startsWith('image/') || normalized.startsWith('video/');
+};
+
 export type TableItem =
   | FileNodeItem
   | FolderNodeItem
   | DirectoryItem
   | DockspaceItem
   | DockspaceMetricsItem
-  | FileStateIndexItem;
+  | FileStateIndexItem
+  | AlbumItem
+  | AlbumMembershipItem
+  | MediaAlbumLinkItem;

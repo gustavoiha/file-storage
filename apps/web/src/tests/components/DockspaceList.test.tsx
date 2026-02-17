@@ -14,6 +14,7 @@ describe('DockspaceList', () => {
           {
             dockspaceId: 'v1',
             name: 'Main',
+            dockspaceType: 'GENERIC_FILES',
             createdAt: '2026-01-01T00:00:00.000Z',
             totalFileCount: 12,
             totalSizeBytes: 3145728,

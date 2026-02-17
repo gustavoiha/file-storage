@@ -9,6 +9,7 @@ const { listDockspaces, createDockspace } = vi.hoisted(() => ({
     {
       dockspaceId: 'v1',
       name: 'Main',
+      dockspaceType: 'GENERIC_FILES',
       createdAt: '2026-01-01T00:00:00.000Z',
       totalFileCount: 0,
       totalSizeBytes: 0
@@ -17,6 +18,7 @@ const { listDockspaces, createDockspace } = vi.hoisted(() => ({
   createDockspace: vi.fn(async () => ({
     dockspaceId: 'v2',
     name: 'Docs',
+    dockspaceType: 'GENERIC_FILES',
     createdAt: '2026-01-02T00:00:00.000Z',
     totalFileCount: 0,
     totalSizeBytes: 0
@@ -58,7 +60,13 @@ describe('useDockspaces', () => {
       wrapper: ({ children }) => <QueryWrapper client={client}>{children}</QueryWrapper>
     });
 
-    await result.current.mutateAsync('Docs');
-    expect(createDockspace).toHaveBeenCalledWith('Docs', expect.any(Object));
+    await result.current.mutateAsync({
+      name: 'Docs',
+      dockspaceType: 'GENERIC_FILES'
+    });
+    expect(createDockspace).toHaveBeenCalledWith({
+      name: 'Docs',
+      dockspaceType: 'GENERIC_FILES'
+    });
   });
 });

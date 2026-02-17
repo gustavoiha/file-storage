@@ -164,7 +164,11 @@ export const useMoveToTrash = (dockspaceId: string, folder: string) => {
 
       await Promise.all([
         queryClient.invalidateQueries({ queryKey: ['files', userId, dockspaceId] }),
-        queryClient.invalidateQueries({ queryKey: trashQueryKey(userId, dockspaceId) })
+        queryClient.invalidateQueries({ queryKey: trashQueryKey(userId, dockspaceId) }),
+        queryClient.invalidateQueries({ queryKey: ['media', userId, dockspaceId] }),
+        queryClient.invalidateQueries({ queryKey: ['albums', userId, dockspaceId] }),
+        queryClient.invalidateQueries({ queryKey: ['album-media', userId, dockspaceId] }),
+        queryClient.invalidateQueries({ queryKey: ['media-albums', userId, dockspaceId] })
       ]);
     }
   });
@@ -224,7 +228,9 @@ export const useRestoreFile = (dockspaceId: string) => {
         queryClient.invalidateQueries({ queryKey: trashQueryKey(userId, dockspaceId) }),
         queryClient.invalidateQueries({
           queryKey: filesQueryKey(userId, dockspaceId, ROOT_FOLDER_NODE_ID)
-        })
+        }),
+        queryClient.invalidateQueries({ queryKey: ['media', userId, dockspaceId] }),
+        queryClient.invalidateQueries({ queryKey: ['albums', userId, dockspaceId] })
       ]);
     }
   });
@@ -244,7 +250,11 @@ export const usePurgeFileNow = (dockspaceId: string) => {
 
       await Promise.all([
         queryClient.invalidateQueries({ queryKey: trashQueryKey(userId, dockspaceId) }),
-        queryClient.invalidateQueries({ queryKey: purgedQueryKey(userId, dockspaceId) })
+        queryClient.invalidateQueries({ queryKey: purgedQueryKey(userId, dockspaceId) }),
+        queryClient.invalidateQueries({ queryKey: ['media', userId, dockspaceId] }),
+        queryClient.invalidateQueries({ queryKey: ['albums', userId, dockspaceId] }),
+        queryClient.invalidateQueries({ queryKey: ['album-media', userId, dockspaceId] }),
+        queryClient.invalidateQueries({ queryKey: ['media-albums', userId, dockspaceId] })
       ]);
     }
   });

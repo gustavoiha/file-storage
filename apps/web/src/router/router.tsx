@@ -15,7 +15,7 @@ import { PurgedPage } from '@/pages/PurgedPage';
 import { RegisterPage } from '@/pages/RegisterPage';
 import { ResetPasswordPage } from '@/pages/ResetPasswordPage';
 import { TrashPage } from '@/pages/TrashPage';
-import { DockspaceFilesPage } from '@/pages/DockspaceFilesPage';
+import { DockspaceWorkspacePage } from '@/pages/DockspaceWorkspacePage';
 import { DockspacesPage } from '@/pages/DockspacesPage';
 
 const rootRoute = createRootRoute({
@@ -86,7 +86,7 @@ const dockspacesRoute = createRoute({
 const dockspaceFilesRoute = createRoute({
   getParentRoute: () => rootRoute,
   path: '/dockspaces/$dockspaceId',
-  component: DockspaceFilesPage
+  component: DockspaceWorkspacePage
 });
 
 const trashRoute = createRoute({

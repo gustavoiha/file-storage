@@ -72,7 +72,16 @@ export class BackendStack extends Stack {
       restoreFile: createHandler('restoreFile'),
       purgeFileNow: createHandler('purgeFileNow'),
       listTrash: createHandler('listTrash'),
-      listPurged: createHandler('listPurged')
+      listPurged: createHandler('listPurged'),
+      listMedia: createHandler('listMedia'),
+      createAlbum: createHandler('createAlbum'),
+      listAlbums: createHandler('listAlbums'),
+      renameAlbum: createHandler('renameAlbum'),
+      deleteAlbum: createHandler('deleteAlbum'),
+      assignAlbumMedia: createHandler('assignAlbumMedia'),
+      removeAlbumMedia: createHandler('removeAlbumMedia'),
+      listAlbumMedia: createHandler('listAlbumMedia'),
+      listMediaAlbums: createHandler('listMediaAlbums')
     };
 
     const purgeReconciliation = createHandler('purgeReconciliation');
@@ -94,6 +103,15 @@ export class BackendStack extends Stack {
     props.table.grantReadWriteData(handlers.purgeFileNow);
     props.table.grantReadWriteData(handlers.listTrash);
     props.table.grantReadWriteData(handlers.listPurged);
+    props.table.grantReadWriteData(handlers.listMedia);
+    props.table.grantReadWriteData(handlers.createAlbum);
+    props.table.grantReadWriteData(handlers.listAlbums);
+    props.table.grantReadWriteData(handlers.renameAlbum);
+    props.table.grantReadWriteData(handlers.deleteAlbum);
+    props.table.grantReadWriteData(handlers.assignAlbumMedia);
+    props.table.grantReadWriteData(handlers.removeAlbumMedia);
+    props.table.grantReadWriteData(handlers.listAlbumMedia);
+    props.table.grantReadWriteData(handlers.listMediaAlbums);
     props.table.grantReadWriteData(purgeReconciliation);
 
     props.bucket.grantReadWrite(handlers.createUploadSession);
@@ -278,6 +296,78 @@ export class BackendStack extends Stack {
       path: '/dockspaces/{dockspaceId}/purged',
       methods: [HttpMethod.GET],
       integration: new HttpLambdaIntegration('ListPurgedIntegration', handlers.listPurged),
+      authorizer
+    });
+
+    this.api.addRoutes({
+      path: '/dockspaces/{dockspaceId}/media',
+      methods: [HttpMethod.GET],
+      integration: new HttpLambdaIntegration('ListMediaIntegration', handlers.listMedia),
+      authorizer
+    });
+
+    this.api.addRoutes({
+      path: '/dockspaces/{dockspaceId}/albums',
+      methods: [HttpMethod.POST],
+      integration: new HttpLambdaIntegration('CreateAlbumIntegration', handlers.createAlbum),
+      authorizer
+    });
+
+    this.api.addRoutes({
+      path: '/dockspaces/{dockspaceId}/albums',
+      methods: [HttpMethod.GET],
+      integration: new HttpLambdaIntegration('ListAlbumsIntegration', handlers.listAlbums),
+      authorizer
+    });
+
+    this.api.addRoutes({
+      path: '/dockspaces/{dockspaceId}/albums/{albumId}',
+      methods: [HttpMethod.PATCH],
+      integration: new HttpLambdaIntegration('RenameAlbumIntegration', handlers.renameAlbum),
+      authorizer
+    });
+
+    this.api.addRoutes({
+      path: '/dockspaces/{dockspaceId}/albums/{albumId}',
+      methods: [HttpMethod.DELETE],
+      integration: new HttpLambdaIntegration('DeleteAlbumIntegration', handlers.deleteAlbum),
+      authorizer
+    });
+
+    this.api.addRoutes({
+      path: '/dockspaces/{dockspaceId}/albums/{albumId}/media',
+      methods: [HttpMethod.POST],
+      integration: new HttpLambdaIntegration(
+        'AssignAlbumMediaIntegration',
+        handlers.assignAlbumMedia
+      ),
+      authorizer
+    });
+
+    this.api.addRoutes({
+      path: '/dockspaces/{dockspaceId}/albums/{albumId}/media',
+      methods: [HttpMethod.GET],
+      integration: new HttpLambdaIntegration('ListAlbumMediaIntegration', handlers.listAlbumMedia),
+      authorizer
+    });
+
+    this.api.addRoutes({
+      path: '/dockspaces/{dockspaceId}/albums/{albumId}/media/{fileNodeId}',
+      methods: [HttpMethod.DELETE],
+      integration: new HttpLambdaIntegration(
+        'RemoveAlbumMediaIntegration',
+        handlers.removeAlbumMedia
+      ),
+      authorizer
+    });
+
+    this.api.addRoutes({
+      path: '/dockspaces/{dockspaceId}/media/{fileNodeId}/albums',
+      methods: [HttpMethod.GET],
+      integration: new HttpLambdaIntegration(
+        'ListMediaAlbumsIntegration',
+        handlers.listMediaAlbums
+      ),
       authorizer
     });
 

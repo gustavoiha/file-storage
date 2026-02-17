@@ -5,9 +5,11 @@ import { requireEntitledUser } from '../lib/auth.js';
 import { errorResponse, jsonResponse, safeJsonParse } from '../lib/http.js';
 import { putDockspaceWithRootFolder } from '../lib/repository.js';
 import { buildDockspacePk, buildDockspaceSk } from '../domain/keys.js';
+import { DEFAULT_DOCKSPACE_TYPE, DOCKSPACE_TYPES } from '../types/models.js';
 
 const bodySchema = z.object({
-  name: z.string().trim().min(1).max(100)
+  name: z.string().trim().min(1).max(100),
+  dockspaceType: z.enum(DOCKSPACE_TYPES).optional()
 });
 
 export const handler = async (event: APIGatewayProxyEventV2) => {
@@ -21,6 +23,7 @@ export const handler = async (event: APIGatewayProxyEventV2) => {
 
     const now = new Date().toISOString();
     const dockspaceId = randomUUID();
+    const dockspaceType = parsed.data.dockspaceType ?? DEFAULT_DOCKSPACE_TYPE;
 
     await putDockspaceWithRootFolder(
       {
@@ -30,6 +33,7 @@ export const handler = async (event: APIGatewayProxyEventV2) => {
         userId,
         dockspaceId,
         name: parsed.data.name,
+        dockspaceType,
         createdAt: now
       },
       now
@@ -38,6 +42,7 @@ export const handler = async (event: APIGatewayProxyEventV2) => {
     return jsonResponse(201, {
       dockspaceId,
       name: parsed.data.name,
+      dockspaceType,
       createdAt: now,
       totalFileCount: 0,
       totalSizeBytes: 0

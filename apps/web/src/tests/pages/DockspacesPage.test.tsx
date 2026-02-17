@@ -100,7 +100,10 @@ describe('DockspacesPage', () => {
     render(<DockspacesPage />);
 
     await waitFor(() => {
-      expect(mutateAsync).toHaveBeenCalledWith('My dockspace');
+      expect(mutateAsync).toHaveBeenCalledWith({
+        name: 'My dockspace',
+        dockspaceType: 'GENERIC_FILES'
+      });
     });
   });
 

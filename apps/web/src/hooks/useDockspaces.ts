@@ -2,6 +2,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useStore } from '@tanstack/react-store';
 import { authStore } from '@/lib/authStore';
 import { createDockspace, listDockspaces } from '@/lib/dockspaceApi';
+import type { DockspaceType } from '@/lib/apiTypes';
 
 export const dockspaceQueryKey = (userId: string) => ['dockspaces', userId] as const;
 
@@ -22,7 +23,8 @@ export const useCreateDockspace = () => {
   const userId = session?.userId ?? '';
 
   return useMutation({
-    mutationFn: createDockspace,
+    mutationFn: (params: { name: string; dockspaceType: DockspaceType }) =>
+      createDockspace(params),
     onSuccess: async () => {
       if (!userId) {
         return;

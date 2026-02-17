@@ -1,10 +1,30 @@
+export type DockspaceType = 'GENERIC_FILES' | 'PHOTOS_VIDEOS';
+
 export interface Dockspace {
   dockspaceId: string;
   name: string;
+  dockspaceType: DockspaceType;
   createdAt: string;
   totalFileCount: number;
   totalSizeBytes: number;
   lastUploadAt?: string;
+}
+
+export interface AlbumRecord {
+  albumId: string;
+  name: string;
+  createdAt: string;
+  updatedAt: string;
+  mediaCount?: number;
+}
+
+export interface MediaFileRecord {
+  fileNodeId: string;
+  fullPath: string;
+  size: number;
+  contentType: string;
+  updatedAt: string;
+  state: 'ACTIVE';
 }
 
 export interface FileRecord {

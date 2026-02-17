@@ -2,6 +2,7 @@ import type { APIGatewayProxyEventV2 } from 'aws-lambda';
 import { requireEntitledUser } from '../lib/auth.js';
 import { errorResponse, jsonResponse } from '../lib/http.js';
 import { listDockspaceMetrics, listDockspaces } from '../lib/repository.js';
+import { dockspaceTypeFromItem } from '../types/models.js';
 
 export const handler = async (event: APIGatewayProxyEventV2) => {
   try {
@@ -21,6 +22,7 @@ export const handler = async (event: APIGatewayProxyEventV2) => {
         return {
           dockspaceId: dockspace.dockspaceId,
           name: dockspace.name,
+          dockspaceType: dockspaceTypeFromItem(dockspace),
           createdAt: dockspace.createdAt,
           totalFileCount: metrics?.totalFileCount ?? 0,
           totalSizeBytes: metrics?.totalSizeBytes ?? 0,

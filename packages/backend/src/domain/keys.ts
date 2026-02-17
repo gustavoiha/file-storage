@@ -37,6 +37,14 @@ export const buildDockspaceSk = (dockspaceId: string): string => `S#${dockspaceI
 
 export const buildDockspaceMetricsSk = (dockspaceId: string): string => `M#S#${dockspaceId}`;
 export const buildDockspaceMetricsPrefix = (): string => 'M#S#';
+export const buildAlbumSk = (albumId: string): string => `A#${albumId}`;
+export const buildAlbumPrefix = (): string => 'A#';
+export const buildAlbumMembershipSk = (albumId: string, fileNodeId: string): string =>
+  `AM#${albumId}#L#${fileNodeId}`;
+export const buildAlbumMembershipPrefix = (albumId: string): string => `AM#${albumId}#L#`;
+export const buildMediaAlbumLinkSk = (fileNodeId: string, albumId: string): string =>
+  `MA#${fileNodeId}#A#${albumId}`;
+export const buildMediaAlbumLinkPrefix = (fileNodeId: string): string => `MA#${fileNodeId}#A#`;
 
 export const buildPurgeDueGsi1Sk = (
   flaggedForDeleteAt: string,

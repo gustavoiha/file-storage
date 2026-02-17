@@ -1,16 +1,114 @@
 import { apiRequest } from './apiClient';
-import type { DirectoryChildrenRecord, FileRecord, Dockspace } from './apiTypes';
+import type {
+  AlbumRecord,
+  DirectoryChildrenRecord,
+  Dockspace,
+  DockspaceType,
+  FileRecord,
+  MediaFileRecord
+} from './apiTypes';
 
 export const listDockspaces = async (): Promise<Dockspace[]> => {
   const response = await apiRequest<{ items: Dockspace[] }>('/dockspaces');
   return response.items;
 };
 
-export const createDockspace = async (name: string): Promise<Dockspace> =>
+export const createDockspace = async (params: {
+  name: string;
+  dockspaceType: DockspaceType;
+}): Promise<Dockspace> =>
   apiRequest<Dockspace>('/dockspaces', {
+    method: 'POST',
+    body: JSON.stringify(params)
+  });
+
+export const listMedia = async (dockspaceId: string): Promise<MediaFileRecord[]> => {
+  const response = await apiRequest<{ items: MediaFileRecord[] }>(`/dockspaces/${dockspaceId}/media`);
+  return response.items;
+};
+
+export const listAlbums = async (dockspaceId: string): Promise<AlbumRecord[]> => {
+  const response = await apiRequest<{ items: AlbumRecord[] }>(`/dockspaces/${dockspaceId}/albums`);
+  return response.items;
+};
+
+export const createAlbum = async (
+  dockspaceId: string,
+  name: string
+): Promise<AlbumRecord> =>
+  apiRequest<AlbumRecord>(`/dockspaces/${dockspaceId}/albums`, {
     method: 'POST',
     body: JSON.stringify({ name })
   });
+
+export const renameAlbum = async (
+  dockspaceId: string,
+  albumId: string,
+  name: string
+): Promise<{ albumId: string; name: string; updatedAt: string }> =>
+  apiRequest<{ albumId: string; name: string; updatedAt: string }>(
+    `/dockspaces/${dockspaceId}/albums/${encodeURIComponent(albumId)}`,
+    {
+      method: 'PATCH',
+      body: JSON.stringify({ name })
+    }
+  );
+
+export const deleteAlbum = async (
+  dockspaceId: string,
+  albumId: string
+): Promise<{ albumId: string; deleted: boolean }> =>
+  apiRequest<{ albumId: string; deleted: boolean }>(
+    `/dockspaces/${dockspaceId}/albums/${encodeURIComponent(albumId)}`,
+    {
+      method: 'DELETE'
+    }
+  );
+
+export const assignAlbumMedia = async (
+  dockspaceId: string,
+  albumId: string,
+  fileNodeIds: string[]
+): Promise<{ albumId: string; assignedFileNodeIds: string[] }> =>
+  apiRequest<{ albumId: string; assignedFileNodeIds: string[] }>(
+    `/dockspaces/${dockspaceId}/albums/${encodeURIComponent(albumId)}/media`,
+    {
+      method: 'POST',
+      body: JSON.stringify({ fileNodeIds })
+    }
+  );
+
+export const removeAlbumMedia = async (
+  dockspaceId: string,
+  albumId: string,
+  fileNodeId: string
+): Promise<{ albumId: string; fileNodeId: string; removed: boolean }> =>
+  apiRequest<{ albumId: string; fileNodeId: string; removed: boolean }>(
+    `/dockspaces/${dockspaceId}/albums/${encodeURIComponent(albumId)}/media/${encodeURIComponent(fileNodeId)}`,
+    {
+      method: 'DELETE'
+    }
+  );
+
+export const listAlbumMedia = async (
+  dockspaceId: string,
+  albumId: string
+): Promise<MediaFileRecord[]> => {
+  const response = await apiRequest<{ items: MediaFileRecord[] }>(
+    `/dockspaces/${dockspaceId}/albums/${encodeURIComponent(albumId)}/media`
+  );
+  return response.items;
+};
+
+export const listMediaAlbums = async (
+  dockspaceId: string,
+  fileNodeId: string
+): Promise<AlbumRecord[]> => {
+  const response = await apiRequest<{ items: AlbumRecord[] }>(
+    `/dockspaces/${dockspaceId}/media/${encodeURIComponent(fileNodeId)}/albums`
+  );
+  return response.items;
+};
 
 export const listFolderChildren = async (
   dockspaceId: string,

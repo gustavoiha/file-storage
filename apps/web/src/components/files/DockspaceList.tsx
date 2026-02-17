@@ -46,6 +46,9 @@ const formatLastUpload = (lastUploadAt?: string): string => {
   return metricsDateFormatter.format(date);
 };
 
+const formatDockspaceType = (dockspaceType: Dockspace['dockspaceType']): string =>
+  dockspaceType === 'PHOTOS_VIDEOS' ? 'Photos & Videos' : 'Generic Files';
+
 export const DockspaceList = ({ dockspaces }: DockspaceListProps) => {
   if (!dockspaces.length) {
     return <p>No dockspaces yet.</p>;
@@ -59,6 +62,7 @@ export const DockspaceList = ({ dockspaces }: DockspaceListProps) => {
             <Link to="/dockspaces/$dockspaceId" params={{ dockspaceId: dockspace.dockspaceId }}>
               {dockspace.name}
             </Link>
+            <span className="dockspace-list-item__type">{formatDockspaceType(dockspace.dockspaceType)}</span>
           </div>
           <dl className="dockspace-list-item__metrics">
             <div className="dockspace-list-item__metric">

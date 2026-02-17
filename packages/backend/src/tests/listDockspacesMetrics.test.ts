@@ -73,6 +73,7 @@ describe('listDockspaces metrics merge', () => {
         userId: 'user-1',
         dockspaceId: 'dock-2',
         name: 'Docs',
+        dockspaceType: 'PHOTOS_VIDEOS',
         createdAt: '2026-01-02T00:00:00.000Z'
       }
     ]);
@@ -100,6 +101,7 @@ describe('listDockspaces metrics merge', () => {
           {
             dockspaceId: 'dock-1',
             name: 'Main',
+            dockspaceType: 'GENERIC_FILES',
             createdAt: '2026-01-01T00:00:00.000Z',
             totalFileCount: 5,
             totalSizeBytes: 4096,
@@ -108,6 +110,7 @@ describe('listDockspaces metrics merge', () => {
           {
             dockspaceId: 'dock-2',
             name: 'Docs',
+            dockspaceType: 'PHOTOS_VIDEOS',
             createdAt: '2026-01-02T00:00:00.000Z',
             totalFileCount: 0,
             totalSizeBytes: 0

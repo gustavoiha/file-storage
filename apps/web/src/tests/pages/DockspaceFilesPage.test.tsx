@@ -77,7 +77,8 @@ vi.mock('@/hooks/useDockspaces', () => ({
     data: [
       {
         dockspaceId: 'v1',
-        name: 'My Dockspace'
+        name: 'My Dockspace',
+        dockspaceType: 'GENERIC_FILES'
       }
     ]
   })

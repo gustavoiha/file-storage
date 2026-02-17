@@ -24,19 +24,36 @@ afterEach(() => {
 });
 
 describe('CreateDockspaceForm', () => {
-  it('creates dockspace on submit', async () => {
+  it('opens dialog and creates generic dockspace', async () => {
     render(<CreateDockspaceForm />);
 
+    fireEvent.click(screen.getByRole('button', { name: /Generic Files/i }));
     fireEvent.change(screen.getByLabelText('Dockspace Name'), { target: { value: 'Docs' } });
-    fireEvent.submit(screen.getByRole('button', { name: 'Create Dockspace' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Create Generic Dockspace' }));
 
-    expect(mutateAsync).toHaveBeenCalledWith('Docs');
+    expect(mutateAsync).toHaveBeenCalledWith({
+      name: 'Docs',
+      dockspaceType: 'GENERIC_FILES'
+    });
+  });
+
+  it('opens dialog and creates media dockspace', async () => {
+    render(<CreateDockspaceForm />);
+
+    fireEvent.click(screen.getByRole('button', { name: /Photos & Videos/i }));
+    fireEvent.change(screen.getByLabelText('Dockspace Name'), { target: { value: 'Camera Roll' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Create Media Dockspace' }));
+
+    expect(mutateAsync).toHaveBeenCalledWith({
+      name: 'Camera Roll',
+      dockspaceType: 'PHOTOS_VIDEOS'
+    });
   });
 
   it('disables controls when externally disabled', () => {
     render(<CreateDockspaceForm disabled />);
 
-    expect(screen.getByLabelText('Dockspace Name')).toBeDisabled();
-    expect(screen.getByRole('button', { name: 'Create Dockspace' })).toBeDisabled();
+    expect(screen.getByRole('button', { name: /Generic Files/i })).toBeDisabled();
+    expect(screen.getByRole('button', { name: /Photos & Videos/i })).toBeDisabled();
   });
 });

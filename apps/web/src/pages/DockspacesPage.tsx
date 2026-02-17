@@ -35,7 +35,10 @@ export const DockspacesPage = () => {
     }
 
     autoCreateAttemptedRef.current = true;
-    void createFirstDockspace.mutateAsync(firstDockspaceName);
+    void createFirstDockspace.mutateAsync({
+      name: firstDockspaceName,
+      dockspaceType: 'GENERIC_FILES'
+    });
   }, [createFirstDockspace, firstDockspaceName, shouldAutoCreateFirstDockspace]);
 
   const isPreparingFirstDockspace =

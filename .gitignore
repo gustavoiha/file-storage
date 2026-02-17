@@ -6,4 +6,6 @@ cdk.out
 coverage
 *.tsbuildinfo
 .env
+.env.dev
+.env.prod
 .codex

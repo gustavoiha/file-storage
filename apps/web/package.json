@@ -6,6 +6,10 @@
   "scripts": {
     "dev": "vite",
     "build": "tsc -p tsconfig.json --noEmit && vite build",
+    "build:dev": "tsc -p tsconfig.json --noEmit && vite build --mode dev",
+    "build:prod": "tsc -p tsconfig.json --noEmit && vite build --mode prod",
+    "deploy:dev": "AWS_PROFILE=file-storage-dev ./scripts/deploy.sh dev",
+    "deploy:prod": "AWS_PROFILE=file-storage-prod ./scripts/deploy.sh prod",
     "preview": "vite preview",
     "test": "vitest run",
     "typecheck": "tsc -p tsconfig.json --noEmit"

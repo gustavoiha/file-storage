@@ -159,4 +159,5 @@ describe('media upload policy', () => {
     expect(response.body).toContain('UPLOAD_SKIPPED_DUPLICATE');
     expect(createUploadUrlMock).not.toHaveBeenCalled();
   });
+
 });

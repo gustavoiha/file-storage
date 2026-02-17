@@ -6,7 +6,6 @@ const {
   getDockspaceByIdMock,
   resolveFileByFullPathMock,
   upsertActiveFileByPathMock,
-  findActiveMediaFileByContentHashMock,
   buildObjectKeyMock,
   parseObjectKeyMock,
   objectExistsMock,
@@ -17,7 +16,6 @@ const {
   getDockspaceByIdMock: vi.fn(),
   resolveFileByFullPathMock: vi.fn(),
   upsertActiveFileByPathMock: vi.fn(),
-  findActiveMediaFileByContentHashMock: vi.fn(),
   buildObjectKeyMock: vi.fn(),
   parseObjectKeyMock: vi.fn(),
   objectExistsMock: vi.fn(),
@@ -32,8 +30,7 @@ vi.mock('../lib/auth.js', () => ({
 vi.mock('../lib/repository.js', () => ({
   getDockspaceById: getDockspaceByIdMock,
   resolveFileByFullPath: resolveFileByFullPathMock,
-  upsertActiveFileByPath: upsertActiveFileByPathMock,
-  findActiveMediaFileByContentHash: findActiveMediaFileByContentHashMock
+  upsertActiveFileByPath: upsertActiveFileByPathMock
 }));
 
 vi.mock('../lib/s3.js', () => ({
@@ -84,7 +81,6 @@ beforeEach(() => {
   getDockspaceByIdMock.mockReset();
   resolveFileByFullPathMock.mockReset();
   upsertActiveFileByPathMock.mockReset();
-  findActiveMediaFileByContentHashMock.mockReset();
   buildObjectKeyMock.mockReset();
   parseObjectKeyMock.mockReset();
   objectExistsMock.mockReset();
@@ -97,34 +93,12 @@ beforeEach(() => {
   parseObjectKeyMock.mockReturnValue({ fileNodeId: 'new-file' });
   objectExistsMock.mockResolvedValue(true);
   computeObjectSha256HexMock.mockResolvedValue('abc123');
-  findActiveMediaFileByContentHashMock.mockResolvedValue(null);
   upsertActiveFileByPathMock.mockResolvedValue({ fileNodeId: 'new-file', fullPath: '/photo.jpg' });
 
   vi.resetModules();
 });
 
 describe('confirm upload duplicate policy', () => {
-  it('returns duplicate skip for PHOTOS_VIDEOS when hash already exists', async () => {
-    findActiveMediaFileByContentHashMock.mockResolvedValue({ SK: 'L#existing' });
-
-    const { handler } = await import('../handlers/confirmUpload.js');
-    const response = await handler(
-      baseEvent({
-        fullPath: '/photo.jpg',
-        objectKey: 'dock-1/new-file',
-        size: 10,
-        etag: 'etag-1',
-        contentType: 'image/jpeg'
-      })
-    );
-
-    expect(response.statusCode).toBe(409);
-    expect(response.body).toContain('UPLOAD_SKIPPED_DUPLICATE');
-    expect(response.body).toContain('CONTENT_HASH');
-    expect(deleteObjectIfExistsMock).toHaveBeenCalledWith('dock-1/new-file');
-    expect(upsertActiveFileByPathMock).not.toHaveBeenCalled();
-  });
-
   it('computes hash and persists it when upload is accepted', async () => {
     const { handler } = await import('../handlers/confirmUpload.js');
     const response = await handler(

@@ -47,7 +47,7 @@ import type {
   AlbumMembershipItem,
   MediaAlbumLinkItem
 } from '../types/models.js';
-import { fileStateFromNode, isMediaContentType } from '../types/models.js';
+import { fileStateFromNode } from '../types/models.js';
 import { dynamoDoc } from './clients.js';
 import { env } from './env.js';
 import { listDirectoryChildrenByParentFolderNodeId as listDirectoryChildrenAction } from './repository/folderChildren.js';
@@ -1033,37 +1033,6 @@ export const upsertActiveFileByPath = async (params: {
   );
 
   return { fileNodeId, fullPath: normalizedFullPath };
-};
-
-export const findActiveMediaFileByContentHash = async (
-  userId: string,
-  dockspaceId: string,
-  contentHash: string,
-  excludeFileNodeId?: string
-): Promise<FileNodeItem | null> => {
-  const fileNodes = await listFileNodes(userId, dockspaceId);
-
-  for (const fileNode of fileNodes) {
-    if (fileStateFromNode(fileNode) !== 'ACTIVE') {
-      continue;
-    }
-
-    if (!isMediaContentType(fileNode.contentType)) {
-      continue;
-    }
-
-    if (fileNode.contentHash !== contentHash) {
-      continue;
-    }
-
-    if (excludeFileNodeId && getFileNodeIdFromSk(fileNode.SK) === excludeFileNodeId) {
-      continue;
-    }
-
-    return fileNode;
-  }
-
-  return null;
 };
 
 export interface ResolvedFileByPath {

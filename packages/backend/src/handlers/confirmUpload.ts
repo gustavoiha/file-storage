@@ -4,7 +4,6 @@ import { normalizeFullPath, splitFullPath } from '../domain/path.js';
 import { requireEntitledUser } from '../lib/auth.js';
 import { errorResponse, jsonResponse, safeJsonParse } from '../lib/http.js';
 import {
-  findActiveMediaFileByContentHash,
   getDockspaceById,
   resolveFileByFullPath,
   upsertActiveFileByPath
@@ -92,21 +91,6 @@ export const handler = async (event: APIGatewayProxyEventV2) => {
     }
 
     const contentHash = await computeObjectSha256Hex(parsed.data.objectKey);
-    if (isMediaDockspaceType(dockspaceType)) {
-      const duplicate = await findActiveMediaFileByContentHash(userId, dockspaceId, contentHash);
-
-      if (duplicate) {
-        await deleteObjectIfExists(parsed.data.objectKey);
-
-        return jsonResponse(409, {
-          error: 'Upload skipped due to duplicate',
-          code: 'UPLOAD_SKIPPED_DUPLICATE',
-          duplicateType: 'CONTENT_HASH',
-          fullPath,
-          reason: 'A media file with identical content already exists.'
-        });
-      }
-    }
 
     const now = new Date().toISOString();
     await upsertActiveFileByPath({

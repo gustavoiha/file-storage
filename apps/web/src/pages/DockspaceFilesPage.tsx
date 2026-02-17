@@ -16,6 +16,7 @@ import { DockspaceSidebar, type SidebarFolderTreeNode } from '@/components/files
 import { FileList } from '@/components/files/FileList';
 import { FileViewerDialog } from '@/components/files/FileViewerDialog';
 import { MoveFilesDialog } from '@/components/files/MoveFilesDialog';
+import { MoveFolderDialog } from '@/components/files/MoveFolderDialog';
 import { RenameFileDialog } from '@/components/files/RenameFileDialog';
 import { RenameFolderDialog } from '@/components/files/RenameFolderDialog';
 import { DockspaceFilesHeaderActions } from '@/components/files/DockspaceFilesHeaderActions';
@@ -28,6 +29,7 @@ import {
   useCreateFolder,
   useDiscoverFolder,
   useFiles,
+  useMoveFolder,
   useMoveFiles,
   useMoveToTrash,
   useRenameFile,
@@ -188,6 +190,24 @@ const parentFolderPathFromPath = (fullPath: string): string => {
   return `/${segments.slice(0, -1).join('/')}`;
 };
 
+const isSameOrDescendantPath = (path: string, maybeAncestorPath: string): boolean =>
+  path === maybeAncestorPath || path.startsWith(`${maybeAncestorPath}/`);
+
+const remapPathAfterFolderMove = (
+  path: string,
+  sourceFolderPath: string,
+  destinationFolderPath: string
+): string => {
+  if (!isSameOrDescendantPath(path, sourceFolderPath)) {
+    return path;
+  }
+
+  const sourceFolderName = folderNameFromPath(sourceFolderPath);
+  const destinationRootPath = buildPathInFolder(destinationFolderPath, sourceFolderName);
+  const suffix = path.slice(sourceFolderPath.length);
+  return `${destinationRootPath}${suffix}`;
+};
+
 const FOLDER_RENAME_CONFLICT_MESSAGE = 'A sibling folder with this name already exists.';
 
 export const DockspaceFilesPage = () => {
@@ -210,6 +230,10 @@ export const DockspaceFilesPage = () => {
   const [isMoveFilesDialogOpen, setIsMoveFilesDialogOpen] = useState(false);
   const [moveFilesDialogDestinationPath, setMoveFilesDialogDestinationPath] = useState('/');
   const [moveFilesDialogError, setMoveFilesDialogError] = useState<string | null>(null);
+  const [isMoveFolderDialogOpen, setIsMoveFolderDialogOpen] = useState(false);
+  const [moveFolderDialogSourcePath, setMoveFolderDialogSourcePath] = useState<string | null>(null);
+  const [moveFolderDialogDestinationPath, setMoveFolderDialogDestinationPath] = useState('/');
+  const [moveFolderDialogError, setMoveFolderDialogError] = useState<string | null>(null);
   const [moveFilesSummary, setMoveFilesSummary] = useState<string | null>(null);
   const [selectedFilePaths, setSelectedFilePaths] = useState<string[]>([]);
   const [pendingFolderTrashPaths, setPendingFolderTrashPaths] = useState<string[]>([]);
@@ -231,6 +255,7 @@ export const DockspaceFilesPage = () => {
   const filesQuery = useFiles(dockspaceId, currentFolder.folderNodeId);
   const discoverFolder = useDiscoverFolder(dockspaceId);
   const createFolder = useCreateFolder(dockspaceId);
+  const moveFolder = useMoveFolder(dockspaceId);
   const moveFiles = useMoveFiles(dockspaceId, currentFolder.fullPath);
   const moveToTrash = useMoveToTrash(dockspaceId, currentFolder.fullPath);
   const renameFile = useRenameFile(dockspaceId, currentFolder.fullPath);
@@ -323,6 +348,9 @@ export const DockspaceFilesPage = () => {
     setSelectedFilePaths([]);
     setIsMoveFilesDialogOpen(false);
     setMoveFilesDialogError(null);
+    setIsMoveFolderDialogOpen(false);
+    setMoveFolderDialogSourcePath(null);
+    setMoveFolderDialogError(null);
   }, [currentFolder.fullPath]);
 
   const folderNodeIdByPath = useMemo(() => {
@@ -540,6 +568,21 @@ export const DockspaceFilesPage = () => {
     [discoveredFoldersByNodeId, dockspaceName]
   );
 
+  const moveFolderDestinationOptions = useMemo(() => {
+    if (!moveFolderDialogSourcePath) {
+      return [];
+    }
+
+    return Array.from(discoveredFoldersByNodeId.values())
+      .slice()
+      .sort((left, right) => left.fullPath.localeCompare(right.fullPath))
+      .filter((folder) => !isSameOrDescendantPath(folder.fullPath, moveFolderDialogSourcePath))
+      .map((folder) => ({
+        path: folder.fullPath,
+        label: folder.fullPath === '/' ? dockspaceName : folder.fullPath
+      }));
+  }, [discoveredFoldersByNodeId, dockspaceName, moveFolderDialogSourcePath]);
+
   useEffect(() => {
     const undiscoveredNodeIds = collectUndiscoveredSidebarNodeIds(sidebarFolderTree);
     for (const folderNodeId of undiscoveredNodeIds) {
@@ -593,6 +636,24 @@ export const DockspaceFilesPage = () => {
     setMoveFilesDialogError(null);
   }, [moveFiles.isPending]);
 
+  const openMoveFolderDialog = useCallback((folderPath: string) => {
+    setMoveFilesSummary(null);
+    setMoveFolderDialogSourcePath(folderPath);
+    setMoveFolderDialogDestinationPath(parentFolderPathFromPath(folderPath));
+    setMoveFolderDialogError(null);
+    setIsMoveFolderDialogOpen(true);
+  }, []);
+
+  const closeMoveFolderDialog = useCallback(() => {
+    if (moveFolder.isPending) {
+      return;
+    }
+
+    setIsMoveFolderDialogOpen(false);
+    setMoveFolderDialogSourcePath(null);
+    setMoveFolderDialogError(null);
+  }, [moveFolder.isPending]);
+
   const onMoveFilesSubmit = useCallback(
     (event: FormEvent<HTMLFormElement>) => {
       event.preventDefault();
@@ -637,6 +698,84 @@ export const DockspaceFilesPage = () => {
       })();
     },
     [moveFiles, moveFilesDialogDestinationPath, selectedFilePaths]
+  );
+
+  const onMoveFolderSubmit = useCallback(
+    (event: FormEvent<HTMLFormElement>) => {
+      event.preventDefault();
+
+      if (!moveFolderDialogSourcePath) {
+        return;
+      }
+
+      const sourceFolderPath = moveFolderDialogSourcePath;
+      const targetFolderPath = moveFolderDialogDestinationPath;
+      const sourceFolderNodeId = folderNodeIdByPath.get(sourceFolderPath) ?? null;
+      const targetParentFolderNodeId = folderNodeIdByPath.get(targetFolderPath) ?? ROOT_FOLDER.folderNodeId;
+      setMoveFolderDialogError(null);
+
+      void (async () => {
+        try {
+          const response = await moveFolder.mutateAsync({
+            sourceFolderPath,
+            targetFolderPath
+          });
+
+          const wasMoved = response.status === 'MOVED';
+          if (wasMoved) {
+            setFolderTrail((previous) =>
+              previous.map((entry) => {
+                const remappedFullPath = remapPathAfterFolderMove(
+                  entry.fullPath,
+                  sourceFolderPath,
+                  targetFolderPath
+                );
+                return {
+                  ...entry,
+                  fullPath: remappedFullPath,
+                  name: remappedFullPath === '/' ? entry.name : folderNameFromPath(remappedFullPath)
+                };
+              })
+            );
+
+            setDiscoveredFoldersByNodeId((previous) => {
+              const next = new Map(previous);
+              for (const [folderNodeId, node] of next.entries()) {
+                const remappedFullPath = remapPathAfterFolderMove(
+                  node.fullPath,
+                  sourceFolderPath,
+                  targetFolderPath
+                );
+                next.set(folderNodeId, {
+                  ...node,
+                  fullPath: remappedFullPath,
+                  parentFolderNodeId:
+                    sourceFolderNodeId && folderNodeId === sourceFolderNodeId
+                      ? targetParentFolderNodeId
+                      : node.parentFolderNodeId
+                });
+              }
+
+              return next;
+            });
+          }
+
+          setMoveFilesSummary(
+            wasMoved
+              ? `Folder moved from ${response.from} to ${response.to}.`
+              : 'Folder is already in the selected destination.'
+          );
+          setIsMoveFolderDialogOpen(false);
+          setMoveFolderDialogSourcePath(null);
+          setMoveFolderDialogError(null);
+        } catch (error) {
+          setMoveFolderDialogError(
+            error instanceof Error ? error.message : 'Failed to move folder.'
+          );
+        }
+      })();
+    },
+    [folderNodeIdByPath, moveFolder, moveFolderDialogDestinationPath, moveFolderDialogSourcePath]
   );
 
   const openTrashFolderDialog = useCallback((folderPath: string) => {
@@ -952,6 +1091,7 @@ export const DockspaceFilesPage = () => {
                     actionLabel="Move to Trash"
                     downloadActionLabel="Download"
                     renameActionLabel="Rename"
+                    folderMoveActionLabel="Move"
                     folderRenameActionLabel="Rename"
                     emptyState={
                       filesQuery.isLoading ? (
@@ -983,6 +1123,7 @@ export const DockspaceFilesPage = () => {
                     }
                     onRename={openRenameFileDialog}
                     onRenameFolder={openRenameFolderDialog}
+                    onMoveFolder={openMoveFolderDialog}
                     onOpenFile={openFileViewer}
                     onDownload={onDownloadFile}
                     onOpenFolder={onOpenFolder}
@@ -1063,6 +1204,22 @@ export const DockspaceFilesPage = () => {
                 }
               }}
               onSubmit={onMoveFilesSubmit}
+            />
+            <MoveFolderDialog
+              sourceFolderPath={moveFolderDialogSourcePath}
+              destinationFolderPath={moveFolderDialogDestinationPath}
+              destinationOptions={moveFolderDestinationOptions}
+              errorMessage={moveFolderDialogError}
+              isOpen={isMoveFolderDialogOpen}
+              isSubmitting={moveFolder.isPending}
+              onClose={closeMoveFolderDialog}
+              onDestinationFolderPathChange={(nextValue) => {
+                setMoveFolderDialogDestinationPath(nextValue);
+                if (moveFolderDialogError) {
+                  setMoveFolderDialogError(null);
+                }
+              }}
+              onSubmit={onMoveFolderSubmit}
             />
             {viewerFile ? (
               <FileViewerDialog

@@ -57,6 +57,7 @@ export class BackendStack extends Stack {
       createDockspace: createHandler('createDockspace'),
       listDockspaces: createHandler('listDockspaces'),
       createFolder: createHandler('createFolder'),
+      moveFolder: createHandler('moveFolder'),
       renameFolder: createHandler('renameFolder'),
       createUploadSession: createHandler('createUploadSession'),
       startMultipartUpload: createHandler('startMultipartUpload'),
@@ -89,6 +90,7 @@ export class BackendStack extends Stack {
     props.table.grantReadWriteData(handlers.createDockspace);
     props.table.grantReadWriteData(handlers.listDockspaces);
     props.table.grantReadWriteData(handlers.createFolder);
+    props.table.grantReadWriteData(handlers.moveFolder);
     props.table.grantReadWriteData(handlers.renameFolder);
     props.table.grantReadWriteData(handlers.createUploadSession);
     props.table.grantReadWriteData(handlers.startMultipartUpload);
@@ -173,6 +175,13 @@ export class BackendStack extends Stack {
       path: '/dockspaces/{dockspaceId}/folders',
       methods: [HttpMethod.POST],
       integration: new HttpLambdaIntegration('CreateFolderIntegration', handlers.createFolder),
+      authorizer
+    });
+
+    this.api.addRoutes({
+      path: '/dockspaces/{dockspaceId}/folders/move',
+      methods: [HttpMethod.POST],
+      integration: new HttpLambdaIntegration('MoveFolderIntegration', handlers.moveFolder),
       authorizer
     });
 

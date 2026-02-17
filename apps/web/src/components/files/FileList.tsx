@@ -15,6 +15,7 @@ interface FileListProps {
   pendingUploadFolderPaths?: string[];
   emptyState?: ReactNode;
   downloadActionLabel?: string | undefined;
+  folderMoveActionLabel?: string | undefined;
   folderRenameActionLabel?: string | undefined;
   renameActionLabel?: string | undefined;
   rootBreadcrumbLabel?: string;
@@ -32,6 +33,7 @@ interface FileListProps {
   onDownload?: ((file: FileRecord) => void) | undefined;
   onRename?: ((fullPath: string) => void) | undefined;
   onRenameFolder?: ((folderPath: string) => void) | undefined;
+  onMoveFolder?: ((folderPath: string) => void) | undefined;
   onOpenFile?: ((file: FileRecord) => void) | undefined;
   onOpenFolder?: (folderPath: string) => void;
   onToggleFileSelection?: ((fullPath: string) => void) | undefined;
@@ -263,7 +265,9 @@ const PendingFileRow = ({ filePath, progress, status }: PendingFileRowProps) => 
 interface FolderRowProps {
   actionLabel: string;
   folderEntry: FolderEntry;
+  moveActionLabel?: string | undefined;
   onAction?: ((folderPath: string) => void) | undefined;
+  onMoveFolder?: ((folderPath: string) => void) | undefined;
   onRenameFolder?: ((folderPath: string) => void) | undefined;
   onOpenFolder: (folderPath: string) => void;
   selectionMode: boolean;
@@ -273,7 +277,9 @@ interface FolderRowProps {
 const FolderRow = ({
   actionLabel,
   folderEntry,
+  moveActionLabel,
   onAction,
+  onMoveFolder,
   onOpenFolder,
   onRenameFolder,
   selectionMode,
@@ -282,7 +288,9 @@ const FolderRow = ({
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const [menuAnchor, setMenuAnchor] = useState<{ x: number; y: number } | null>(null);
   const hasRenameAction = Boolean(onRenameFolder && renameActionLabel);
-  const hasMenuActions = hasRenameAction || Boolean(onAction);
+  const hasMoveAction = Boolean(onMoveFolder && moveActionLabel);
+  const hasTrashAction = Boolean(onAction);
+  const hasMenuActions = hasRenameAction || hasMoveAction || hasTrashAction;
   const menuStyle: CSSProperties | undefined = menuAnchor
     ? {
         position: 'fixed',
@@ -365,11 +373,20 @@ const FolderRow = ({
                   {renameActionLabel}
                 </DropdownMenu.Button>
               ) : null}
-              {hasRenameAction && onAction ? <DropdownMenu.Separator /> : null}
-              {onAction ? (
+              {hasRenameAction && (hasMoveAction || hasTrashAction) ? <DropdownMenu.Separator /> : null}
+              {hasMoveAction ? (
                 <DropdownMenu.Button
                   className="dockspace-browser__file-actions-item"
-                  onClick={() => onAction(folderEntry.fullPath)}
+                  onClick={() => onMoveFolder?.(folderEntry.fullPath)}
+                >
+                  {moveActionLabel}
+                </DropdownMenu.Button>
+              ) : null}
+              {hasMoveAction && hasTrashAction ? <DropdownMenu.Separator /> : null}
+              {hasTrashAction ? (
+                <DropdownMenu.Button
+                  className="dockspace-browser__file-actions-item"
+                  onClick={() => onAction?.(folderEntry.fullPath)}
                 >
                   {actionLabel}
                 </DropdownMenu.Button>
@@ -550,12 +567,14 @@ interface FolderModeListProps {
   downloadActionLabel?: string | undefined;
   emptyState?: ReactNode;
   files: FileRecord[];
+  folderMoveActionLabel?: string | undefined;
   folderRenameActionLabel?: string | undefined;
   folders: FolderRecord[];
   onDownload?: ((file: FileRecord) => void) | undefined;
   onOpenFile?: ((file: FileRecord) => void) | undefined;
   onRename?: ((fullPath: string) => void) | undefined;
   onRenameFolder?: ((folderPath: string) => void) | undefined;
+  onMoveFolder?: ((folderPath: string) => void) | undefined;
   onAction: (fullPath: string) => void;
   onActionFolder?: ((folderPath: string) => void) | undefined;
   onOpenFolder: (folderPath: string) => void;
@@ -578,12 +597,14 @@ const FolderModeList = ({
   downloadActionLabel,
   emptyState,
   files,
+  folderMoveActionLabel,
   folderRenameActionLabel,
   folders,
   onDownload,
   onOpenFile,
   onRename,
   onRenameFolder,
+  onMoveFolder,
   onAction,
   onActionFolder,
   onOpenFolder,
@@ -737,7 +758,9 @@ const FolderModeList = ({
               key={folderEntry.fullPath}
               actionLabel={actionLabel}
               folderEntry={folderEntry}
+              moveActionLabel={folderMoveActionLabel}
               onAction={onActionFolder}
+              onMoveFolder={onMoveFolder}
               onRenameFolder={onRenameFolder}
               onOpenFolder={onOpenFolder}
               selectionMode={selectionMode}
@@ -783,12 +806,14 @@ export const FileList = ({
   downloadActionLabel,
   emptyState,
   files,
+  folderMoveActionLabel,
   folderRenameActionLabel,
   folders = [],
   onDownload,
   onOpenFile,
   onRename,
   onRenameFolder,
+  onMoveFolder,
   onAction,
   onActionFolder,
   onOpenFolder,
@@ -834,12 +859,14 @@ export const FileList = ({
       downloadActionLabel={downloadActionLabel}
       emptyState={emptyState}
       files={files}
+      folderMoveActionLabel={folderMoveActionLabel}
       folderRenameActionLabel={folderRenameActionLabel}
       folders={folders}
       onDownload={onDownload}
       onOpenFile={onOpenFile}
       onRename={onRename}
       onRenameFolder={onRenameFolder}
+      onMoveFolder={onMoveFolder}
       onAction={onAction}
       onActionFolder={onActionFolder}
       onOpenFolder={onOpenFolder}

@@ -505,6 +505,14 @@ export interface MoveFilesResponse {
   }>;
 }
 
+export interface MoveFolderResponse {
+  status: 'MOVED' | 'UNCHANGED';
+  from: string;
+  to: string;
+  moved: boolean;
+  updatedAt: string;
+}
+
 export const uploadFile = async (
   dockspaceId: string,
   fullPath: string,
@@ -534,6 +542,15 @@ export const moveFiles = async (
   params: { sourcePaths: string[]; targetFolderPath: string }
 ): Promise<MoveFilesResponse> =>
   apiRequest<MoveFilesResponse>(`/dockspaces/${dockspaceId}/files/move`, {
+    method: 'POST',
+    body: JSON.stringify(params)
+  });
+
+export const moveFolder = async (
+  dockspaceId: string,
+  params: { sourceFolderPath: string; targetFolderPath: string }
+): Promise<MoveFolderResponse> =>
+  apiRequest<MoveFolderResponse>(`/dockspaces/${dockspaceId}/folders/move`, {
     method: 'POST',
     body: JSON.stringify(params)
   });

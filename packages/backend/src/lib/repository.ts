@@ -1567,6 +1567,171 @@ export type RenameFolderByPathResult =
   | { status: 'UNCHANGED'; folderPath: string }
   | { status: 'RENAMED'; folderPath: string };
 
+export type MoveFolderByPathResult =
+  | { status: 'NOT_FOUND' }
+  | { status: 'CONFLICT' }
+  | { status: 'INVALID_DESTINATION' }
+  | { status: 'UNCHANGED'; from: string; to: string }
+  | { status: 'MOVED'; from: string; to: string };
+
+export const moveFolderByPath = async (params: {
+  userId: string;
+  dockspaceId: string;
+  sourceFolderPath: string;
+  targetFolderPath: string;
+  nowIso: string;
+}): Promise<MoveFolderByPathResult> => {
+  const sourceFolderPath = normalizeFolderPath(params.sourceFolderPath);
+  const targetFolderPath = normalizeFolderPath(params.targetFolderPath);
+
+  if (sourceFolderPath === '/' || sourceFolderPath === targetFolderPath) {
+    return { status: 'INVALID_DESTINATION' };
+  }
+
+  const resolvedSourceFolder = await resolveFolderByPath(
+    params.userId,
+    params.dockspaceId,
+    sourceFolderPath
+  );
+  if (!resolvedSourceFolder) {
+    return { status: 'NOT_FOUND' };
+  }
+
+  const sourceFolderNodeId = resolvedSourceFolder.directory.childId;
+  const sourceFolderNode = resolvedSourceFolder.folderNode;
+  const sourceFolderName = sourceFolderNode.name;
+  const sourceParentFolderNodeId = sourceFolderNode.parentFolderNodeId ?? ROOT_FOLDER_NODE_ID;
+
+  const targetFolderNodeId =
+    targetFolderPath === '/'
+      ? ROOT_FOLDER_NODE_ID
+      : (await resolveFolderByPath(params.userId, params.dockspaceId, targetFolderPath))?.directory
+          .childId ?? null;
+
+  if (!targetFolderNodeId) {
+    return { status: 'NOT_FOUND' };
+  }
+
+  if (targetFolderNodeId === sourceFolderNodeId) {
+    return { status: 'INVALID_DESTINATION' };
+  }
+
+  if (sourceParentFolderNodeId === targetFolderNodeId) {
+    return {
+      status: 'UNCHANGED',
+      from: sourceFolderPath,
+      to: sourceFolderPath
+    };
+  }
+
+  const visitedFolderNodeIds = new Set<string>();
+  let cursorFolderNodeId = targetFolderNodeId;
+  while (cursorFolderNodeId !== ROOT_FOLDER_NODE_ID) {
+    if (visitedFolderNodeIds.has(cursorFolderNodeId)) {
+      return { status: 'INVALID_DESTINATION' };
+    }
+
+    if (cursorFolderNodeId === sourceFolderNodeId) {
+      return { status: 'INVALID_DESTINATION' };
+    }
+
+    visitedFolderNodeIds.add(cursorFolderNodeId);
+    const cursorFolderNode = await getFolderNodeById(
+      params.userId,
+      params.dockspaceId,
+      cursorFolderNodeId
+    );
+    if (!cursorFolderNode) {
+      return { status: 'NOT_FOUND' };
+    }
+
+    cursorFolderNodeId = cursorFolderNode.parentFolderNodeId ?? ROOT_FOLDER_NODE_ID;
+  }
+
+  const conflictingFolder = await findDirectoryEntryByNameInternal(
+    params.userId,
+    params.dockspaceId,
+    targetFolderNodeId,
+    'F',
+    sourceFolderName
+  );
+  if (conflictingFolder && conflictingFolder.childId !== sourceFolderNodeId) {
+    return { status: 'CONFLICT' };
+  }
+
+  const oldDirectorySk = resolvedSourceFolder.directory.SK;
+  const newDirectorySk = buildDirectorySk(
+    targetFolderNodeId,
+    'F',
+    normalizeNodeName(sourceFolderName),
+    sourceFolderNodeId
+  );
+
+  try {
+    await dynamoDoc.send(
+      new TransactWriteCommand({
+        TransactItems: [
+          {
+            Update: {
+              TableName: env.tableName,
+              Key: {
+                PK: buildFilePk(params.userId, params.dockspaceId),
+                SK: sourceFolderNode.SK
+              },
+              ConditionExpression: 'attribute_exists(PK) AND attribute_exists(SK)',
+              UpdateExpression: 'SET parentFolderNodeId = :parentFolderNodeId, updatedAt = :updatedAt',
+              ExpressionAttributeValues: {
+                ':parentFolderNodeId': targetFolderNodeId,
+                ':updatedAt': params.nowIso
+              }
+            }
+          },
+          {
+            Delete: {
+              TableName: env.tableName,
+              Key: {
+                PK: buildFilePk(params.userId, params.dockspaceId),
+                SK: oldDirectorySk
+              },
+              ConditionExpression: 'attribute_exists(PK) AND attribute_exists(SK)'
+            }
+          },
+          {
+            Put: {
+              TableName: env.tableName,
+              Item: {
+                PK: buildFilePk(params.userId, params.dockspaceId),
+                SK: newDirectorySk,
+                type: 'DIRECTORY',
+                name: sourceFolderName,
+                normalizedName: normalizeNodeName(sourceFolderName),
+                childId: sourceFolderNodeId,
+                childType: 'folder',
+                parentFolderNodeId: targetFolderNodeId,
+                createdAt: resolvedSourceFolder.directory.createdAt,
+                updatedAt: params.nowIso
+              } as DirectoryItem,
+              ConditionExpression: 'attribute_not_exists(PK) AND attribute_not_exists(SK)'
+            }
+          }
+        ]
+      })
+    );
+  } catch (error) {
+    if (isConditionalFailure(error)) {
+      return { status: 'CONFLICT' };
+    }
+
+    throw error;
+  }
+
+  return {
+    status: 'MOVED',
+    from: sourceFolderPath,
+    to: buildFullPath(targetFolderPath, sourceFolderName)
+  };
+};
+
 export const renameFolderByPath = async (params: {
   userId: string;
   dockspaceId: string;

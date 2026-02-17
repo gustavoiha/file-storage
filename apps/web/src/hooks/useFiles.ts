@@ -7,6 +7,7 @@ import {
   listFolderChildren,
   listPurged,
   listTrash,
+  moveFolder,
   moveFiles,
   moveToTrash,
   purgeFileNow,
@@ -183,6 +184,24 @@ export const useMoveFiles = (dockspaceId: string, folder: string) => {
   return useMutation({
     mutationFn: (params: { sourcePaths: string[]; targetFolderPath: string }) =>
       moveFiles(dockspaceId, params),
+    onSuccess: async () => {
+      if (!userId) {
+        return;
+      }
+
+      await queryClient.invalidateQueries({ queryKey: ['files', userId, dockspaceId] });
+    }
+  });
+};
+
+export const useMoveFolder = (dockspaceId: string) => {
+  const queryClient = useQueryClient();
+  const { session } = useStore(authStore);
+  const userId = session?.userId ?? '';
+
+  return useMutation({
+    mutationFn: (params: { sourceFolderPath: string; targetFolderPath: string }) =>
+      moveFolder(dockspaceId, params),
     onSuccess: async () => {
       if (!userId) {
         return;

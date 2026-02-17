@@ -853,7 +853,7 @@ export const upsertActiveFileByPath = async (params: {
   preferredFileNodeId?: string;
   size: number;
   contentType: string;
-  contentHash?: string;
+  contentHash: string;
   etag: string;
   nowIso: string;
 }): Promise<{ fileNodeId: string; fullPath: string }> => {
@@ -919,7 +919,8 @@ export const upsertActiveFileByPath = async (params: {
                 SK: buildFileNodeSk(existingDirectory.childId)
               },
               ConditionExpression: 'attribute_exists(PK) AND attribute_exists(SK)',
-              UpdateExpression: `SET parentFolderNodeId = :parentFolderNodeId, s3Key = :s3Key, #name = :name, #size = :size, contentType = :contentType, etag = :etag, updatedAt = :updatedAt${params.contentHash ? ', contentHash = :contentHash' : ''} REMOVE deletedAt, flaggedForDeleteAt, purgedAt, trashedPath, GSI1PK, GSI1SK`,
+              UpdateExpression:
+                'SET parentFolderNodeId = :parentFolderNodeId, s3Key = :s3Key, #name = :name, #size = :size, contentType = :contentType, etag = :etag, contentHash = :contentHash, updatedAt = :updatedAt REMOVE deletedAt, flaggedForDeleteAt, purgedAt, trashedPath, GSI1PK, GSI1SK',
               ExpressionAttributeNames: {
                 '#name': 'name',
                 '#size': 'size'
@@ -932,7 +933,7 @@ export const upsertActiveFileByPath = async (params: {
                 ':contentType': params.contentType,
                 ':etag': params.etag,
                 ':updatedAt': params.nowIso,
-                ...(params.contentHash ? { ':contentHash': params.contentHash } : {})
+                ':contentHash': params.contentHash
               }
             }
           },
@@ -991,7 +992,7 @@ export const upsertActiveFileByPath = async (params: {
               parentFolderNodeId,
               s3Key: params.s3Key,
               name: fileName,
-              ...(params.contentHash ? { contentHash: params.contentHash } : {}),
+              contentHash: params.contentHash,
               size: params.size,
               contentType: params.contentType,
               etag: params.etag,

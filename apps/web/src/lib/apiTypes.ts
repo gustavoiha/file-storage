@@ -23,7 +23,7 @@ export interface MediaFileRecord {
   fullPath: string;
   size: number;
   contentType: string;
-  contentHash?: string;
+  contentHash: string;
   updatedAt: string;
   state: 'ACTIVE';
 }

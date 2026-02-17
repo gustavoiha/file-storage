@@ -10,7 +10,7 @@ export interface FileNodeItem {
   parentFolderNodeId: string;
   s3Key: string;
   name: string;
-  contentHash?: string;
+  contentHash: string;
   createdAt: string;
   updatedAt: string;
   size: number;

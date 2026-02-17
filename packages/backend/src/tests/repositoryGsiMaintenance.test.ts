@@ -24,6 +24,7 @@ const baseFileNode = (): FileNodeItem => ({
   parentFolderNodeId: 'root',
   s3Key: 'user-1/dockspaces/dock-1/files/file-1',
   name: 'report.txt',
+  contentHash: '1111111111111111111111111111111111111111111111111111111111111111',
   size: 123,
   contentType: 'text/plain',
   etag: 'etag-1',
@@ -220,6 +221,7 @@ describe('repository GSI maintenance on file state transitions', () => {
       s3Key: 'user-1/dockspaces/dock-1/files/file-1',
       size: 234,
       contentType: 'text/plain',
+      contentHash: '2222222222222222222222222222222222222222222222222222222222222222',
       etag: 'etag-2',
       nowIso: '2026-02-15T10:00:00.000Z'
     });

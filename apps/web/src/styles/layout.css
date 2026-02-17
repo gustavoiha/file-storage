@@ -441,6 +441,11 @@
   color: var(--text-muted);
 }
 
+.dockspace-sidebar__upload-item-actions {
+  display: flex;
+  justify-content: flex-end;
+}
+
 .dockspace-sidebar__uploads-empty {
   margin: 0;
   font-size: 0.82rem;

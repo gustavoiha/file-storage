@@ -100,10 +100,11 @@ describe('useDockspaceUploadDialog', () => {
     );
   });
 
-  it('removes a failed upload from the queue and exposes error text', async () => {
-    const uploadFile = vi.fn(async () => {
-      throw new Error('network');
-    });
+  it('keeps failed uploads in queue and retries them on demand', async () => {
+    const uploadFile = vi
+      .fn()
+      .mockRejectedValueOnce(new Error('network'))
+      .mockResolvedValueOnce(undefined);
     const { result } = renderHook(() =>
       useDockspaceUploadDialog({
         currentFolderPath: '/docs',
@@ -116,8 +117,26 @@ describe('useDockspaceUploadDialog', () => {
     });
 
     await waitFor(() => expect(uploadFile).toHaveBeenCalledTimes(1));
-    await waitFor(() => expect(result.current.activeUploads).toHaveLength(0));
+    await waitFor(() =>
+      expect(result.current.activeUploads).toEqual([
+        expect.objectContaining({
+          status: 'failed',
+          errorMessage: 'network'
+        })
+      ])
+    );
     expect(result.current.validationError).toBe('network');
+    expect(result.current.isUploading).toBe(false);
+
+    const failedUploadId = result.current.activeUploads[0]?.id;
+    expect(failedUploadId).toBeTruthy();
+
+    act(() => {
+      result.current.retryUpload(failedUploadId!);
+    });
+
+    await waitFor(() => expect(uploadFile).toHaveBeenCalledTimes(2));
+    await waitFor(() => expect(result.current.activeUploads).toHaveLength(0));
   });
 
   it('collects duplicate-skip responses without setting a validation error', async () => {

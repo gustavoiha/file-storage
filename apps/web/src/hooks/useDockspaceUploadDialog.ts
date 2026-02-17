@@ -6,7 +6,7 @@ import {
 } from '@/components/files/pathHelpers';
 import { ApiError } from '@/lib/apiClient';
 
-type UploadItemStatus = 'pending' | 'uploading';
+type UploadItemStatus = 'pending' | 'uploading' | 'failed';
 const MAX_PARALLEL_UPLOADS = 4;
 
 export interface ActiveUploadFile {
@@ -17,6 +17,7 @@ export interface ActiveUploadFile {
   fullPath: string;
   status: UploadItemStatus;
   progress: number;
+  errorMessage?: string;
 }
 
 export interface SkippedUploadFile {
@@ -154,6 +155,7 @@ export const useDockspaceUploadDialog = ({
     );
 
     for (const nextUpload of nextUploads) {
+      let shouldRemoveFromQueue = true;
       void uploadFile({
         fullPath: nextUpload.fullPath,
         file: nextUpload.file,
@@ -187,11 +189,25 @@ export const useDockspaceUploadDialog = ({
             return;
           }
 
+          shouldRemoveFromQueue = false;
           setValidationError(error instanceof Error ? error.message : 'Upload failed.');
+          setActiveUploads((previous) =>
+            previous.map((item) =>
+              item.id === nextUpload.id
+                ? {
+                    ...item,
+                    status: 'failed',
+                    errorMessage: error instanceof Error ? error.message : 'Upload failed.'
+                  }
+                : item
+            )
+          );
         })
         .finally(() => {
           runningUploadIdsRef.current.delete(nextUpload.id);
-          setActiveUploads((previous) => previous.filter((item) => item.id !== nextUpload.id));
+          if (shouldRemoveFromQueue) {
+            setActiveUploads((previous) => previous.filter((item) => item.id !== nextUpload.id));
+          }
         });
     }
   }, [activeUploads, uploadFile]);
@@ -204,11 +220,32 @@ export const useDockspaceUploadDialog = ({
     setSkippedUploads([]);
   }, []);
 
+  const retryUpload = useCallback((uploadId: number) => {
+    setValidationError(null);
+    setActiveUploads((previous) =>
+      previous.map((item) =>
+        item.id === uploadId && item.status === 'failed'
+          ? (() => {
+              const { errorMessage: _errorMessage, ...rest } = item;
+              return {
+                ...rest,
+                status: 'pending' as const,
+                progress: 0
+              };
+            })()
+          : item
+      )
+    );
+  }, []);
+
   return {
     activeUploads,
     clearValidationError,
     clearSkippedUploads,
-    isUploading: activeUploads.length > 0,
+    isUploading: activeUploads.some(
+      (item) => item.status === 'pending' || item.status === 'uploading'
+    ),
+    retryUpload,
     skippedUploads,
     stageFolderFiles,
     stageFiles,

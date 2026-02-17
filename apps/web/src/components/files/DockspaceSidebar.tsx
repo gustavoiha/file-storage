@@ -12,6 +12,7 @@ interface DockspaceSidebarProps {
   onAddFolder: () => void;
   onDismissSkippedUploads: () => void;
   onOpenFolder: (folderPath: string) => void;
+  onRetryUpload: (uploadId: number) => void;
   onToggleFolder: (folderNodeId: string) => void;
   onUploadFiles: () => void;
   onUploadFolder: () => void;
@@ -31,9 +32,10 @@ export interface SidebarFolderTreeNode {
 
 interface UploadQueueRowProps {
   upload: ActiveUploadFile;
+  onRetryUpload: (uploadId: number) => void;
 }
 
-const UploadQueueRow = ({ upload }: UploadQueueRowProps) => {
+const UploadQueueRow = ({ upload, onRetryUpload }: UploadQueueRowProps) => {
   const FileIcon = useFileIconForPath(upload.fullPath);
 
   return (
@@ -43,8 +45,19 @@ const UploadQueueRow = ({ upload }: UploadQueueRowProps) => {
         <span className="dockspace-sidebar__upload-item-path">{upload.fullPath}</span>
       </span>
       <span className="dockspace-sidebar__upload-item-status">
-        {upload.status === 'pending' ? 'Waiting...' : `Uploading ${upload.progress}%`}
+        {upload.status === 'pending'
+          ? 'Waiting...'
+          : upload.status === 'uploading'
+            ? `Uploading ${upload.progress}%`
+            : upload.errorMessage ?? 'Upload failed.'}
       </span>
+      {upload.status === 'failed' ? (
+        <span className="dockspace-sidebar__upload-item-actions">
+          <Button type="button" variant="secondary" onClick={() => onRetryUpload(upload.id)}>
+            Retry
+          </Button>
+        </span>
+      ) : null}
     </li>
   );
 };
@@ -127,6 +140,7 @@ export const DockspaceSidebar = ({
   onAddFolder,
   onDismissSkippedUploads,
   onOpenFolder,
+  onRetryUpload,
   onToggleFolder,
   onUploadFiles,
   onUploadFolder
@@ -178,7 +192,7 @@ export const DockspaceSidebar = ({
       {activeUploads.length ? (
         <ul className="dockspace-sidebar__upload-list">
           {activeUploads.map((upload) => (
-            <UploadQueueRow key={upload.id} upload={upload} />
+            <UploadQueueRow key={upload.id} upload={upload} onRetryUpload={onRetryUpload} />
           ))}
         </ul>
       ) : (

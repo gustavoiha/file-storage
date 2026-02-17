@@ -980,17 +980,23 @@ export const DockspaceFilesPage = () => {
         : null);
   const pendingUploadFiles = useMemo(
     () =>
-      uploadDialog.activeUploads.map((upload) => ({
-        fullPath: upload.fullPath,
-        progress: upload.progress,
-        status: upload.status
-      })),
+      uploadDialog.activeUploads
+        .filter((upload) => upload.status === 'pending' || upload.status === 'uploading')
+        .map((upload) => ({
+          fullPath: upload.fullPath,
+          progress: upload.progress,
+          status: upload.status === 'pending' ? ('pending' as const) : ('uploading' as const)
+        })),
     [uploadDialog.activeUploads]
   );
   const pendingUploadFolderPaths = useMemo(() => {
     const folderPaths = new Set<string>();
 
     for (const upload of uploadDialog.activeUploads) {
+      if (upload.status === 'failed') {
+        continue;
+      }
+
       const segments = upload.fullPath.split('/').filter(Boolean);
       if (segments.length <= 1) {
         continue;
@@ -1146,6 +1152,7 @@ export const DockspaceFilesPage = () => {
                 onAddFolder={addFolderDialog.openDialog}
                 onDismissSkippedUploads={uploadDialog.clearSkippedUploads}
                 onOpenFolder={onOpenFolder}
+                onRetryUpload={uploadDialog.retryUpload}
                 onToggleFolder={onToggleSidebarFolder}
                 onUploadFiles={openFilePicker}
                 onUploadFolder={openFolderPicker}

@@ -498,6 +498,7 @@ export const DockspaceMediaPage = ({ dockspaceId, dockspaceName }: DockspaceMedi
                       <UploadStagingList
                         stagedFiles={uploadDialog.activeUploads}
                         emptyStateMessage="No active uploads."
+                        onRetryUpload={uploadDialog.retryUpload}
                       />
                       {uploadDialog.skippedUploads.length ? (
                         <div className="dockspace-sidebar__uploads-skipped-card">

@@ -73,7 +73,7 @@ export const UploadForm = ({ dockspaceId, folder }: UploadFormProps) => {
           disabled={uploadDialog.isUploading}
         />
       </label>
-      <UploadStagingList stagedFiles={uploadDialog.activeUploads} />
+      <UploadStagingList stagedFiles={uploadDialog.activeUploads} onRetryUpload={uploadDialog.retryUpload} />
       {errorMessage ? <Alert message={errorMessage} /> : null}
     </form>
   );

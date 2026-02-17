@@ -3,6 +3,7 @@
 ## Dockspace Insights
 
 - [x] Show 3 featured metrics for each dockspace, including total number of files, total size, and one additional metric (for example: last upload date). Plan: `/Users/gustavoiha/Personal/file-storage/plans/dockspace-featured-metrics-records-plan.md`.
+- [ ] Introduce dockspace types (for example: Photos/Videos, Generic Files, and future categories) with type-specific upload constraints and specialized UI experiences, while keeping one shared file lifecycle core; media dockspaces should be folderless in UI and organized via albums. Plan: `/Users/gustavoiha/Personal/file-storage/plans/dockspace-types-and-media-album-plan.md`.
 
 ## Upload Experience
 

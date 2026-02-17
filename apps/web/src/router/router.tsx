@@ -3,20 +3,37 @@ import {
   createRoute,
   createRootRoute,
   createRouter,
+  lazyRouteComponent,
   redirect
 } from '@tanstack/react-router';
 import { TopNav } from '@/components/ui/TopNav';
 import { authStore } from '@/lib/authStore';
-import { ChangePasswordPage } from '@/pages/ChangePasswordPage';
-import { ConfirmSignUpPage } from '@/pages/ConfirmSignUpPage';
-import { ForgotPasswordPage } from '@/pages/ForgotPasswordPage';
-import { LoginPage } from '@/pages/LoginPage';
-import { PurgedPage } from '@/pages/PurgedPage';
-import { RegisterPage } from '@/pages/RegisterPage';
-import { ResetPasswordPage } from '@/pages/ResetPasswordPage';
-import { TrashPage } from '@/pages/TrashPage';
-import { DockspaceWorkspacePage } from '@/pages/DockspaceWorkspacePage';
-import { DockspacesPage } from '@/pages/DockspacesPage';
+
+const LoginPage = lazyRouteComponent(() => import('@/pages/LoginPage'), 'LoginPage');
+const RegisterPage = lazyRouteComponent(() => import('@/pages/RegisterPage'), 'RegisterPage');
+const ConfirmSignUpPage = lazyRouteComponent(
+  () => import('@/pages/ConfirmSignUpPage'),
+  'ConfirmSignUpPage'
+);
+const ForgotPasswordPage = lazyRouteComponent(
+  () => import('@/pages/ForgotPasswordPage'),
+  'ForgotPasswordPage'
+);
+const ResetPasswordPage = lazyRouteComponent(
+  () => import('@/pages/ResetPasswordPage'),
+  'ResetPasswordPage'
+);
+const DockspacesPage = lazyRouteComponent(() => import('@/pages/DockspacesPage'), 'DockspacesPage');
+const DockspaceWorkspacePage = lazyRouteComponent(
+  () => import('@/pages/DockspaceWorkspacePage'),
+  'DockspaceWorkspacePage'
+);
+const TrashPage = lazyRouteComponent(() => import('@/pages/TrashPage'), 'TrashPage');
+const PurgedPage = lazyRouteComponent(() => import('@/pages/PurgedPage'), 'PurgedPage');
+const ChangePasswordPage = lazyRouteComponent(
+  () => import('@/pages/ChangePasswordPage'),
+  'ChangePasswordPage'
+);
 
 const rootRoute = createRootRoute({
   component: () => (

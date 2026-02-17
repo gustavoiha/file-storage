@@ -1,9 +1,18 @@
+import { Suspense } from 'react';
 import { useParams } from '@tanstack/react-router';
 import { RequireAuth } from '@/components/auth/RequireAuth';
 import { Page } from '@/components/ui/Page';
 import { useDockspaces } from '@/hooks/useDockspaces';
-import { DockspaceFilesPage } from '@/pages/DockspaceFilesPage';
-import { DockspaceMediaPage } from '@/pages/DockspaceMediaPage';
+import { lazyRouteComponent } from '@tanstack/react-router';
+
+const DockspaceFilesPage = lazyRouteComponent(
+  () => import('@/pages/DockspaceFilesPage'),
+  'DockspaceFilesPage'
+);
+const DockspaceMediaPage = lazyRouteComponent(
+  () => import('@/pages/DockspaceMediaPage'),
+  'DockspaceMediaPage'
+);
 
 export const DockspaceWorkspacePage = () => {
   const { dockspaceId } = useParams({ from: '/dockspaces/$dockspaceId' });
@@ -21,8 +30,16 @@ export const DockspaceWorkspacePage = () => {
   }
 
   if (dockspace?.dockspaceType === 'PHOTOS_VIDEOS') {
-    return <DockspaceMediaPage dockspaceId={dockspaceId} dockspaceName={dockspace.name} />;
+    return (
+      <Suspense fallback={<p>Loading dockspace...</p>}>
+        <DockspaceMediaPage dockspaceId={dockspaceId} dockspaceName={dockspace.name} />
+      </Suspense>
+    );
   }
 
-  return <DockspaceFilesPage />;
+  return (
+    <Suspense fallback={<p>Loading dockspace...</p>}>
+      <DockspaceFilesPage />
+    </Suspense>
+  );
 };

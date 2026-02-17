@@ -15,9 +15,13 @@ const mockState = vi.hoisted(() => ({
   }
 }));
 
-vi.mock('@tanstack/react-router', () => ({
-  useParams: () => ({ dockspaceId: 'v1' })
-}));
+vi.mock('@tanstack/react-router', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('@tanstack/react-router')>();
+  return {
+    ...actual,
+    useParams: () => ({ dockspaceId: 'v1' })
+  };
+});
 
 vi.mock('@/hooks/useDockspaces', () => ({
   useDockspaces: () => mockState.dockspacesResult
@@ -42,7 +46,7 @@ vi.mock('@/pages/DockspaceMediaPage', () => ({
 }));
 
 describe('DockspaceWorkspacePage', () => {
-  it('renders generic files workspace for GENERIC_FILES dockspaces', () => {
+  it('renders generic files workspace for GENERIC_FILES dockspaces', async () => {
     mockState.dockspacesResult = {
       isLoading: false,
       data: [
@@ -56,10 +60,10 @@ describe('DockspaceWorkspacePage', () => {
 
     render(<DockspaceWorkspacePage />);
 
-    expect(screen.getByText('DockspaceFilesPage')).toBeInTheDocument();
+    expect(await screen.findByText('DockspaceFilesPage')).toBeInTheDocument();
   });
 
-  it('renders media workspace for PHOTOS_VIDEOS dockspaces', () => {
+  it('renders media workspace for PHOTOS_VIDEOS dockspaces', async () => {
     mockState.dockspacesResult = {
       isLoading: false,
       data: [
@@ -73,6 +77,6 @@ describe('DockspaceWorkspacePage', () => {
 
     render(<DockspaceWorkspacePage />);
 
-    expect(screen.getByText('DockspaceMediaPage:Camera Roll')).toBeInTheDocument();
+    expect(await screen.findByText('DockspaceMediaPage:Camera Roll')).toBeInTheDocument();
   });
 });

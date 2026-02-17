@@ -3,6 +3,7 @@ import { Alert } from '@/components/ui/Alert';
 import { useUploadFile } from '@/hooks/useFiles';
 import { useDockspaceUploadDialog } from '@/hooks/useDockspaceUploadDialog';
 import { UploadStagingList } from '@/components/files/UploadStagingList';
+import { ApiError } from '@/lib/apiClient';
 
 interface UploadFormProps {
   dockspaceId: string;
@@ -39,7 +40,11 @@ export const UploadForm = ({ dockspaceId, folder }: UploadFormProps) => {
 
   const errorMessage =
     uploadDialog.validationError ??
-    (uploadMutation.error instanceof Error ? uploadMutation.error.message : null);
+    (uploadMutation.error instanceof ApiError && uploadMutation.error.code === 'UPLOAD_SKIPPED_DUPLICATE'
+      ? null
+      : uploadMutation.error instanceof Error
+        ? uploadMutation.error.message
+        : null);
 
   return (
     <form>

@@ -32,6 +32,7 @@ export const handler = async (event: APIGatewayProxyEventV2) => {
         fullPath: await fullPathFromFileNode(userId, dockspaceId, fileNode),
         size: fileNode.size,
         contentType: fileNode.contentType,
+        ...(fileNode.contentHash ? { contentHash: fileNode.contentHash } : {}),
         updatedAt: fileNode.updatedAt,
         state: 'ACTIVE' as const
       }))

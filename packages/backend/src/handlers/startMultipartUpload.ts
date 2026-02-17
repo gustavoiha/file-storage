@@ -61,7 +61,19 @@ export const handler = async (event: APIGatewayProxyEventV2) => {
     }
 
     const existingFile = await resolveFileByFullPath(userId, dockspaceId, fullPath);
-    const fileNodeId = existingFile?.fileNode.SK.replace(/^L#/, '') ?? randomUUID();
+    if (!isMediaDockspaceType(dockspaceType) && existingFile) {
+      return jsonResponse(409, {
+        error: 'Upload skipped due to duplicate',
+        code: 'UPLOAD_SKIPPED_DUPLICATE',
+        duplicateType: 'NAME',
+        fullPath,
+        reason: 'A file with the same name already exists in this folder.'
+      });
+    }
+
+    const fileNodeId = isMediaDockspaceType(dockspaceType)
+      ? randomUUID()
+      : existingFile?.fileNode.SK.replace(/^L#/, '') ?? randomUUID();
     const objectKey = buildObjectKey(dockspaceId, fileNodeId);
     const uploadId = await startMultipartUpload(objectKey, parsed.data.contentType);
     const partSize = calculatePartSize(parsed.data.size);

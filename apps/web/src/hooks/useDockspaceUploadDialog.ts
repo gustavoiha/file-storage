@@ -4,6 +4,7 @@ import {
   isValidUploadPath,
   normalizeUploadPath
 } from '@/components/files/pathHelpers';
+import { ApiError } from '@/lib/apiClient';
 
 type UploadItemStatus = 'pending' | 'uploading';
 const MAX_PARALLEL_UPLOADS = 4;
@@ -16,6 +17,12 @@ export interface ActiveUploadFile {
   fullPath: string;
   status: UploadItemStatus;
   progress: number;
+}
+
+export interface SkippedUploadFile {
+  fullPath: string;
+  duplicateType: 'NAME' | 'CONTENT_HASH';
+  reason: string;
 }
 
 interface UseDockspaceUploadDialogParams {
@@ -32,6 +39,7 @@ export const useDockspaceUploadDialog = ({
   uploadFile
 }: UseDockspaceUploadDialogParams) => {
   const [activeUploads, setActiveUploads] = useState<ActiveUploadFile[]>([]);
+  const [skippedUploads, setSkippedUploads] = useState<SkippedUploadFile[]>([]);
   const [validationError, setValidationError] = useState<string | null>(null);
   const nextUploadIdRef = useRef(1);
   const runningUploadIdsRef = useRef<Set<number>>(new Set());
@@ -52,6 +60,7 @@ export const useDockspaceUploadDialog = ({
 
     const nextUploads: ActiveUploadFile[] = [];
     let skippedCount = 0;
+    setSkippedUploads([]);
 
     for (const file of selectedFiles) {
       const destinationPath = normalizeUploadPath(file.name);
@@ -86,6 +95,7 @@ export const useDockspaceUploadDialog = ({
 
     const nextUploads: ActiveUploadFile[] = [];
     let skippedCount = 0;
+    setSkippedUploads([]);
 
     for (const file of selectedFiles) {
       const destinationPath = normalizeUploadPath(file.webkitRelativePath || file.name);
@@ -161,6 +171,22 @@ export const useDockspaceUploadDialog = ({
         }
       })
         .catch((error) => {
+          const duplicateType = error instanceof ApiError ? error.duplicateType : null;
+          if (
+            error instanceof ApiError &&
+            error.code === 'UPLOAD_SKIPPED_DUPLICATE' &&
+            (duplicateType === 'NAME' || duplicateType === 'CONTENT_HASH')
+          ) {
+            setSkippedUploads((previous) =>
+              previous.concat({
+                fullPath: error.fullPath ?? nextUpload.fullPath,
+                duplicateType,
+                reason: error.reason ?? 'Upload skipped due to duplicate.'
+              })
+            );
+            return;
+          }
+
           setValidationError(error instanceof Error ? error.message : 'Upload failed.');
         })
         .finally(() => {
@@ -174,10 +200,16 @@ export const useDockspaceUploadDialog = ({
     setValidationError(null);
   }, []);
 
+  const clearSkippedUploads = useCallback(() => {
+    setSkippedUploads([]);
+  }, []);
+
   return {
     activeUploads,
     clearValidationError,
+    clearSkippedUploads,
     isUploading: activeUploads.length > 0,
+    skippedUploads,
     stageFolderFiles,
     stageFiles,
     validationError

@@ -5,11 +5,28 @@ import { authStore } from './authStore';
 
 export class ApiError extends Error {
   public readonly statusCode: number;
+  public readonly code: string | null;
+  public readonly duplicateType: string | null;
+  public readonly fullPath: string | null;
+  public readonly reason: string | null;
 
-  constructor(message: string, statusCode: number) {
+  constructor(
+    message: string,
+    statusCode: number,
+    details?: {
+      code?: string | null;
+      duplicateType?: string | null;
+      fullPath?: string | null;
+      reason?: string | null;
+    }
+  ) {
     super(message);
     this.name = 'ApiError';
     this.statusCode = statusCode;
+    this.code = details?.code ?? null;
+    this.duplicateType = details?.duplicateType ?? null;
+    this.fullPath = details?.fullPath ?? null;
+    this.reason = details?.reason ?? null;
   }
 }
 
@@ -107,10 +124,19 @@ export const apiRequest = async <T>(
 
   const payload = (await response.json().catch(() => ({}))) as {
     error?: string;
+    code?: string;
+    duplicateType?: string;
+    fullPath?: string;
+    reason?: string;
   };
 
   if (!response.ok) {
-    throw new ApiError(payload.error ?? 'Request failed', response.status);
+    throw new ApiError(payload.error ?? 'Request failed', response.status, {
+      code: payload.code ?? null,
+      duplicateType: payload.duplicateType ?? null,
+      fullPath: payload.fullPath ?? null,
+      reason: payload.reason ?? null
+    });
   }
 
   return payload as T;

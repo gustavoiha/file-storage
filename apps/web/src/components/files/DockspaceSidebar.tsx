@@ -2,13 +2,15 @@ import type { CSSProperties } from 'react';
 import { ChevronRight, Folder, Loader2, Upload } from 'lucide-react';
 import { Button } from '@/components/ui/Button';
 import { useFileIconForPath } from '@/hooks/useFileIconForPath';
-import type { ActiveUploadFile } from '@/hooks/useDockspaceUploadDialog';
+import type { ActiveUploadFile, SkippedUploadFile } from '@/hooks/useDockspaceUploadDialog';
 
 interface DockspaceSidebarProps {
   folderTree: SidebarFolderTreeNode[];
   activeUploads: ActiveUploadFile[];
+  skippedUploads: SkippedUploadFile[];
   uploadErrorMessage: string | null;
   onAddFolder: () => void;
+  onDismissSkippedUploads: () => void;
   onOpenFolder: (folderPath: string) => void;
   onToggleFolder: (folderNodeId: string) => void;
   onUploadFiles: () => void;
@@ -120,8 +122,10 @@ const SidebarFolderNode = ({ node, depth, onOpenFolder, onToggleFolder }: Sideba
 export const DockspaceSidebar = ({
   folderTree,
   activeUploads,
+  skippedUploads,
   uploadErrorMessage,
   onAddFolder,
+  onDismissSkippedUploads,
   onOpenFolder,
   onToggleFolder,
   onUploadFiles,
@@ -181,6 +185,23 @@ export const DockspaceSidebar = ({
         <p className="dockspace-sidebar__uploads-empty">No active uploads.</p>
       )}
       {uploadErrorMessage ? <p className="dockspace-sidebar__uploads-error">{uploadErrorMessage}</p> : null}
+      {skippedUploads.length ? (
+        <div className="dockspace-sidebar__uploads-skipped-card">
+          <p className="dockspace-sidebar__uploads-skipped-title">
+            {skippedUploads.length} file{skippedUploads.length === 1 ? '' : 's'} skipped as duplicates.
+          </p>
+          <ul className="dockspace-sidebar__uploads-skipped-list">
+            {skippedUploads.map((item) => (
+              <li key={`${item.duplicateType}:${item.fullPath}`} className="dockspace-sidebar__uploads-skipped-item">
+                <span className="dockspace-sidebar__uploads-skipped-path">{item.fullPath}</span>
+              </li>
+            ))}
+          </ul>
+          <Button type="button" variant="secondary" onClick={onDismissSkippedUploads}>
+            Dismiss
+          </Button>
+        </div>
+      ) : null}
     </section>
   </aside>
 );

@@ -972,7 +972,12 @@ export const DockspaceFilesPage = () => {
     (renameFolder.error instanceof Error ? renameFolder.error.message : null);
 
   const uploadErrorMessage =
-    uploadDialog.validationError ?? (uploadFile.error instanceof Error ? uploadFile.error.message : null);
+    uploadDialog.validationError ??
+    (uploadFile.error instanceof ApiError && uploadFile.error.code === 'UPLOAD_SKIPPED_DUPLICATE'
+      ? null
+      : uploadFile.error instanceof Error
+        ? uploadFile.error.message
+        : null);
   const pendingUploadFiles = useMemo(
     () =>
       uploadDialog.activeUploads.map((upload) => ({
@@ -1136,8 +1141,10 @@ export const DockspaceFilesPage = () => {
               <DockspaceSidebar
                 folderTree={sidebarFolderTree}
                 activeUploads={uploadDialog.activeUploads}
+                skippedUploads={uploadDialog.skippedUploads}
                 uploadErrorMessage={uploadErrorMessage}
                 onAddFolder={addFolderDialog.openDialog}
+                onDismissSkippedUploads={uploadDialog.clearSkippedUploads}
                 onOpenFolder={onOpenFolder}
                 onToggleFolder={onToggleSidebarFolder}
                 onUploadFiles={openFilePicker}

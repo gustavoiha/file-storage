@@ -1,6 +1,7 @@
 import { act, renderHook, waitFor } from '@testing-library/react';
 import { describe, expect, it, vi } from 'vitest';
 import { useDockspaceUploadDialog } from '@/hooks/useDockspaceUploadDialog';
+import { ApiError } from '@/lib/apiClient';
 
 describe('useDockspaceUploadDialog', () => {
   it('uploads files in parallel batches', async () => {
@@ -117,5 +118,43 @@ describe('useDockspaceUploadDialog', () => {
     await waitFor(() => expect(uploadFile).toHaveBeenCalledTimes(1));
     await waitFor(() => expect(result.current.activeUploads).toHaveLength(0));
     expect(result.current.validationError).toBe('network');
+  });
+
+  it('collects duplicate-skip responses without setting a validation error', async () => {
+    const uploadFile = vi.fn(async () => {
+      throw new ApiError('Upload skipped due to duplicate', 409, {
+        code: 'UPLOAD_SKIPPED_DUPLICATE',
+        duplicateType: 'NAME',
+        fullPath: '/docs/duplicate.txt',
+        reason: 'A file with the same name already exists in this folder.'
+      });
+    });
+    const { result } = renderHook(() =>
+      useDockspaceUploadDialog({
+        currentFolderPath: '/docs',
+        uploadFile
+      })
+    );
+
+    act(() => {
+      result.current.stageFiles([new File(['dup'], 'duplicate.txt', { type: 'text/plain' })]);
+    });
+
+    await waitFor(() => expect(uploadFile).toHaveBeenCalledTimes(1));
+    await waitFor(() => expect(result.current.activeUploads).toHaveLength(0));
+    expect(result.current.validationError).toBeNull();
+    expect(result.current.skippedUploads).toEqual([
+      {
+        fullPath: '/docs/duplicate.txt',
+        duplicateType: 'NAME',
+        reason: 'A file with the same name already exists in this folder.'
+      }
+    ]);
+
+    act(() => {
+      result.current.clearSkippedUploads();
+    });
+
+    expect(result.current.skippedUploads).toEqual([]);
   });
 });

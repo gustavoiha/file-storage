@@ -135,4 +135,28 @@ describe('media upload policy', () => {
       'text/plain'
     );
   });
+
+  it('returns duplicate skip for GENERIC_FILES when same fullPath already exists', async () => {
+    getDockspaceByIdMock.mockResolvedValue({
+      dockspaceId: 'dock-1',
+      dockspaceType: 'GENERIC_FILES'
+    });
+    resolveFileByFullPathMock.mockResolvedValue({
+      fileNode: {
+        SK: 'L#existing-file'
+      }
+    });
+
+    const { handler } = await import('../handlers/createUploadSession.js');
+    const response = await handler(
+      baseEvent({
+        fullPath: '/notes.txt',
+        contentType: 'text/plain'
+      })
+    );
+
+    expect(response.statusCode).toBe(409);
+    expect(response.body).toContain('UPLOAD_SKIPPED_DUPLICATE');
+    expect(createUploadUrlMock).not.toHaveBeenCalled();
+  });
 });

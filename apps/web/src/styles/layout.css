@@ -453,6 +453,44 @@
   font-size: 0.78rem;
 }
 
+.dockspace-sidebar__uploads-skipped-card {
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  background: rgba(255, 255, 255, 0.04);
+  padding: 0.55rem;
+  display: grid;
+  gap: 0.45rem;
+}
+
+.dockspace-sidebar__uploads-skipped-title {
+  margin: 0;
+  font-size: 0.78rem;
+  color: var(--text);
+}
+
+.dockspace-sidebar__uploads-skipped-list {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  display: grid;
+  gap: 0.22rem;
+  max-height: 140px;
+  overflow: auto;
+}
+
+.dockspace-sidebar__uploads-skipped-item {
+  min-width: 0;
+}
+
+.dockspace-sidebar__uploads-skipped-path {
+  font-size: 0.74rem;
+  color: var(--text-muted);
+  display: block;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
 .dockspace-browser__toolbar {
   display: flex;
   align-items: center;

@@ -1,10 +1,22 @@
 import type { APIGatewayProxyEventV2 } from 'aws-lambda';
 import { z } from 'zod';
-import { buildObjectKey, completeMultipartUpload, objectExists, parseObjectKey } from '../lib/s3.js';
+import {
+  buildObjectKey,
+  completeMultipartUpload,
+  computeObjectSha256Hex,
+  deleteObjectIfExists,
+  objectExists,
+  parseObjectKey
+} from '../lib/s3.js';
 import { normalizeFullPath, splitFullPath } from '../domain/path.js';
 import { requireEntitledUser } from '../lib/auth.js';
 import { errorResponse, jsonResponse, safeJsonParse } from '../lib/http.js';
-import { getDockspaceById, resolveFileByFullPath, upsertActiveFileByPath } from '../lib/repository.js';
+import {
+  findActiveMediaFileByContentHash,
+  getDockspaceById,
+  resolveFileByFullPath,
+  upsertActiveFileByPath
+} from '../lib/repository.js';
 import { dockspaceTypeFromItem, isMediaContentType, isMediaDockspaceType } from '../types/models.js';
 
 const bodySchema = z.object({
@@ -71,11 +83,22 @@ export const handler = async (event: APIGatewayProxyEventV2) => {
 
     const existingFile = await resolveFileByFullPath(userId, dockspaceId, fullPath);
     const existingFileNodeId = existingFile?.fileNode.SK.replace(/^L#/, '');
-    const expectedObjectKey = existingFileNodeId
-      ? buildObjectKey(dockspaceId, existingFileNodeId)
-      : parsed.data.objectKey;
+    const expectedObjectKey =
+      !isMediaDockspaceType(dockspaceType) && existingFileNodeId
+        ? buildObjectKey(dockspaceId, existingFileNodeId)
+        : parsed.data.objectKey;
 
     if (expectedObjectKey !== parsed.data.objectKey) {
+      if (!isMediaDockspaceType(dockspaceType)) {
+        return jsonResponse(409, {
+          error: 'Upload skipped due to duplicate',
+          code: 'UPLOAD_SKIPPED_DUPLICATE',
+          duplicateType: 'NAME',
+          fullPath,
+          reason: 'A file with the same name already exists in this folder.'
+        });
+      }
+
       return jsonResponse(409, { error: 'Upload key does not match target file path' });
     }
 
@@ -89,6 +112,23 @@ export const handler = async (event: APIGatewayProxyEventV2) => {
       return jsonResponse(409, { error: 'Object not found in S3 after completion' });
     }
 
+    const contentHash = await computeObjectSha256Hex(parsed.data.objectKey);
+    if (isMediaDockspaceType(dockspaceType)) {
+      const duplicate = await findActiveMediaFileByContentHash(userId, dockspaceId, contentHash);
+
+      if (duplicate) {
+        await deleteObjectIfExists(parsed.data.objectKey);
+
+        return jsonResponse(409, {
+          error: 'Upload skipped due to duplicate',
+          code: 'UPLOAD_SKIPPED_DUPLICATE',
+          duplicateType: 'CONTENT_HASH',
+          fullPath,
+          reason: 'A media file with identical content already exists.'
+        });
+      }
+    }
+
     const now = new Date().toISOString();
     await upsertActiveFileByPath({
       userId,
@@ -98,9 +138,17 @@ export const handler = async (event: APIGatewayProxyEventV2) => {
       preferredFileNodeId: existingFileNodeId ?? objectKeyInfo.fileNodeId,
       size: parsed.data.size,
       contentType: parsed.data.contentType,
+      contentHash,
       etag: completedEtag ?? parsed.data.parts[parsed.data.parts.length - 1]!.etag,
       nowIso: now
     });
+    if (
+      isMediaDockspaceType(dockspaceType) &&
+      existingFile?.fileNode.s3Key &&
+      existingFile.fileNode.s3Key !== parsed.data.objectKey
+    ) {
+      await deleteObjectIfExists(existingFile.fileNode.s3Key);
+    }
 
     return jsonResponse(201, {
       fullPath,

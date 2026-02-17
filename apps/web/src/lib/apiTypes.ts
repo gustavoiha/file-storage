@@ -23,6 +23,7 @@ export interface MediaFileRecord {
   fullPath: string;
   size: number;
   contentType: string;
+  contentHash?: string;
   updatedAt: string;
   state: 'ACTIVE';
 }
@@ -32,6 +33,7 @@ export interface FileRecord {
   fullPath: string;
   size?: number;
   contentType?: string;
+  contentHash?: string;
   updatedAt?: string;
   deletedAt?: string;
   flaggedForDeleteAt?: string;

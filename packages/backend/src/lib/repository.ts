@@ -47,7 +47,7 @@ import type {
   AlbumMembershipItem,
   MediaAlbumLinkItem
 } from '../types/models.js';
-import { fileStateFromNode } from '../types/models.js';
+import { fileStateFromNode, isMediaContentType } from '../types/models.js';
 import { dynamoDoc } from './clients.js';
 import { env } from './env.js';
 import { listDirectoryChildrenByParentFolderNodeId as listDirectoryChildrenAction } from './repository/folderChildren.js';
@@ -853,6 +853,7 @@ export const upsertActiveFileByPath = async (params: {
   preferredFileNodeId?: string;
   size: number;
   contentType: string;
+  contentHash?: string;
   etag: string;
   nowIso: string;
 }): Promise<{ fileNodeId: string; fullPath: string }> => {
@@ -918,8 +919,7 @@ export const upsertActiveFileByPath = async (params: {
                 SK: buildFileNodeSk(existingDirectory.childId)
               },
               ConditionExpression: 'attribute_exists(PK) AND attribute_exists(SK)',
-              UpdateExpression:
-                'SET parentFolderNodeId = :parentFolderNodeId, s3Key = :s3Key, #name = :name, #size = :size, contentType = :contentType, etag = :etag, updatedAt = :updatedAt REMOVE deletedAt, flaggedForDeleteAt, purgedAt, trashedPath, GSI1PK, GSI1SK',
+              UpdateExpression: `SET parentFolderNodeId = :parentFolderNodeId, s3Key = :s3Key, #name = :name, #size = :size, contentType = :contentType, etag = :etag, updatedAt = :updatedAt${params.contentHash ? ', contentHash = :contentHash' : ''} REMOVE deletedAt, flaggedForDeleteAt, purgedAt, trashedPath, GSI1PK, GSI1SK`,
               ExpressionAttributeNames: {
                 '#name': 'name',
                 '#size': 'size'
@@ -931,7 +931,8 @@ export const upsertActiveFileByPath = async (params: {
                 ':size': params.size,
                 ':contentType': params.contentType,
                 ':etag': params.etag,
-                ':updatedAt': params.nowIso
+                ':updatedAt': params.nowIso,
+                ...(params.contentHash ? { ':contentHash': params.contentHash } : {})
               }
             }
           },
@@ -990,6 +991,7 @@ export const upsertActiveFileByPath = async (params: {
               parentFolderNodeId,
               s3Key: params.s3Key,
               name: fileName,
+              ...(params.contentHash ? { contentHash: params.contentHash } : {}),
               size: params.size,
               contentType: params.contentType,
               etag: params.etag,
@@ -1030,6 +1032,37 @@ export const upsertActiveFileByPath = async (params: {
   );
 
   return { fileNodeId, fullPath: normalizedFullPath };
+};
+
+export const findActiveMediaFileByContentHash = async (
+  userId: string,
+  dockspaceId: string,
+  contentHash: string,
+  excludeFileNodeId?: string
+): Promise<FileNodeItem | null> => {
+  const fileNodes = await listFileNodes(userId, dockspaceId);
+
+  for (const fileNode of fileNodes) {
+    if (fileStateFromNode(fileNode) !== 'ACTIVE') {
+      continue;
+    }
+
+    if (!isMediaContentType(fileNode.contentType)) {
+      continue;
+    }
+
+    if (fileNode.contentHash !== contentHash) {
+      continue;
+    }
+
+    if (excludeFileNodeId && getFileNodeIdFromSk(fileNode.SK) === excludeFileNodeId) {
+      continue;
+    }
+
+    return fileNode;
+  }
+
+  return null;
 };
 
 export interface ResolvedFileByPath {

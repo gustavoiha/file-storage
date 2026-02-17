@@ -1,7 +1,10 @@
+import { createHash } from 'node:crypto';
+import { Readable } from 'node:stream';
 import {
   AbortMultipartUploadCommand,
   CompleteMultipartUploadCommand,
   DeleteObjectsCommand,
+  DeleteObjectCommand,
   CreateMultipartUploadCommand,
   DeleteObjectTaggingCommand,
   GetObjectCommand,
@@ -155,6 +158,72 @@ export const createDownloadUrl = async (
   });
 
   return getSignedUrl(s3Client, command, { expiresIn: 900 });
+};
+
+const toNodeReadable = (body: unknown): Readable | null => {
+  if (body instanceof Readable) {
+    return body;
+  }
+
+  if (
+    body &&
+    typeof body === 'object' &&
+    Symbol.asyncIterator in body &&
+    typeof (body as { [Symbol.asyncIterator]: unknown })[Symbol.asyncIterator] === 'function'
+  ) {
+    return Readable.from(body as AsyncIterable<Uint8Array>);
+  }
+
+  return null;
+};
+
+export const computeObjectSha256Hex = async (key: string): Promise<string> => {
+  const response = await s3Client.send(
+    new GetObjectCommand({
+      Bucket: env.bucketName,
+      Key: key
+    })
+  );
+
+  const body = response.Body;
+  if (!body) {
+    throw new Error(`Object body missing for key "${key}"`);
+  }
+
+  const hash = createHash('sha256');
+  const readable = toNodeReadable(body);
+  if (readable) {
+    for await (const chunk of readable) {
+      hash.update(chunk);
+    }
+
+    return hash.digest('hex');
+  }
+
+  const transformer = (body as { transformToByteArray?: () => Promise<Uint8Array> }).transformToByteArray;
+  if (!transformer) {
+    throw new Error(`Unable to read object body for key "${key}"`);
+  }
+
+  hash.update(await transformer.call(body));
+  return hash.digest('hex');
+};
+
+export const deleteObjectIfExists = async (key: string): Promise<void> => {
+  try {
+    await s3Client.send(
+      new DeleteObjectCommand({
+        Bucket: env.bucketName,
+        Key: key
+      })
+    );
+  } catch (error) {
+    if (error instanceof S3ServiceException && error.name === 'NoSuchKey') {
+      return;
+    }
+
+    throw error;
+  }
 };
 
 export const objectExists = async (key: string): Promise<boolean> => {

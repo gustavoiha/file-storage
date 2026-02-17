@@ -116,7 +116,12 @@ export const DockspaceMediaPage = ({ dockspaceId, dockspaceName }: DockspaceMedi
   const uploadErrorMessage =
     localError ??
     uploadDialog.validationError ??
-    (uploadFileMutation.error instanceof Error ? uploadFileMutation.error.message : null);
+    (uploadFileMutation.error instanceof ApiError &&
+    uploadFileMutation.error.code === 'UPLOAD_SKIPPED_DUPLICATE'
+      ? null
+      : uploadFileMutation.error instanceof Error
+        ? uploadFileMutation.error.message
+        : null);
   const membershipMutationPending =
     assignAlbumMediaMutation.isPending || removeAlbumMediaMutation.isPending;
   const mediaListError =
@@ -494,6 +499,31 @@ export const DockspaceMediaPage = ({ dockspaceId, dockspaceName }: DockspaceMedi
                         stagedFiles={uploadDialog.activeUploads}
                         emptyStateMessage="No active uploads."
                       />
+                      {uploadDialog.skippedUploads.length ? (
+                        <div className="dockspace-sidebar__uploads-skipped-card">
+                          <p className="dockspace-sidebar__uploads-skipped-title">
+                            {uploadDialog.skippedUploads.length} file
+                            {uploadDialog.skippedUploads.length === 1 ? '' : 's'} skipped as duplicates.
+                          </p>
+                          <ul className="dockspace-sidebar__uploads-skipped-list">
+                            {uploadDialog.skippedUploads.map((item) => (
+                              <li
+                                key={`${item.duplicateType}:${item.fullPath}`}
+                                className="dockspace-sidebar__uploads-skipped-item"
+                              >
+                                <span className="dockspace-sidebar__uploads-skipped-path">{item.fullPath}</span>
+                              </li>
+                            ))}
+                          </ul>
+                          <Button
+                            type="button"
+                            variant="secondary"
+                            onClick={uploadDialog.clearSkippedUploads}
+                          >
+                            Dismiss
+                          </Button>
+                        </div>
+                      ) : null}
                     </div>
                   </aside>
                 </div>

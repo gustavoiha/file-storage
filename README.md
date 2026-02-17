@@ -470,3 +470,30 @@ Optional controls:
 
 * `BACKFILL_PAGE_SIZE` (default `100`)
 * `BACKFILL_MAX_PAGES` (unset by default; process all pages)
+
+---
+
+## 21. One-Time Backfill For File Content Hash
+
+When introducing `contentHash` on uploaded file nodes, run:
+
+```bash
+TABLE_NAME=<your-table-name> \
+BUCKET_NAME=<your-bucket-name> \
+BACKFILL_DRY_RUN=true \
+npm run --workspace @dockspace/backend backfill:file-content-hash
+```
+
+Then execute the write run:
+
+```bash
+TABLE_NAME=<your-table-name> \
+BUCKET_NAME=<your-bucket-name> \
+BACKFILL_DRY_RUN=false \
+npm run --workspace @dockspace/backend backfill:file-content-hash
+```
+
+Optional controls:
+
+* `BACKFILL_PAGE_SIZE` (default `100`)
+* `BACKFILL_MAX_PAGES` (unset by default; process all pages)

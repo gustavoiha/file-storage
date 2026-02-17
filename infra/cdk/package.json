@@ -7,7 +7,9 @@
     "build": "tsc -p tsconfig.json",
     "typecheck": "tsc -p tsconfig.json --noEmit",
     "test": "echo 'No tests for CDK package'",
-    "cdk": "node --env-file-if-exists=.env ../../node_modules/aws-cdk/bin/cdk"
+    "cdk": "node --env-file-if-exists=.env ../../node_modules/aws-cdk/bin/cdk",
+    "deploy:dev": "AWS_PROFILE=file-storage-dev ./scripts/deploy.sh .env.dev",
+    "deploy:prod": "AWS_PROFILE=file-storage-prod ./scripts/deploy.sh .env.prod"
   },
   "dependencies": {
     "aws-cdk-lib": "^2.0.0",

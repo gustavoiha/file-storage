@@ -9,17 +9,33 @@ import type {
   RegisterResult,
   RegisterPayload
 } from '@/lib/authTypes';
-import { cognitoAuthService } from '@/lib/cognitoAuthService';
 
 interface UseAuthOptions {
   authService?: AuthService;
 }
 
-export const useAuth = ({ authService = cognitoAuthService }: UseAuthOptions = {}) => {
+let defaultAuthServicePromise: Promise<AuthService> | null = null;
+
+const resolveAuthService = async (authService?: AuthService): Promise<AuthService> => {
+  if (authService) {
+    return authService;
+  }
+
+  if (!defaultAuthServicePromise) {
+    defaultAuthServicePromise = import('@/lib/cognitoAuthService').then(
+      ({ cognitoAuthService }) => cognitoAuthService
+    );
+  }
+
+  return defaultAuthServicePromise;
+};
+
+export const useAuth = ({ authService }: UseAuthOptions = {}) => {
   const { session } = useStore(authStore);
 
   const login = async (payload: LoginPayload): Promise<LoginResult> => {
-    const result = await authService.login(payload);
+    const resolvedAuthService = await resolveAuthService(authService);
+    const result = await resolvedAuthService.login(payload);
     if (result.status === 'SIGNED_IN') {
       setSession(result.session);
     }
@@ -28,7 +44,8 @@ export const useAuth = ({ authService = cognitoAuthService }: UseAuthOptions = {
   };
 
   const confirmLogin = async (code: string): Promise<LoginResult> => {
-    const result = await authService.confirmLogin(code);
+    const resolvedAuthService = await resolveAuthService(authService);
+    const result = await resolvedAuthService.confirmLogin(code);
     if (result.status === 'SIGNED_IN') {
       setSession(result.session);
     }
@@ -37,37 +54,44 @@ export const useAuth = ({ authService = cognitoAuthService }: UseAuthOptions = {
   };
 
   const register = async (payload: RegisterPayload): Promise<RegisterResult> => {
-    return authService.register(payload);
+    const resolvedAuthService = await resolveAuthService(authService);
+    return resolvedAuthService.register(payload);
   };
 
   const confirmSignUp = async (payload: ConfirmSignUpPayload): Promise<void> => {
-    await authService.confirmSignUp(payload);
+    const resolvedAuthService = await resolveAuthService(authService);
+    await resolvedAuthService.confirmSignUp(payload);
   };
 
   const resendSignUpCode = async (email: string): Promise<void> => {
-    await authService.resendSignUpCode(email);
+    const resolvedAuthService = await resolveAuthService(authService);
+    await resolvedAuthService.resendSignUpCode(email);
   };
 
   const logout = async (): Promise<void> => {
-    await authService.logout();
+    const resolvedAuthService = await resolveAuthService(authService);
+    await resolvedAuthService.logout();
     clearSession();
   };
 
   const forgotPassword = async (email: string): Promise<void> => {
-    await authService.forgotPassword(email);
+    const resolvedAuthService = await resolveAuthService(authService);
+    await resolvedAuthService.forgotPassword(email);
   };
 
   const confirmForgotPassword = async (
     payload: ConfirmResetPayload
   ): Promise<void> => {
-    await authService.confirmForgotPassword(payload);
+    const resolvedAuthService = await resolveAuthService(authService);
+    await resolvedAuthService.confirmForgotPassword(payload);
   };
 
   const changePassword = async (
     currentPassword: string,
     newPassword: string
   ): Promise<void> => {
-    await authService.changePassword(currentPassword, newPassword);
+    const resolvedAuthService = await resolveAuthService(authService);
+    await resolvedAuthService.changePassword(currentPassword, newPassword);
   };
 
   return {

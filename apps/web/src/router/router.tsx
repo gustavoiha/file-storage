@@ -34,6 +34,10 @@ const ChangePasswordPage = lazyRouteComponent(
   () => import('@/pages/ChangePasswordPage'),
   'ChangePasswordPage'
 );
+const AuthenticatedLayout = lazyRouteComponent(
+  () => import('@/router/AuthenticatedLayout'),
+  'AuthenticatedLayout'
+);
 
 const rootRoute = createRootRoute({
   component: () => (
@@ -94,35 +98,58 @@ const resetPasswordRoute = createRoute({
   component: ResetPasswordPage
 });
 
-const dockspacesRoute = createRoute({
+const dockspacesLayoutRoute = createRoute({
   getParentRoute: () => rootRoute,
   path: '/dockspaces',
+  beforeLoad: () => {
+    if (!authStore.state.session) {
+      throw redirect({ to: '/login' });
+    }
+  },
+  component: AuthenticatedLayout
+});
+
+const dockspacesRoute = createRoute({
+  getParentRoute: () => dockspacesLayoutRoute,
+  path: '/',
   component: DockspacesPage
 });
 
 const dockspaceFilesRoute = createRoute({
-  getParentRoute: () => rootRoute,
-  path: '/dockspaces/$dockspaceId',
+  getParentRoute: () => dockspacesLayoutRoute,
+  path: '/$dockspaceId',
   component: DockspaceWorkspacePage
 });
 
 const trashRoute = createRoute({
-  getParentRoute: () => rootRoute,
-  path: '/dockspaces/$dockspaceId/trash',
+  getParentRoute: () => dockspacesLayoutRoute,
+  path: '/$dockspaceId/trash',
   component: TrashPage
 });
 
 const purgedRoute = createRoute({
-  getParentRoute: () => rootRoute,
-  path: '/dockspaces/$dockspaceId/purged',
+  getParentRoute: () => dockspacesLayoutRoute,
+  path: '/$dockspaceId/purged',
   component: PurgedPage
 });
 
 const changePasswordRoute = createRoute({
   getParentRoute: () => rootRoute,
   path: '/settings/password',
+  beforeLoad: () => {
+    if (!authStore.state.session) {
+      throw redirect({ to: '/login' });
+    }
+  },
   component: ChangePasswordPage
 });
+
+const dockspacesLayoutRouteWithChildren = dockspacesLayoutRoute.addChildren([
+  dockspacesRoute,
+  dockspaceFilesRoute,
+  trashRoute,
+  purgedRoute
+]);
 
 const routeTree = rootRoute.addChildren([
   indexRoute,
@@ -131,10 +158,7 @@ const routeTree = rootRoute.addChildren([
   confirmSignUpRoute,
   forgotPasswordRoute,
   resetPasswordRoute,
-  dockspacesRoute,
-  dockspaceFilesRoute,
-  trashRoute,
-  purgedRoute,
+  dockspacesLayoutRouteWithChildren,
   changePasswordRoute
 ]);
 

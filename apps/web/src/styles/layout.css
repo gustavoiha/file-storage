@@ -17,6 +17,40 @@
   gap: 1rem;
 }
 
+.suspense-loader {
+  width: 100%;
+  min-height: 18rem;
+  display: grid;
+  place-items: center;
+  padding: 1rem;
+}
+
+.suspense-loader__inner {
+  display: grid;
+  justify-items: center;
+  gap: 0.75rem;
+}
+
+.suspense-loader__spinner {
+  width: 2rem;
+  height: 2rem;
+  border-radius: 999px;
+  border: 2px solid rgba(255, 255, 255, 0.22);
+  border-top-color: var(--accent);
+  animation: suspense-loader-spin 0.8s linear infinite;
+}
+
+.suspense-loader__label {
+  font-size: 0.95rem;
+  color: var(--text-muted);
+}
+
+@keyframes suspense-loader-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
 .page__header {
   display: flex;
   align-items: flex-start;

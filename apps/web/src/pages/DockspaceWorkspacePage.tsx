@@ -2,6 +2,7 @@ import { Suspense } from 'react';
 import { useParams } from '@tanstack/react-router';
 import { RequireAuth } from '@/components/auth/RequireAuth';
 import { Page } from '@/components/ui/Page';
+import { SuspenseLoader } from '@/components/ui/SuspenseLoader';
 import { useDockspaces } from '@/hooks/useDockspaces';
 import { lazyRouteComponent } from '@tanstack/react-router';
 
@@ -23,7 +24,7 @@ export const DockspaceWorkspacePage = () => {
     return (
       <RequireAuth>
         <Page title="Dockspace">
-          <p>Loading dockspace...</p>
+          <SuspenseLoader label="Loading dockspace..." />
         </Page>
       </RequireAuth>
     );
@@ -31,14 +32,14 @@ export const DockspaceWorkspacePage = () => {
 
   if (dockspace?.dockspaceType === 'PHOTOS_VIDEOS') {
     return (
-      <Suspense fallback={<p>Loading dockspace...</p>}>
+      <Suspense fallback={<SuspenseLoader label="Loading dockspace..." />}>
         <DockspaceMediaPage dockspaceId={dockspaceId} dockspaceName={dockspace.name} />
       </Suspense>
     );
   }
 
   return (
-    <Suspense fallback={<p>Loading dockspace...</p>}>
+    <Suspense fallback={<SuspenseLoader label="Loading dockspace..." />}>
       <DockspaceFilesPage />
     </Suspense>
   );

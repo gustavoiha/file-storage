@@ -6,6 +6,7 @@ import {
 } from '@/components/files/pathHelpers';
 
 type UploadItemStatus = 'pending' | 'uploading';
+const MAX_PARALLEL_UPLOADS = 4;
 
 export interface ActiveUploadFile {
   id: number;
@@ -31,10 +32,9 @@ export const useDockspaceUploadDialog = ({
   uploadFile
 }: UseDockspaceUploadDialogParams) => {
   const [activeUploads, setActiveUploads] = useState<ActiveUploadFile[]>([]);
-  const [isUploading, setIsUploading] = useState(false);
   const [validationError, setValidationError] = useState<string | null>(null);
   const nextUploadIdRef = useRef(1);
-  const processingUploadIdRef = useRef<number | null>(null);
+  const runningUploadIdsRef = useRef<Set<number>>(new Set());
 
   const enqueueUploads = useCallback((nextUploads: ActiveUploadFile[]) => {
     if (!nextUploads.length) {
@@ -114,21 +114,26 @@ export const useDockspaceUploadDialog = ({
   }, [currentFolderPath, enqueueUploads]);
 
   useEffect(() => {
-    if (processingUploadIdRef.current !== null) {
+    const availableSlots = MAX_PARALLEL_UPLOADS - runningUploadIdsRef.current.size;
+    if (availableSlots <= 0) {
       return;
     }
 
-    const nextUpload = activeUploads.find((item) => item.status === 'pending');
-    if (!nextUpload) {
-      setIsUploading(false);
+    const nextUploads = activeUploads
+      .filter((item) => item.status === 'pending' && !runningUploadIdsRef.current.has(item.id))
+      .slice(0, availableSlots);
+    if (!nextUploads.length) {
       return;
     }
 
-    processingUploadIdRef.current = nextUpload.id;
-    setIsUploading(true);
+    const nextUploadIds = new Set(nextUploads.map((item) => item.id));
+    for (const upload of nextUploads) {
+      runningUploadIdsRef.current.add(upload.id);
+    }
+
     setActiveUploads((previous) =>
       previous.map((item) =>
-        item.id === nextUpload.id
+        nextUploadIds.has(item.id)
           ? {
               ...item,
               status: 'uploading',
@@ -138,30 +143,31 @@ export const useDockspaceUploadDialog = ({
       )
     );
 
-    void uploadFile({
-      fullPath: nextUpload.fullPath,
-      file: nextUpload.file,
-      onProgress: (progress) => {
-        setActiveUploads((previous) =>
-          previous.map((item) =>
-            item.id === nextUpload.id
-              ? {
-                  ...item,
-                  progress
-                }
-              : item
-          )
-        );
-      }
-    })
-      .catch((error) => {
-        setValidationError(error instanceof Error ? error.message : 'Upload failed.');
+    for (const nextUpload of nextUploads) {
+      void uploadFile({
+        fullPath: nextUpload.fullPath,
+        file: nextUpload.file,
+        onProgress: (progress) => {
+          setActiveUploads((previous) =>
+            previous.map((item) =>
+              item.id === nextUpload.id
+                ? {
+                    ...item,
+                    progress
+                  }
+                : item
+            )
+          );
+        }
       })
-      .finally(() => {
-        setActiveUploads((previous) => previous.filter((item) => item.id !== nextUpload.id));
-        processingUploadIdRef.current = null;
-        setIsUploading(false);
-      });
+        .catch((error) => {
+          setValidationError(error instanceof Error ? error.message : 'Upload failed.');
+        })
+        .finally(() => {
+          runningUploadIdsRef.current.delete(nextUpload.id);
+          setActiveUploads((previous) => previous.filter((item) => item.id !== nextUpload.id));
+        });
+    }
   }, [activeUploads, uploadFile]);
 
   const clearValidationError = useCallback(() => {
@@ -171,7 +177,7 @@ export const useDockspaceUploadDialog = ({
   return {
     activeUploads,
     clearValidationError,
-    isUploading,
+    isUploading: activeUploads.length > 0,
     stageFolderFiles,
     stageFiles,
     validationError

@@ -4,6 +4,7 @@ import { tmpdir } from 'node:os';
 import path from 'node:path';
 import type { SQSEvent, SQSRecord } from 'aws-lambda';
 import ffmpegPath from 'ffmpeg-static';
+import heicConvert from 'heic-convert';
 import sharp from 'sharp';
 import { z } from 'zod';
 import {
@@ -11,7 +12,7 @@ import {
   getThumbnailMetadata,
   upsertThumbnailMetadata
 } from '../lib/repository.js';
-import { buildThumbnailObjectKey, getObjectBytes, putObjectBytes } from '../lib/s3.js';
+import { buildThumbnailObjectKey, getObjectBytes, objectExists, putObjectBytes } from '../lib/s3.js';
 import {
   buildThumbnailJob,
   enqueueThumbnailFailureToDlq,
@@ -120,11 +121,94 @@ const createImageThumbnail = async (
     };
   } catch (error) {
     const message = error instanceof Error ? error.message.toLowerCase() : '';
-    if (message.includes('unsupported image format') || message.includes('input buffer')) {
+    if (
+      message.includes('unsupported image format') ||
+      message.includes('input buffer') ||
+      message.includes('heif:') ||
+      message.includes('compression format has not been built in') ||
+      message.includes('source: bad seek')
+    ) {
       throw new NonRetryableThumbnailError('Unable to decode source image');
     }
 
     throw error;
+  }
+};
+
+const isHeicContentType = (contentType: string): boolean => {
+  const normalized = contentType.trim().toLowerCase();
+  return (
+    normalized === 'image/heic' ||
+    normalized === 'image/heif' ||
+    normalized === 'image/heic-sequence' ||
+    normalized === 'image/heif-sequence'
+  );
+};
+
+const isLikelyHeicBytes = (sourceBytes: Uint8Array): boolean => {
+  const header = Buffer.from(sourceBytes.subarray(0, 64)).toString('latin1').toLowerCase();
+  return (
+    header.includes('ftypheic') ||
+    header.includes('ftypheix') ||
+    header.includes('ftyphevc') ||
+    header.includes('ftyphevx') ||
+    header.includes('ftypheim') ||
+    header.includes('ftypheis') ||
+    header.includes('ftypmif1') ||
+    header.includes('ftypmsf1')
+  );
+};
+
+const isAmbiguousBinaryContentType = (contentType: string): boolean => {
+  const normalized = contentType.trim().toLowerCase();
+  return (
+    normalized === 'application/octet-stream' ||
+    normalized === 'binary/octet-stream' ||
+    normalized === 'application/x-octet-stream'
+  );
+};
+
+const convertHeicToJpegBytes = async (sourceBytes: Uint8Array): Promise<Uint8Array> => {
+  try {
+    const converted = (await heicConvert({
+      buffer: Buffer.from(sourceBytes),
+      format: 'JPEG',
+      quality: 0.9
+    })) as unknown;
+
+    if (converted instanceof Uint8Array) {
+      return converted;
+    }
+
+    if (converted instanceof ArrayBuffer) {
+      return new Uint8Array(converted);
+    }
+
+    if (ArrayBuffer.isView(converted)) {
+      return new Uint8Array(converted.buffer, converted.byteOffset, converted.byteLength);
+    }
+
+    return new Uint8Array(Buffer.from(converted as Buffer));
+  } catch {
+    throw new NonRetryableThumbnailError('Unable to decode HEIC image');
+  }
+};
+
+const createImageThumbnailForContent = async (params: {
+  sourceBytes: Uint8Array;
+  contentType: string;
+}): Promise<{ bytes: Uint8Array; width?: number; height?: number; size: number; contentType: string }> => {
+  try {
+    return await createImageThumbnail(params.sourceBytes);
+  } catch (error) {
+    if (
+      !(error instanceof NonRetryableThumbnailError) ||
+      (!isHeicContentType(params.contentType) && !isLikelyHeicBytes(params.sourceBytes))
+    ) {
+      throw error;
+    }
+
+    return await createImageThumbnail(await convertHeicToJpegBytes(params.sourceBytes));
   }
 };
 
@@ -255,16 +339,41 @@ const processThumbnailJob = async (job: z.infer<typeof thumbnailJobSchema>): Pro
     return;
   }
 
+  const normalizedContentType = job.contentType.trim().toLowerCase();
   const existing = await getThumbnailMetadata(job.userId, job.dockspaceId, job.fileNodeId);
   if (
     existing?.sourceEtag === job.etag &&
-    (existing.status === 'READY' || existing.status === 'UNSUPPORTED')
+    existing.status === 'READY' &&
+    existing.thumbnailKey &&
+    (await objectExists(existing.thumbnailKey))
+  ) {
+    return;
+  }
+  if (
+    existing?.sourceEtag === job.etag &&
+    existing.status === 'UNSUPPORTED' &&
+    !normalizedContentType.startsWith('image/') &&
+    !normalizedContentType.startsWith('video/') &&
+    !isAmbiguousBinaryContentType(normalizedContentType)
   ) {
     return;
   }
 
-  const normalizedContentType = job.contentType.trim().toLowerCase();
-  if (!normalizedContentType.startsWith('image/') && !normalizedContentType.startsWith('video/')) {
+  const isImageType = normalizedContentType.startsWith('image/');
+  const isVideoType = normalizedContentType.startsWith('video/');
+  const shouldProbeForHeic = !isImageType && !isVideoType && isAmbiguousBinaryContentType(normalizedContentType);
+
+  let sourceBytes: Uint8Array | null = null;
+  const getSourceBytes = async (): Promise<Uint8Array> => {
+    if (sourceBytes) {
+      return sourceBytes;
+    }
+
+    sourceBytes = await getObjectBytes(job.s3Key);
+    return sourceBytes;
+  };
+
+  if (!isImageType && !isVideoType && !shouldProbeForHeic) {
     await upsertThumbnailMetadata({
       userId: job.userId,
       dockspaceId: job.dockspaceId,
@@ -279,13 +388,45 @@ const processThumbnailJob = async (job: z.infer<typeof thumbnailJobSchema>): Pro
     return;
   }
 
-  const sourceBytes = await getObjectBytes(job.s3Key);
-  const thumbnail = normalizedContentType.startsWith('video/')
-    ? await createVideoThumbnail({
-        sourceBytes,
-        contentType: normalizedContentType
-      })
-    : await createImageThumbnail(sourceBytes);
+  const loadedSourceBytes = await getSourceBytes();
+  let thumbnail:
+    | { bytes: Uint8Array; width?: number; height?: number; size: number; contentType: string }
+    | null = null;
+
+  if (isVideoType) {
+    thumbnail = await createVideoThumbnail({
+      sourceBytes: loadedSourceBytes,
+      contentType: normalizedContentType
+    });
+  } else if (isImageType) {
+    thumbnail = await createImageThumbnailForContent({
+      sourceBytes: loadedSourceBytes,
+      contentType: normalizedContentType
+    });
+  } else if (isLikelyHeicBytes(loadedSourceBytes)) {
+    thumbnail = await createImageThumbnailForContent({
+      sourceBytes: loadedSourceBytes,
+      contentType: 'image/heic'
+    });
+  } else {
+    await upsertThumbnailMetadata({
+      userId: job.userId,
+      dockspaceId: job.dockspaceId,
+      fileNodeId: job.fileNodeId,
+      sourceS3Key: job.s3Key,
+      sourceEtag: job.etag,
+      sourceContentType: job.contentType,
+      status: 'UNSUPPORTED',
+      attempts: job.attempt,
+      nowIso
+    });
+    return;
+  }
+
+  if (!thumbnail) {
+    return;
+  }
+
   const thumbnailKey = buildThumbnailObjectKey(job.dockspaceId, job.fileNodeId, job.etag);
 
   await putObjectBytes({

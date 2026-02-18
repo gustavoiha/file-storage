@@ -23,6 +23,7 @@
     "@aws-sdk/lib-dynamodb": "^3.882.0",
     "@aws-sdk/s3-request-presigner": "^3.882.0",
     "ffmpeg-static": "^5.2.0",
+    "heic-convert": "^2.1.0",
     "sharp": "^0.34.4",
     "zod": "^3.24.2"
   },

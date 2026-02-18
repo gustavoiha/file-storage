@@ -33,6 +33,7 @@ import {
 } from '@/hooks/useMedia';
 import { ApiError } from '@/lib/apiClient';
 import type { FileRecord, MediaFileRecord } from '@/lib/apiTypes';
+import { isLikelyMediaFile } from '@/lib/fileContentType';
 
 interface DockspaceMediaPageProps {
   dockspaceId: string;
@@ -71,9 +72,6 @@ const formatTimestamp = (value: string): string => {
 
   return timestampFormatter.format(date);
 };
-
-const isMediaFile = (file: File): boolean =>
-  file.type.startsWith('image/') || file.type.startsWith('video/');
 
 export const DockspaceMediaPage = ({ dockspaceId, dockspaceName }: DockspaceMediaPageProps) => {
   const [activeTab, setActiveTab] = useState<MediaViewTab>('all');
@@ -265,7 +263,7 @@ export const DockspaceMediaPage = ({ dockspaceId, dockspaceName }: DockspaceMedi
         return;
       }
 
-      const mediaFiles = selectedFiles.filter(isMediaFile);
+      const mediaFiles = selectedFiles.filter(isLikelyMediaFile);
       const rejectedCount = selectedFiles.length - mediaFiles.length;
 
       if (rejectedCount > 0) {

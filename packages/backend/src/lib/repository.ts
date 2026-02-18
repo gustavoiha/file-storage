@@ -2521,6 +2521,15 @@ export const markFileNodePurged = async (params: {
             ConditionExpression: 'attribute_not_exists(PK) AND attribute_not_exists(SK)'
           }
         },
+        {
+          Delete: {
+            TableName: env.tableName,
+            Key: {
+              PK: filePk,
+              SK: buildThumbnailMetadataSk(fileNodeId)
+            }
+          }
+        },
         ...(trashStateIndexSk
           ? [
               {

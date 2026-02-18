@@ -263,6 +263,9 @@ export const buildThumbnailObjectKey = (
 ): string =>
   `${dockspaceId}/thumbnails/${fileNodeId}/v-${normalizeEtagForObjectKey(sourceEtag)}.jpg`;
 
+export const buildThumbnailObjectPrefix = (dockspaceId: string, fileNodeId: string): string =>
+  `${dockspaceId}/thumbnails/${fileNodeId}/`;
+
 export const deleteObjectIfExists = async (key: string): Promise<void> => {
   try {
     await s3Client.send(
@@ -348,7 +351,10 @@ interface ObjectVersionRef {
   VersionId?: string;
 }
 
-const listObjectVersionRefs = async (key: string): Promise<ObjectVersionRef[]> => {
+const listObjectVersionRefsByPrefix = async (
+  prefix: string,
+  include: (entryKey: string) => boolean
+): Promise<ObjectVersionRef[]> => {
   const refs: ObjectVersionRef[] = [];
   let keyMarker: string | undefined;
   let versionIdMarker: string | undefined;
@@ -358,7 +364,7 @@ const listObjectVersionRefs = async (key: string): Promise<ObjectVersionRef[]> =
     const page = await s3Client.send(
       new ListObjectVersionsCommand({
         Bucket: env.bucketName,
-        Prefix: key,
+        Prefix: prefix,
         KeyMarker: keyMarker,
         VersionIdMarker: versionIdMarker
       })
@@ -366,17 +372,17 @@ const listObjectVersionRefs = async (key: string): Promise<ObjectVersionRef[]> =
 
     refs.push(
       ...(page.Versions ?? [])
-        .filter((entry) => entry.Key === key)
+        .filter((entry) => typeof entry.Key === 'string' && include(entry.Key))
         .map((entry) => ({
-          Key: key,
+          Key: entry.Key as string,
           ...(entry.VersionId ? { VersionId: entry.VersionId } : {})
         }))
     );
     refs.push(
       ...(page.DeleteMarkers ?? [])
-        .filter((entry) => entry.Key === key)
+        .filter((entry) => typeof entry.Key === 'string' && include(entry.Key))
         .map((entry) => ({
-          Key: key,
+          Key: entry.Key as string,
           ...(entry.VersionId ? { VersionId: entry.VersionId } : {})
         }))
     );
@@ -388,6 +394,12 @@ const listObjectVersionRefs = async (key: string): Promise<ObjectVersionRef[]> =
 
   return refs;
 };
+
+const listObjectVersionRefs = async (key: string): Promise<ObjectVersionRef[]> =>
+  listObjectVersionRefsByPrefix(key, (entryKey) => entryKey === key);
+
+const listObjectVersionRefsForPrefix = async (prefix: string): Promise<ObjectVersionRef[]> =>
+  listObjectVersionRefsByPrefix(prefix, () => true);
 
 const deleteObjectVersionRefs = async (refs: ObjectVersionRef[]): Promise<number> => {
   if (!refs.length) {
@@ -434,6 +446,20 @@ export const purgeObjectVersions = async (key: string): Promise<PurgeObjectVersi
   const discoveredRefs = await listObjectVersionRefs(key);
   const deletedVersionCount = await deleteObjectVersionRefs(discoveredRefs);
   const remainingVersionCount = (await listObjectVersionRefs(key)).length;
+
+  return {
+    discoveredVersionCount: discoveredRefs.length,
+    deletedVersionCount,
+    remainingVersionCount
+  };
+};
+
+export const purgeObjectVersionsByPrefix = async (
+  prefix: string
+): Promise<PurgeObjectVersionsResult> => {
+  const discoveredRefs = await listObjectVersionRefsForPrefix(prefix);
+  const deletedVersionCount = await deleteObjectVersionRefs(discoveredRefs);
+  const remainingVersionCount = (await listObjectVersionRefsForPrefix(prefix)).length;
 
   return {
     discoveredVersionCount: discoveredRefs.length,

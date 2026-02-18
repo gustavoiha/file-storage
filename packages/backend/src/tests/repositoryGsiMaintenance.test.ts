@@ -3,6 +3,7 @@ import {
   buildFilePk,
   buildFileStateIndexSk,
   buildPurgeDueGsi1Sk,
+  buildThumbnailMetadataSk,
   PURGE_DUE_GSI1_PK
 } from '../domain/keys.js';
 import type { DirectoryItem, FileNodeItem } from '../types/models.js';
@@ -178,9 +179,15 @@ describe('repository GSI maintenance on file state transitions', () => {
     const purgedStateIndexPut = command.input.TransactItems[2] as {
       Put: { Item: { SK: string; state: string } };
     };
-    const trashStateIndexDelete = command.input.TransactItems[3] as {
-      Delete: { Key: { SK: string } };
-    };
+    const deleteItems = command.input.TransactItems.filter(
+      (item): item is { Delete: { Key: { SK: string } } } => 'Delete' in (item as object)
+    );
+    const trashStateIndexDelete = deleteItems.find((item) =>
+      item.Delete.Key.SK.startsWith('X#TRASH#')
+    );
+    const thumbnailMetadataDelete = deleteItems.find((item) =>
+      item.Delete.Key.SK.startsWith('T#L#')
+    );
 
     expect(update.UpdateExpression).toContain('REMOVE GSI1PK, GSI1SK');
     expect(metricsUpdate.Update.UpdateExpression).toContain(
@@ -192,9 +199,10 @@ describe('repository GSI maintenance on file state transitions', () => {
     expect(purgedStateIndexPut.Put.Item.SK).toBe(
       buildFileStateIndexSk('PURGED', '2026-02-15T10:00:00.000Z', 'file-1')
     );
-    expect(trashStateIndexDelete.Delete.Key.SK).toBe(
+    expect(trashStateIndexDelete?.Delete.Key.SK).toBe(
       buildFileStateIndexSk('TRASH', '2026-03-10T00:00:00.000Z', 'file-1')
     );
+    expect(thumbnailMetadataDelete?.Delete.Key.SK).toBe(buildThumbnailMetadataSk('file-1'));
   });
 
   it('removes GSI keys when upserting an existing file back to active', async () => {

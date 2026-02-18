@@ -8,6 +8,7 @@ import type {
   MediaDuplicatesResponse,
   MediaFileRecord
 } from './apiTypes';
+import { inferUploadContentType } from './fileContentType';
 
 export const listDockspaces = async (): Promise<Dockspace[]> => {
   const response = await apiRequest<{ items: Dockspace[] }>('/dockspaces');
@@ -279,6 +280,7 @@ const uploadSinglePutFile = async (
   file: File,
   options?: UploadFileOptions
 ): Promise<void> => {
+  const contentType = inferUploadContentType(file);
   const contentHash = await computeFileSha256Hex(file);
   const session = await apiRequest<UploadSessionResponse>(
     `/dockspaces/${dockspaceId}/files/upload-session`,
@@ -286,7 +288,7 @@ const uploadSinglePutFile = async (
       method: 'POST',
       body: JSON.stringify({
         fullPath,
-        contentType: file.type || 'application/octet-stream',
+        contentType,
         contentHash
       })
     }
@@ -295,7 +297,7 @@ const uploadSinglePutFile = async (
   const etag = await new Promise<string>((resolve, reject) => {
     const request = new XMLHttpRequest();
     request.open('PUT', session.uploadUrl);
-    request.setRequestHeader('content-type', file.type || 'application/octet-stream');
+    request.setRequestHeader('content-type', contentType);
 
     request.upload.onprogress = (event) => {
       if (!options?.onProgress || !event.lengthComputable) {
@@ -333,7 +335,7 @@ const uploadSinglePutFile = async (
       fullPath,
       objectKey: session.objectKey,
       size: file.size,
-      contentType: file.type || 'application/octet-stream',
+      contentType,
       etag
     })
   });
@@ -345,7 +347,7 @@ const uploadFileMultipart = async (
   file: File,
   options?: UploadFileOptions
 ): Promise<void> => {
-  const contentType = file.type || 'application/octet-stream';
+  const contentType = inferUploadContentType(file);
   const contentHash = await computeFileSha256Hex(file);
   const session = await startMultipartUpload(dockspaceId, {
     fullPath,

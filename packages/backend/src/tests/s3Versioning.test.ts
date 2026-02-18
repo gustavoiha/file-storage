@@ -85,4 +85,48 @@ describe('s3 versioning helpers', () => {
       { Key: 'dock-1/file-1', VersionId: 'v2' }
     ]);
   });
+
+  it('purges all versions and delete markers for a key prefix', async () => {
+    sendMock
+      .mockResolvedValueOnce({
+        Versions: [
+          { Key: 'dock-1/thumbnails/file-1/v1.jpg', VersionId: 'v1' },
+          { Key: 'dock-1/thumbnails/file-1/v2.jpg', VersionId: 'v2' }
+        ],
+        DeleteMarkers: [{ Key: 'dock-1/thumbnails/file-1/v0.jpg', VersionId: 'd1' }],
+        IsTruncated: false
+      })
+      .mockResolvedValueOnce({
+        Deleted: [
+          { Key: 'dock-1/thumbnails/file-1/v1.jpg', VersionId: 'v1' },
+          { Key: 'dock-1/thumbnails/file-1/v2.jpg', VersionId: 'v2' },
+          { Key: 'dock-1/thumbnails/file-1/v0.jpg', VersionId: 'd1' }
+        ]
+      })
+      .mockResolvedValueOnce({
+        Versions: [],
+        DeleteMarkers: [],
+        IsTruncated: false
+      });
+
+    const { purgeObjectVersionsByPrefix } = await import('../lib/s3.js');
+    const result = await purgeObjectVersionsByPrefix('dock-1/thumbnails/file-1/');
+
+    expect(result).toEqual({
+      discoveredVersionCount: 3,
+      deletedVersionCount: 3,
+      remainingVersionCount: 0
+    });
+    expect(sendMock).toHaveBeenCalledTimes(3);
+    expect(sendMock.mock.calls[0]?.[0]).toBeInstanceOf(ListObjectVersionsCommand);
+    expect(sendMock.mock.calls[1]?.[0]).toBeInstanceOf(DeleteObjectsCommand);
+    expect(sendMock.mock.calls[2]?.[0]).toBeInstanceOf(ListObjectVersionsCommand);
+
+    const deleteCommand = sendMock.mock.calls[1]?.[0] as DeleteObjectsCommand;
+    expect(deleteCommand.input.Delete?.Objects).toEqual([
+      { Key: 'dock-1/thumbnails/file-1/v1.jpg', VersionId: 'v1' },
+      { Key: 'dock-1/thumbnails/file-1/v2.jpg', VersionId: 'v2' },
+      { Key: 'dock-1/thumbnails/file-1/v0.jpg', VersionId: 'd1' }
+    ]);
+  });
 });

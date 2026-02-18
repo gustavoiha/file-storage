@@ -1,6 +1,10 @@
 import type { EventBridgeEvent } from 'aws-lambda';
 import { GetCommand, QueryCommand } from '@aws-sdk/lib-dynamodb';
-import { purgeObjectVersions } from '../lib/s3.js';
+import {
+  buildThumbnailObjectPrefix,
+  purgeObjectVersions,
+  purgeObjectVersionsByPrefix
+} from '../lib/s3.js';
 import { dynamoDoc } from '../lib/clients.js';
 import { env } from '../lib/env.js';
 import { markFileNodePurged } from '../lib/repository.js';
@@ -71,6 +75,23 @@ export const handler = async (_event: EventBridgeEvent<string, unknown>) => {
         continue;
       }
 
+      const fileNodeId = latestFileNode.SK.startsWith('L#')
+        ? latestFileNode.SK.slice(2)
+        : latestFileNode.SK;
+      const thumbnailPrefix = buildThumbnailObjectPrefix(partition.dockspaceId, fileNodeId);
+      const thumbnailPurgeResult = await purgeObjectVersionsByPrefix(
+        thumbnailPrefix
+      );
+      if (thumbnailPurgeResult.remainingVersionCount > 0) {
+        console.warn('purge-reconciliation:thumbnail-versions-remain', {
+          s3Prefix: thumbnailPrefix,
+          discoveredVersionCount: thumbnailPurgeResult.discoveredVersionCount,
+          deletedVersionCount: thumbnailPurgeResult.deletedVersionCount,
+          remainingVersionCount: thumbnailPurgeResult.remainingVersionCount
+        });
+        continue;
+      }
+
       await markFileNodePurged({
         userId: partition.userId,
         dockspaceId: partition.dockspaceId,
@@ -79,8 +100,11 @@ export const handler = async (_event: EventBridgeEvent<string, unknown>) => {
       });
       console.info('purge-reconciliation:purged', {
         s3Key: latestFileNode.s3Key,
+        thumbnailPrefix,
         discoveredVersionCount: purgeResult.discoveredVersionCount,
-        deletedVersionCount: purgeResult.deletedVersionCount
+        deletedVersionCount: purgeResult.deletedVersionCount,
+        discoveredThumbnailVersionCount: thumbnailPurgeResult.discoveredVersionCount,
+        deletedThumbnailVersionCount: thumbnailPurgeResult.deletedVersionCount
       });
       processed += 1;
     }

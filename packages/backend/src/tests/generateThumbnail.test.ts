@@ -8,9 +8,11 @@ const {
   buildThumbnailObjectKeyMock,
   getObjectBytesMock,
   putObjectBytesMock,
+  objectExistsMock,
   buildThumbnailJobMock,
   enqueueThumbnailJobMock,
   enqueueThumbnailFailureToDlqMock,
+  heicConvertMock,
   sharpMock,
   sharpToBufferMock
 } = vi.hoisted(() => ({
@@ -20,9 +22,11 @@ const {
   buildThumbnailObjectKeyMock: vi.fn(),
   getObjectBytesMock: vi.fn(),
   putObjectBytesMock: vi.fn(),
+  objectExistsMock: vi.fn(),
   buildThumbnailJobMock: vi.fn(),
   enqueueThumbnailJobMock: vi.fn(),
   enqueueThumbnailFailureToDlqMock: vi.fn(),
+  heicConvertMock: vi.fn(),
   sharpToBufferMock: vi.fn(),
   sharpMock: vi.fn()
 }));
@@ -36,13 +40,18 @@ vi.mock('../lib/repository.js', () => ({
 vi.mock('../lib/s3.js', () => ({
   buildThumbnailObjectKey: buildThumbnailObjectKeyMock,
   getObjectBytes: getObjectBytesMock,
-  putObjectBytes: putObjectBytesMock
+  putObjectBytes: putObjectBytesMock,
+  objectExists: objectExistsMock
 }));
 
 vi.mock('../lib/thumbnailQueue.js', () => ({
   buildThumbnailJob: buildThumbnailJobMock,
   enqueueThumbnailJob: enqueueThumbnailJobMock,
   enqueueThumbnailFailureToDlq: enqueueThumbnailFailureToDlqMock
+}));
+
+vi.mock('heic-convert', () => ({
+  default: heicConvertMock
 }));
 
 vi.mock('sharp', () => ({
@@ -95,9 +104,11 @@ beforeEach(() => {
   buildThumbnailObjectKeyMock.mockReset();
   getObjectBytesMock.mockReset();
   putObjectBytesMock.mockReset();
+  objectExistsMock.mockReset();
   buildThumbnailJobMock.mockReset();
   enqueueThumbnailJobMock.mockReset();
   enqueueThumbnailFailureToDlqMock.mockReset();
+  heicConvertMock.mockReset();
   sharpMock.mockReset();
   sharpToBufferMock.mockReset();
 
@@ -109,6 +120,7 @@ beforeEach(() => {
   buildThumbnailObjectKeyMock.mockReturnValue('dock-1/thumbnails/file-1/v-etag-1.jpg');
   getObjectBytesMock.mockResolvedValue(new Uint8Array([1, 2, 3]));
   putObjectBytesMock.mockResolvedValue(undefined);
+  objectExistsMock.mockResolvedValue(true);
   buildThumbnailJobMock.mockImplementation((payload) => ({
     ...payload,
     version: 1,
@@ -116,6 +128,7 @@ beforeEach(() => {
   }));
   enqueueThumbnailJobMock.mockResolvedValue(undefined);
   enqueueThumbnailFailureToDlqMock.mockResolvedValue(undefined);
+  heicConvertMock.mockResolvedValue(Buffer.from([7, 7, 7]));
 
   sharpMock.mockReturnValue({
     rotate: vi.fn().mockReturnThis(),
@@ -168,6 +181,53 @@ describe('generateThumbnail handler', () => {
     );
     expect(putObjectBytesMock).not.toHaveBeenCalled();
     expect(enqueueThumbnailJobMock).not.toHaveBeenCalled();
+  });
+
+  it('detects HEIC bytes for octet-stream uploads and generates thumbnail', async () => {
+    getObjectBytesMock.mockResolvedValue(
+      new Uint8Array(Buffer.from('\x00\x00\x00\x18ftypheic\x00\x00\x00\x00', 'latin1'))
+    );
+
+    const { handler } = await import('../handlers/generateThumbnail.js');
+    await handler(
+      baseEvent({
+        ...baseJob,
+        contentType: 'application/octet-stream'
+      })
+    );
+
+    expect(putObjectBytesMock).toHaveBeenCalledWith(
+      expect.objectContaining({
+        key: 'dock-1/thumbnails/file-1/v-etag-1.jpg',
+        contentType: 'image/jpeg'
+      })
+    );
+    expect(upsertThumbnailMetadataMock).toHaveBeenCalledWith(
+      expect.objectContaining({
+        status: 'READY',
+        sourceContentType: 'application/octet-stream'
+      })
+    );
+  });
+
+  it('marks octet-stream payload as unsupported when bytes are not HEIC', async () => {
+    getObjectBytesMock.mockResolvedValue(new Uint8Array([1, 2, 3, 4]));
+
+    const { handler } = await import('../handlers/generateThumbnail.js');
+    await handler(
+      baseEvent({
+        ...baseJob,
+        contentType: 'application/octet-stream'
+      })
+    );
+
+    expect(putObjectBytesMock).not.toHaveBeenCalled();
+    expect(upsertThumbnailMetadataMock).toHaveBeenCalledWith(
+      expect.objectContaining({
+        status: 'UNSUPPORTED',
+        sourceContentType: 'application/octet-stream'
+      })
+    );
   });
 
   it('creates thumbnail and writes READY metadata for images', async () => {
@@ -236,7 +296,8 @@ describe('generateThumbnail handler', () => {
   it('skips generation when matching READY metadata already exists', async () => {
     getThumbnailMetadataMock.mockResolvedValue({
       status: 'READY',
-      sourceEtag: 'etag-1'
+      sourceEtag: 'etag-1',
+      thumbnailKey: 'dock-1/thumbnails/file-1/v-etag-1.jpg'
     });
 
     const { handler } = await import('../handlers/generateThumbnail.js');
@@ -245,5 +306,102 @@ describe('generateThumbnail handler', () => {
     expect(getObjectBytesMock).not.toHaveBeenCalled();
     expect(putObjectBytesMock).not.toHaveBeenCalled();
     expect(upsertThumbnailMetadataMock).not.toHaveBeenCalled();
+  });
+
+  it('regenerates when READY metadata exists but thumbnail object is missing', async () => {
+    getThumbnailMetadataMock.mockResolvedValue({
+      status: 'READY',
+      sourceEtag: 'etag-1',
+      thumbnailKey: 'dock-1/thumbnails/file-1/v-etag-1.jpg'
+    });
+    objectExistsMock.mockResolvedValue(false);
+
+    const { handler } = await import('../handlers/generateThumbnail.js');
+    await handler(baseEvent(baseJob));
+
+    expect(getObjectBytesMock).toHaveBeenCalledWith('dock-1/file-1');
+    expect(putObjectBytesMock).toHaveBeenCalledTimes(1);
+    expect(upsertThumbnailMetadataMock).toHaveBeenCalledWith(
+      expect.objectContaining({
+        status: 'READY',
+        thumbnailKey: 'dock-1/thumbnails/file-1/v-etag-1.jpg'
+      })
+    );
+  });
+
+  it('falls back to HEIC conversion when sharp cannot decode HEIC source', async () => {
+    sharpToBufferMock.mockRejectedValueOnce(new Error('unsupported image format'));
+    heicConvertMock.mockResolvedValueOnce(Buffer.from([1, 2, 3]));
+
+    const { handler } = await import('../handlers/generateThumbnail.js');
+    await handler(
+      baseEvent({
+        ...baseJob,
+        contentType: 'image/heic'
+      })
+    );
+
+    expect(heicConvertMock).toHaveBeenCalledWith(
+      expect.objectContaining({
+        format: 'JPEG'
+      })
+    );
+    expect(putObjectBytesMock).toHaveBeenCalledTimes(1);
+    expect(upsertThumbnailMetadataMock).toHaveBeenCalledWith(
+      expect.objectContaining({
+        status: 'READY',
+        sourceContentType: 'image/heic'
+      })
+    );
+  });
+
+  it('falls back to HEIC conversion when sharp reports missing HEIF compression plugin', async () => {
+    sharpToBufferMock.mockRejectedValueOnce(
+      new Error('heif: Error while loading plugin: Support for this compression format has not been built in')
+    );
+    heicConvertMock.mockResolvedValueOnce(Buffer.from([1, 2, 3]));
+
+    const { handler } = await import('../handlers/generateThumbnail.js');
+    await handler(
+      baseEvent({
+        ...baseJob,
+        contentType: 'image/heic'
+      })
+    );
+
+    expect(heicConvertMock).toHaveBeenCalledTimes(1);
+    expect(putObjectBytesMock).toHaveBeenCalledTimes(1);
+    expect(upsertThumbnailMetadataMock).toHaveBeenCalledWith(
+      expect.objectContaining({
+        status: 'READY',
+        sourceContentType: 'image/heic'
+      })
+    );
+  });
+
+  it('retries previously unsupported HEIC for same etag after support is added', async () => {
+    getThumbnailMetadataMock.mockResolvedValue({
+      status: 'UNSUPPORTED',
+      sourceEtag: 'etag-1'
+    });
+    sharpToBufferMock.mockRejectedValueOnce(new Error('unsupported image format'));
+    heicConvertMock.mockResolvedValueOnce(Buffer.from([1, 2, 3]));
+
+    const { handler } = await import('../handlers/generateThumbnail.js');
+    await handler(
+      baseEvent({
+        ...baseJob,
+        contentType: 'image/heic'
+      })
+    );
+
+    expect(heicConvertMock).toHaveBeenCalledTimes(1);
+    expect(putObjectBytesMock).toHaveBeenCalledTimes(1);
+    expect(upsertThumbnailMetadataMock).toHaveBeenCalledWith(
+      expect.objectContaining({
+        status: 'READY',
+        sourceContentType: 'image/heic'
+      })
+    );
   });
 });

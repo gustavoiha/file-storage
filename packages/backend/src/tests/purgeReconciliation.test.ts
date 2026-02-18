@@ -1,8 +1,16 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
-const { sendMock, purgeObjectVersionsMock, markFileNodePurgedMock } = vi.hoisted(() => ({
+const {
+  sendMock,
+  purgeObjectVersionsMock,
+  purgeObjectVersionsByPrefixMock,
+  buildThumbnailObjectPrefixMock,
+  markFileNodePurgedMock
+} = vi.hoisted(() => ({
   sendMock: vi.fn(),
   purgeObjectVersionsMock: vi.fn(),
+  purgeObjectVersionsByPrefixMock: vi.fn(),
+  buildThumbnailObjectPrefixMock: vi.fn(),
   markFileNodePurgedMock: vi.fn()
 }));
 
@@ -13,7 +21,9 @@ vi.mock('../lib/clients.js', () => ({
 }));
 
 vi.mock('../lib/s3.js', () => ({
-  purgeObjectVersions: purgeObjectVersionsMock
+  purgeObjectVersions: purgeObjectVersionsMock,
+  purgeObjectVersionsByPrefix: purgeObjectVersionsByPrefixMock,
+  buildThumbnailObjectPrefix: buildThumbnailObjectPrefixMock
 }));
 
 vi.mock('../lib/repository.js', () => ({
@@ -25,7 +35,12 @@ beforeEach(() => {
   process.env.BUCKET_NAME = 'bucket';
   sendMock.mockReset();
   purgeObjectVersionsMock.mockReset();
+  purgeObjectVersionsByPrefixMock.mockReset();
+  buildThumbnailObjectPrefixMock.mockReset();
   markFileNodePurgedMock.mockReset();
+  buildThumbnailObjectPrefixMock.mockImplementation(
+    (dockspaceId: string, fileNodeId: string) => `${dockspaceId}/thumbnails/${fileNodeId}/`
+  );
   vi.useRealTimers();
   vi.resetModules();
 });
@@ -79,6 +94,11 @@ describe('purgeReconciliation handler', () => {
         deletedVersionCount: 2,
         remainingVersionCount: 0
       });
+    purgeObjectVersionsByPrefixMock.mockResolvedValue({
+      discoveredVersionCount: 1,
+      deletedVersionCount: 1,
+      remainingVersionCount: 0
+    });
     markFileNodePurgedMock.mockResolvedValue(undefined);
 
     const { handler } = await import('../handlers/purgeReconciliation.js');
@@ -99,6 +119,8 @@ describe('purgeReconciliation handler', () => {
     );
 
     expect(purgeObjectVersionsMock).toHaveBeenCalledTimes(2);
+    expect(purgeObjectVersionsByPrefixMock).toHaveBeenCalledTimes(1);
+    expect(buildThumbnailObjectPrefixMock).toHaveBeenCalledWith('dock-2', 'file-2');
     expect(markFileNodePurgedMock).toHaveBeenCalledTimes(1);
     expect(markFileNodePurgedMock).toHaveBeenCalledWith({
       userId: 'user-2',
@@ -166,6 +188,11 @@ describe('purgeReconciliation handler', () => {
       deletedVersionCount: 1,
       remainingVersionCount: 0
     });
+    purgeObjectVersionsByPrefixMock.mockResolvedValue({
+      discoveredVersionCount: 0,
+      deletedVersionCount: 0,
+      remainingVersionCount: 0
+    });
     markFileNodePurgedMock.mockResolvedValue(undefined);
 
     const { handler } = await import('../handlers/purgeReconciliation.js');
@@ -183,6 +210,7 @@ describe('purgeReconciliation handler', () => {
     });
 
     expect(markFileNodePurgedMock).toHaveBeenCalledTimes(2);
+    expect(purgeObjectVersionsByPrefixMock).toHaveBeenCalledTimes(2);
   });
 
   it('skips items with invalid partition keys', async () => {
@@ -203,6 +231,7 @@ describe('purgeReconciliation handler', () => {
     const response = await handler({} as never);
 
     expect(purgeObjectVersionsMock).not.toHaveBeenCalled();
+    expect(purgeObjectVersionsByPrefixMock).not.toHaveBeenCalled();
     expect(markFileNodePurgedMock).not.toHaveBeenCalled();
     expect(response.body).toBe(JSON.stringify({ processed: 0 }));
   });
@@ -233,7 +262,49 @@ describe('purgeReconciliation handler', () => {
     const response = await handler({} as never);
 
     expect(purgeObjectVersionsMock).not.toHaveBeenCalled();
+    expect(purgeObjectVersionsByPrefixMock).not.toHaveBeenCalled();
     expect(markFileNodePurgedMock).not.toHaveBeenCalled();
     expect(response.body).toBe(JSON.stringify({ processed: 0 }));
+  });
+
+  it('skips mark as purged when thumbnail versions remain', async () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date('2026-02-15T12:00:00.000Z'));
+
+    sendMock
+      .mockResolvedValueOnce({
+        Items: [
+          {
+            PK: 'U#user-1#S#dock-1',
+            SK: 'L#file-1',
+            s3Key: 'key-1'
+          }
+        ]
+      })
+      .mockResolvedValueOnce({
+        Item: {
+          PK: 'U#user-1#S#dock-1',
+          SK: 'L#file-1',
+          s3Key: 'key-1',
+          deletedAt: '2026-02-01T00:00:00.000Z',
+          flaggedForDeleteAt: '2026-02-15T00:00:00.000Z'
+        }
+      });
+    purgeObjectVersionsMock.mockResolvedValue({
+      discoveredVersionCount: 1,
+      deletedVersionCount: 1,
+      remainingVersionCount: 0
+    });
+    purgeObjectVersionsByPrefixMock.mockResolvedValue({
+      discoveredVersionCount: 2,
+      deletedVersionCount: 1,
+      remainingVersionCount: 1
+    });
+
+    const { handler } = await import('../handlers/purgeReconciliation.js');
+    const response = await handler({} as never);
+
+    expect(response.body).toBe(JSON.stringify({ processed: 0 }));
+    expect(markFileNodePurgedMock).not.toHaveBeenCalled();
   });
 });

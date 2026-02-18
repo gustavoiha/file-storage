@@ -110,7 +110,7 @@ export class BackendStack extends Stack {
       timeout: Duration.seconds(60),
       memorySize: 1024,
       bundling: {
-        nodeModules: ['sharp', 'ffmpeg-static'],
+        nodeModules: ['sharp', 'ffmpeg-static', 'heic-convert'],
         environment: {
           npm_config_os: 'linux',
           npm_config_cpu: 'x64',
@@ -164,6 +164,8 @@ export class BackendStack extends Stack {
     props.bucket.grantReadWrite(handlers.abortMultipartUpload);
     props.bucket.grantRead(handlers.createDownloadSession);
     props.bucket.grantReadWrite(handlers.confirmUpload);
+    props.bucket.grantRead(handlers.listMedia);
+    props.bucket.grantRead(handlers.listAlbumMedia);
     props.bucket.grantReadWrite(handlers.moveToTrash);
     props.bucket.grantReadWrite(handlers.restoreFile);
     props.bucket.grantReadWrite(handlers.purgeFileNow);

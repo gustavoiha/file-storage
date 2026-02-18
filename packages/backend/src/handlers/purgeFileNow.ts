@@ -4,7 +4,11 @@ import { requireEntitledUser } from '../lib/auth.js';
 import { normalizeFullPath } from '../domain/path.js';
 import { errorResponse, jsonResponse, safeJsonParse } from '../lib/http.js';
 import { findTrashedFileByFullPath, markFileNodePurged } from '../lib/repository.js';
-import { purgeObjectVersions } from '../lib/s3.js';
+import {
+  buildThumbnailObjectPrefix,
+  purgeObjectVersions,
+  purgeObjectVersionsByPrefix
+} from '../lib/s3.js';
 
 const bodySchema = z.object({
   fullPath: z.string().trim().min(2)
@@ -34,6 +38,17 @@ export const handler = async (event: APIGatewayProxyEventV2) => {
     if (purgeResult.remainingVersionCount > 0) {
       return jsonResponse(409, {
         error: 'Could not fully purge object versions from S3',
+        state: 'TRASH'
+      });
+    }
+
+    const fileNodeId = fileNode.SK.startsWith('L#') ? fileNode.SK.slice(2) : fileNode.SK;
+    const thumbnailPurgeResult = await purgeObjectVersionsByPrefix(
+      buildThumbnailObjectPrefix(dockspaceId, fileNodeId)
+    );
+    if (thumbnailPurgeResult.remainingVersionCount > 0) {
+      return jsonResponse(409, {
+        error: 'Could not fully purge thumbnail object versions from S3',
         state: 'TRASH'
       });
     }

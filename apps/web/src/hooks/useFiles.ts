@@ -1,6 +1,7 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useStore } from '@tanstack/react-store';
 import { authStore } from '@/lib/authStore';
+import { ApiError } from '@/lib/apiClient';
 import type { DirectoryChildrenRecord } from '@/lib/apiTypes';
 import {
   createFolder,
@@ -18,6 +19,7 @@ import {
 } from '@/lib/dockspaceApi';
 
 const ROOT_FOLDER_NODE_ID = 'root';
+const BATCH_TRASH_CONCURRENCY = 3;
 
 export const filesQueryKey = (userId: string, dockspaceId: string, parentFolderNodeId: string) =>
   ['files', userId, dockspaceId, parentFolderNodeId] as const;
@@ -107,7 +109,10 @@ export const useUploadFile = (dockspaceId: string, folder: string) => {
         return;
       }
 
-      await queryClient.invalidateQueries({ queryKey: ['files', userId, dockspaceId] });
+      await Promise.all([
+        queryClient.invalidateQueries({ queryKey: ['files', userId, dockspaceId] }),
+        queryClient.invalidateQueries({ queryKey: ['media-duplicates', userId, dockspaceId] })
+      ]);
     }
   });
 };
@@ -167,6 +172,80 @@ export const useMoveToTrash = (dockspaceId: string, folder: string) => {
         queryClient.invalidateQueries({ queryKey: ['files', userId, dockspaceId] }),
         queryClient.invalidateQueries({ queryKey: trashQueryKey(userId, dockspaceId) }),
         queryClient.invalidateQueries({ queryKey: ['media', userId, dockspaceId] }),
+        queryClient.invalidateQueries({ queryKey: ['media-duplicates', userId, dockspaceId] }),
+        queryClient.invalidateQueries({ queryKey: ['albums', userId, dockspaceId] }),
+        queryClient.invalidateQueries({ queryKey: ['album-media', userId, dockspaceId] }),
+        queryClient.invalidateQueries({ queryKey: ['media-albums', userId, dockspaceId] })
+      ]);
+    }
+  });
+};
+
+export interface BatchTrashResult {
+  movedPaths: string[];
+  failed: Array<{ fullPath: string; error: string; statusCode?: number }>;
+}
+
+export const useTrashFilesBatch = (dockspaceId: string) => {
+  const queryClient = useQueryClient();
+  const { session } = useStore(authStore);
+  const userId = session?.userId ?? '';
+
+  return useMutation({
+    mutationFn: async (fullPaths: string[]): Promise<BatchTrashResult> => {
+      const dedupedFullPaths = Array.from(new Set(fullPaths));
+      const movedPaths: string[] = [];
+      const failed: Array<{ fullPath: string; error: string; statusCode?: number }> = [];
+      let cursor = 0;
+
+      const runWorker = async () => {
+        while (cursor < dedupedFullPaths.length) {
+          const nextIndex = cursor;
+          cursor += 1;
+          const fullPath = dedupedFullPaths[nextIndex];
+          if (!fullPath) {
+            continue;
+          }
+
+          try {
+            await moveToTrash(dockspaceId, { fullPath, targetType: 'file' });
+            movedPaths.push(fullPath);
+          } catch (error) {
+            if (error instanceof ApiError && error.statusCode === 404) {
+              continue;
+            }
+
+            failed.push({
+              fullPath,
+              error: error instanceof Error ? error.message : 'Failed to move file to trash.',
+              ...(error instanceof ApiError ? { statusCode: error.statusCode } : {})
+            });
+          }
+        }
+      };
+
+      await Promise.all(
+        Array.from(
+          { length: Math.min(BATCH_TRASH_CONCURRENCY, dedupedFullPaths.length) },
+          async () => await runWorker()
+        )
+      );
+
+      return {
+        movedPaths,
+        failed
+      };
+    },
+    onSuccess: async () => {
+      if (!userId) {
+        return;
+      }
+
+      await Promise.all([
+        queryClient.invalidateQueries({ queryKey: ['files', userId, dockspaceId] }),
+        queryClient.invalidateQueries({ queryKey: trashQueryKey(userId, dockspaceId) }),
+        queryClient.invalidateQueries({ queryKey: ['media', userId, dockspaceId] }),
+        queryClient.invalidateQueries({ queryKey: ['media-duplicates', userId, dockspaceId] }),
         queryClient.invalidateQueries({ queryKey: ['albums', userId, dockspaceId] }),
         queryClient.invalidateQueries({ queryKey: ['album-media', userId, dockspaceId] }),
         queryClient.invalidateQueries({ queryKey: ['media-albums', userId, dockspaceId] })
@@ -249,6 +328,7 @@ export const useRestoreFile = (dockspaceId: string) => {
           queryKey: filesQueryKey(userId, dockspaceId, ROOT_FOLDER_NODE_ID)
         }),
         queryClient.invalidateQueries({ queryKey: ['media', userId, dockspaceId] }),
+        queryClient.invalidateQueries({ queryKey: ['media-duplicates', userId, dockspaceId] }),
         queryClient.invalidateQueries({ queryKey: ['albums', userId, dockspaceId] })
       ]);
     }
@@ -271,6 +351,7 @@ export const usePurgeFileNow = (dockspaceId: string) => {
         queryClient.invalidateQueries({ queryKey: trashQueryKey(userId, dockspaceId) }),
         queryClient.invalidateQueries({ queryKey: purgedQueryKey(userId, dockspaceId) }),
         queryClient.invalidateQueries({ queryKey: ['media', userId, dockspaceId] }),
+        queryClient.invalidateQueries({ queryKey: ['media-duplicates', userId, dockspaceId] }),
         queryClient.invalidateQueries({ queryKey: ['albums', userId, dockspaceId] }),
         queryClient.invalidateQueries({ queryKey: ['album-media', userId, dockspaceId] }),
         queryClient.invalidateQueries({ queryKey: ['media-albums', userId, dockspaceId] })

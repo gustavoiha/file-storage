@@ -11,7 +11,9 @@ import { HttpLambdaIntegration } from 'aws-cdk-lib/aws-apigatewayv2-integrations
 import { Rule, Schedule } from 'aws-cdk-lib/aws-events';
 import { LambdaFunction } from 'aws-cdk-lib/aws-events-targets';
 import { Runtime } from 'aws-cdk-lib/aws-lambda';
-import { NodejsFunction } from 'aws-cdk-lib/aws-lambda-nodejs';
+import { SqsEventSource } from 'aws-cdk-lib/aws-lambda-event-sources';
+import { NodejsFunction, type NodejsFunctionProps } from 'aws-cdk-lib/aws-lambda-nodejs';
+import { Queue } from 'aws-cdk-lib/aws-sqs';
 import type { UserPool, UserPoolClient } from 'aws-cdk-lib/aws-cognito';
 import type { Table } from 'aws-cdk-lib/aws-dynamodb';
 import type { Bucket } from 'aws-cdk-lib/aws-s3';
@@ -38,18 +40,37 @@ export class BackendStack extends Stack {
     const currentDir = path.dirname(currentFilePath);
     const backendRoot = path.resolve(currentDir, '../../../../packages/backend/src/handlers');
 
-    const createHandler = (name: string): NodejsFunction =>
+    const thumbnailJobsDlq = new Queue(this, 'ThumbnailJobsDlq', {
+      retentionPeriod: Duration.days(14)
+    });
+    const thumbnailJobsQueue = new Queue(this, 'ThumbnailJobsQueue', {
+      visibilityTimeout: Duration.seconds(180),
+      retentionPeriod: Duration.days(4),
+      deadLetterQueue: {
+        queue: thumbnailJobsDlq,
+        maxReceiveCount: 3
+      }
+    });
+
+    const baseHandlerEnvironment = {
+      TABLE_NAME: props.table.tableName,
+      BUCKET_NAME: props.bucket.bucketName,
+      TRASH_RETENTION_DAYS: '30',
+      ENTITLED_GROUP_NAME: props.entitledGroupName,
+      THUMBNAIL_QUEUE_URL: thumbnailJobsQueue.queueUrl
+    };
+
+    const createHandler = (name: string, overrides?: Partial<NodejsFunctionProps>): NodejsFunction =>
       new NodejsFunction(this, `${name}Fn`, {
         runtime: Runtime.NODEJS_22_X,
         entry: path.join(backendRoot, `${name}.ts`),
         handler: 'handler',
         timeout: Duration.seconds(30),
         memorySize: 512,
+        ...overrides,
         environment: {
-          TABLE_NAME: props.table.tableName,
-          BUCKET_NAME: props.bucket.bucketName,
-          TRASH_RETENTION_DAYS: '30',
-          ENTITLED_GROUP_NAME: props.entitledGroupName
+          ...baseHandlerEnvironment,
+          ...(overrides?.environment ?? {})
         }
       });
 
@@ -75,6 +96,7 @@ export class BackendStack extends Stack {
       listTrash: createHandler('listTrash'),
       listPurged: createHandler('listPurged'),
       listMedia: createHandler('listMedia'),
+      listMediaDuplicates: createHandler('listMediaDuplicates'),
       createAlbum: createHandler('createAlbum'),
       listAlbums: createHandler('listAlbums'),
       renameAlbum: createHandler('renameAlbum'),
@@ -84,6 +106,23 @@ export class BackendStack extends Stack {
       listAlbumMedia: createHandler('listAlbumMedia'),
       listMediaAlbums: createHandler('listMediaAlbums')
     };
+    const generateThumbnail = createHandler('generateThumbnail', {
+      timeout: Duration.seconds(60),
+      memorySize: 1024,
+      bundling: {
+        nodeModules: ['sharp', 'ffmpeg-static'],
+        environment: {
+          npm_config_os: 'linux',
+          npm_config_cpu: 'x64',
+          npm_config_libc: 'glibc',
+          npm_config_include: 'optional'
+        }
+      },
+      environment: {
+        THUMBNAIL_DLQ_URL: thumbnailJobsDlq.queueUrl,
+        THUMBNAIL_MAX_ATTEMPTS: '8'
+      }
+    });
 
     const purgeReconciliation = createHandler('purgeReconciliation');
 
@@ -106,6 +145,7 @@ export class BackendStack extends Stack {
     props.table.grantReadWriteData(handlers.listTrash);
     props.table.grantReadWriteData(handlers.listPurged);
     props.table.grantReadWriteData(handlers.listMedia);
+    props.table.grantReadWriteData(handlers.listMediaDuplicates);
     props.table.grantReadWriteData(handlers.createAlbum);
     props.table.grantReadWriteData(handlers.listAlbums);
     props.table.grantReadWriteData(handlers.renameAlbum);
@@ -114,6 +154,7 @@ export class BackendStack extends Stack {
     props.table.grantReadWriteData(handlers.removeAlbumMedia);
     props.table.grantReadWriteData(handlers.listAlbumMedia);
     props.table.grantReadWriteData(handlers.listMediaAlbums);
+    props.table.grantReadWriteData(generateThumbnail);
     props.table.grantReadWriteData(purgeReconciliation);
 
     props.bucket.grantReadWrite(handlers.createUploadSession);
@@ -126,7 +167,19 @@ export class BackendStack extends Stack {
     props.bucket.grantReadWrite(handlers.moveToTrash);
     props.bucket.grantReadWrite(handlers.restoreFile);
     props.bucket.grantReadWrite(handlers.purgeFileNow);
+    props.bucket.grantReadWrite(generateThumbnail);
     props.bucket.grantReadWrite(purgeReconciliation);
+
+    thumbnailJobsQueue.grantSendMessages(handlers.confirmUpload);
+    thumbnailJobsQueue.grantSendMessages(handlers.completeMultipartUpload);
+    thumbnailJobsQueue.grantSendMessages(generateThumbnail);
+    thumbnailJobsDlq.grantSendMessages(generateThumbnail);
+
+    generateThumbnail.addEventSource(
+      new SqsEventSource(thumbnailJobsQueue, {
+        batchSize: 5
+      })
+    );
 
     this.api = new HttpApi(this, 'HttpApi', {
       corsPreflight: {
@@ -312,6 +365,16 @@ export class BackendStack extends Stack {
       path: '/dockspaces/{dockspaceId}/media',
       methods: [HttpMethod.GET],
       integration: new HttpLambdaIntegration('ListMediaIntegration', handlers.listMedia),
+      authorizer
+    });
+
+    this.api.addRoutes({
+      path: '/dockspaces/{dockspaceId}/media/duplicates',
+      methods: [HttpMethod.GET],
+      integration: new HttpLambdaIntegration(
+        'ListMediaDuplicatesIntegration',
+        handlers.listMediaDuplicates
+      ),
       authorizer
     });
 

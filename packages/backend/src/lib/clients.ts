@@ -2,6 +2,7 @@ import { CognitoIdentityProviderClient } from '@aws-sdk/client-cognito-identity-
 import { DynamoDBClient } from '@aws-sdk/client-dynamodb';
 import { DynamoDBDocumentClient } from '@aws-sdk/lib-dynamodb';
 import { S3Client } from '@aws-sdk/client-s3';
+import { SQSClient } from '@aws-sdk/client-sqs';
 import { SSMClient } from '@aws-sdk/client-ssm';
 
 const dynamo = new DynamoDBClient({});
@@ -16,5 +17,6 @@ export const s3Client = new S3Client({
   // can fail with 403 when a presigned checksum is present but not matched.
   requestChecksumCalculation: 'WHEN_REQUIRED'
 });
+export const sqsClient = new SQSClient({});
 export const ssmClient = new SSMClient({});
 export const cognitoIdentityProviderClient = new CognitoIdentityProviderClient({});

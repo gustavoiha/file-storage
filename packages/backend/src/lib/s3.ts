@@ -177,6 +177,30 @@ const toNodeReadable = (body: unknown): Readable | null => {
   return null;
 };
 
+const readObjectBodyAsBytes = async (body: unknown, key: string): Promise<Uint8Array> => {
+  const readable = toNodeReadable(body);
+  if (readable) {
+    const chunks: Buffer[] = [];
+    for await (const chunk of readable) {
+      if (chunk instanceof Uint8Array) {
+        chunks.push(Buffer.from(chunk));
+        continue;
+      }
+
+      chunks.push(Buffer.from(String(chunk)));
+    }
+
+    return new Uint8Array(Buffer.concat(chunks));
+  }
+
+  const transformer = (body as { transformToByteArray?: () => Promise<Uint8Array> }).transformToByteArray;
+  if (!transformer) {
+    throw new Error(`Unable to read object body for key "${key}"`);
+  }
+
+  return await transformer.call(body);
+};
+
 export const computeObjectSha256Hex = async (key: string): Promise<string> => {
   const response = await s3Client.send(
     new GetObjectCommand({
@@ -191,23 +215,53 @@ export const computeObjectSha256Hex = async (key: string): Promise<string> => {
   }
 
   const hash = createHash('sha256');
-  const readable = toNodeReadable(body);
-  if (readable) {
-    for await (const chunk of readable) {
-      hash.update(chunk);
-    }
-
-    return hash.digest('hex');
-  }
-
-  const transformer = (body as { transformToByteArray?: () => Promise<Uint8Array> }).transformToByteArray;
-  if (!transformer) {
-    throw new Error(`Unable to read object body for key "${key}"`);
-  }
-
-  hash.update(await transformer.call(body));
+  hash.update(await readObjectBodyAsBytes(body, key));
   return hash.digest('hex');
 };
+
+export const getObjectBytes = async (key: string): Promise<Uint8Array> => {
+  const response = await s3Client.send(
+    new GetObjectCommand({
+      Bucket: env.bucketName,
+      Key: key
+    })
+  );
+
+  const body = response.Body;
+  if (!body) {
+    throw new Error(`Object body missing for key "${key}"`);
+  }
+
+  return readObjectBodyAsBytes(body, key);
+};
+
+export const putObjectBytes = async (params: {
+  key: string;
+  body: Uint8Array;
+  contentType: string;
+  cacheControl?: string;
+}): Promise<void> => {
+  await s3Client.send(
+    new PutObjectCommand({
+      Bucket: env.bucketName,
+      Key: params.key,
+      Body: params.body,
+      ContentType: params.contentType,
+      CacheControl: params.cacheControl,
+      StorageClass: StorageClass.INTELLIGENT_TIERING
+    })
+  );
+};
+
+const normalizeEtagForObjectKey = (etag: string): string =>
+  etag.replace(/"/g, '').replace(/[^A-Za-z0-9._-]/g, '_');
+
+export const buildThumbnailObjectKey = (
+  dockspaceId: string,
+  fileNodeId: string,
+  sourceEtag: string
+): string =>
+  `${dockspaceId}/thumbnails/${fileNodeId}/v-${normalizeEtagForObjectKey(sourceEtag)}.jpg`;
 
 export const deleteObjectIfExists = async (key: string): Promise<void> => {
   try {

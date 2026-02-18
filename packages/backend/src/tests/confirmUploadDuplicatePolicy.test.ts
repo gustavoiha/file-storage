@@ -4,23 +4,29 @@ import type { APIGatewayProxyEventV2 } from 'aws-lambda';
 const {
   requireEntitledUserMock,
   getDockspaceByIdMock,
+  hasActiveMediaWithContentHashMock,
   resolveFileByFullPathMock,
   upsertActiveFileByPathMock,
   buildObjectKeyMock,
   parseObjectKeyMock,
   objectExistsMock,
   computeObjectSha256HexMock,
-  deleteObjectIfExistsMock
+  deleteObjectIfExistsMock,
+  buildThumbnailJobMock,
+  enqueueThumbnailJobIfConfiguredMock
 } = vi.hoisted(() => ({
   requireEntitledUserMock: vi.fn(),
   getDockspaceByIdMock: vi.fn(),
+  hasActiveMediaWithContentHashMock: vi.fn(),
   resolveFileByFullPathMock: vi.fn(),
   upsertActiveFileByPathMock: vi.fn(),
   buildObjectKeyMock: vi.fn(),
   parseObjectKeyMock: vi.fn(),
   objectExistsMock: vi.fn(),
   computeObjectSha256HexMock: vi.fn(),
-  deleteObjectIfExistsMock: vi.fn()
+  deleteObjectIfExistsMock: vi.fn(),
+  buildThumbnailJobMock: vi.fn(),
+  enqueueThumbnailJobIfConfiguredMock: vi.fn()
 }));
 
 vi.mock('../lib/auth.js', () => ({
@@ -29,6 +35,7 @@ vi.mock('../lib/auth.js', () => ({
 
 vi.mock('../lib/repository.js', () => ({
   getDockspaceById: getDockspaceByIdMock,
+  hasActiveMediaWithContentHash: hasActiveMediaWithContentHashMock,
   resolveFileByFullPath: resolveFileByFullPathMock,
   upsertActiveFileByPath: upsertActiveFileByPathMock
 }));
@@ -39,6 +46,11 @@ vi.mock('../lib/s3.js', () => ({
   objectExists: objectExistsMock,
   computeObjectSha256Hex: computeObjectSha256HexMock,
   deleteObjectIfExists: deleteObjectIfExistsMock
+}));
+
+vi.mock('../lib/thumbnailQueue.js', () => ({
+  buildThumbnailJob: buildThumbnailJobMock,
+  enqueueThumbnailJobIfConfigured: enqueueThumbnailJobIfConfiguredMock
 }));
 
 const baseEvent = (body: Record<string, unknown>): APIGatewayProxyEventV2 =>
@@ -79,6 +91,7 @@ beforeEach(() => {
 
   requireEntitledUserMock.mockReset();
   getDockspaceByIdMock.mockReset();
+  hasActiveMediaWithContentHashMock.mockReset();
   resolveFileByFullPathMock.mockReset();
   upsertActiveFileByPathMock.mockReset();
   buildObjectKeyMock.mockReset();
@@ -86,14 +99,19 @@ beforeEach(() => {
   objectExistsMock.mockReset();
   computeObjectSha256HexMock.mockReset();
   deleteObjectIfExistsMock.mockReset();
+  buildThumbnailJobMock.mockReset();
+  enqueueThumbnailJobIfConfiguredMock.mockReset();
 
   requireEntitledUserMock.mockReturnValue({ userId: 'user-1' });
   getDockspaceByIdMock.mockResolvedValue({ dockspaceId: 'dock-1', dockspaceType: 'PHOTOS_VIDEOS' });
+  hasActiveMediaWithContentHashMock.mockResolvedValue(false);
   resolveFileByFullPathMock.mockResolvedValue(null);
   parseObjectKeyMock.mockReturnValue({ fileNodeId: 'new-file' });
   objectExistsMock.mockResolvedValue(true);
   computeObjectSha256HexMock.mockResolvedValue('abc123');
   upsertActiveFileByPathMock.mockResolvedValue({ fileNodeId: 'new-file', fullPath: '/photo.jpg' });
+  buildThumbnailJobMock.mockImplementation((payload) => ({ ...payload, version: 1 }));
+  enqueueThumbnailJobIfConfiguredMock.mockResolvedValue(true);
 
   vi.resetModules();
 });
@@ -118,5 +136,35 @@ describe('confirm upload duplicate policy', () => {
         contentHash: 'abc123'
       })
     );
+    expect(enqueueThumbnailJobIfConfiguredMock).toHaveBeenCalledWith(
+      expect.objectContaining({
+        fileNodeId: 'new-file',
+        s3Key: 'dock-1/new-file',
+        contentType: 'image/jpeg',
+        etag: 'etag-1'
+      })
+    );
+  });
+
+  it('returns content-hash duplicate skip without metadata writes', async () => {
+    hasActiveMediaWithContentHashMock.mockResolvedValue(true);
+
+    const { handler } = await import('../handlers/confirmUpload.js');
+    const response = await handler(
+      baseEvent({
+        fullPath: '/photo.jpg',
+        objectKey: 'dock-1/new-file',
+        size: 10,
+        etag: 'etag-1',
+        contentType: 'image/jpeg'
+      })
+    );
+
+    expect(response.statusCode).toBe(409);
+    expect(response.body).toContain('UPLOAD_SKIPPED_DUPLICATE');
+    expect(response.body).toContain('CONTENT_HASH');
+    expect(deleteObjectIfExistsMock).toHaveBeenCalledWith('dock-1/new-file');
+    expect(upsertActiveFileByPathMock).not.toHaveBeenCalled();
+    expect(enqueueThumbnailJobIfConfiguredMock).not.toHaveBeenCalled();
   });
 });

@@ -239,6 +239,43 @@ Query file nodes (`L#`) under dockspace PK and filter where:
 
 No file bytes pass through Lambda or API Gateway.
 
+### Media Upload Duplicate Contract (`PHOTOS_VIDEOS`)
+
+For media dockspaces, duplicate checks are enforced before upload begins:
+
+* `POST /dockspaces/{dockspaceId}/files/upload-session`
+* `POST /dockspaces/{dockspaceId}/files/multipart/start`
+
+Request requirements:
+
+* `contentHash` is required
+* format: lowercase SHA-256 hex (`64` chars)
+
+Duplicate behavior:
+
+* backend checks `contentHash` against active media hash index records
+* when duplicate exists, backend returns:
+  * HTTP `409`
+  * `code = "UPLOAD_SKIPPED_DUPLICATE"`
+  * `duplicateType = "CONTENT_HASH"`
+* backend does not create upload URL or multipart upload id
+* client treats response as a skipped upload and shows it in the sidebar skipped section
+
+Non-media dockspaces (`GENERIC_FILES`) continue duplicate-by-name behavior.
+
+### Finalize Safety (Race Protection)
+
+Finalize handlers still run a duplicate-by-hash check:
+
+* `POST /dockspaces/{dockspaceId}/files/confirm-upload`
+* `POST /dockspaces/{dockspaceId}/files/multipart/complete`
+
+If a duplicate is detected at finalize time:
+
+* object is deleted from S3
+* metadata is not written/updated
+* duplicate skip payload (`UPLOAD_SKIPPED_DUPLICATE`, `CONTENT_HASH`) is returned
+
 ---
 
 ## 9. Delete (Move to Trash)
@@ -491,6 +528,31 @@ TABLE_NAME=<your-table-name> \
 BUCKET_NAME=<your-bucket-name> \
 BACKFILL_DRY_RUN=false \
 npm run --workspace @dockspace/backend backfill:file-content-hash
+```
+
+Optional controls:
+
+* `BACKFILL_PAGE_SIZE` (default `100`)
+* `BACKFILL_MAX_PAGES` (unset by default; process all pages)
+
+---
+
+## 22. One-Time Backfill For Media Hash Index
+
+When introducing `MEDIA_HASH_INDEX` records (`H#{contentHash}#L#{fileNodeId}`), run:
+
+```bash
+TABLE_NAME=<your-table-name> \
+BACKFILL_DRY_RUN=true \
+npm run --workspace @dockspace/backend backfill:media-hash-index
+```
+
+Then execute the write run:
+
+```bash
+TABLE_NAME=<your-table-name> \
+BACKFILL_DRY_RUN=false \
+npm run --workspace @dockspace/backend backfill:media-hash-index
 ```
 
 Optional controls:

@@ -176,4 +176,36 @@ describe('useDockspaceUploadDialog', () => {
 
     expect(result.current.skippedUploads).toEqual([]);
   });
+
+  it('collects content-hash duplicate skips for media uploads', async () => {
+    const uploadFile = vi.fn(async () => {
+      throw new ApiError('Upload skipped due to duplicate', 409, {
+        code: 'UPLOAD_SKIPPED_DUPLICATE',
+        duplicateType: 'CONTENT_HASH',
+        fullPath: '/docs/duplicate-photo.jpg',
+        reason: 'A media file with the same content already exists in this dockspace.'
+      });
+    });
+    const { result } = renderHook(() =>
+      useDockspaceUploadDialog({
+        currentFolderPath: '/docs',
+        uploadFile
+      })
+    );
+
+    act(() => {
+      result.current.stageFiles([new File(['dup'], 'duplicate-photo.jpg', { type: 'image/jpeg' })]);
+    });
+
+    await waitFor(() => expect(uploadFile).toHaveBeenCalledTimes(1));
+    await waitFor(() => expect(result.current.activeUploads).toHaveLength(0));
+    expect(result.current.validationError).toBeNull();
+    expect(result.current.skippedUploads).toEqual([
+      {
+        fullPath: '/docs/duplicate-photo.jpg',
+        duplicateType: 'CONTENT_HASH',
+        reason: 'A media file with the same content already exists in this dockspace.'
+      }
+    ]);
+  });
 });

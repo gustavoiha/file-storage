@@ -8,6 +8,8 @@
     "backfill:purge-gsi": "npm run build && node dist/scripts/backfillPurgeDueGsi.js",
     "backfill:file-state-index": "npm run build && node dist/scripts/backfillFileStateIndex.js",
     "backfill:file-content-hash": "npm run build && node dist/scripts/backfillFileContentHash.js",
+    "backfill:media-hash-index": "npm run build && node dist/scripts/backfillMediaHashIndex.js",
+    "backfill:media-thumbnails": "npm run build && node dist/scripts/backfillMediaThumbnailJobs.js",
     "backfill:dockspace-metrics": "npm run build && node dist/scripts/backfillDockspaceMetrics.js",
     "typecheck": "tsc -p tsconfig.json --noEmit",
     "test": "vitest run"
@@ -16,9 +18,12 @@
     "@aws-sdk/client-cognito-identity-provider": "^3.882.0",
     "@aws-sdk/client-dynamodb": "^3.882.0",
     "@aws-sdk/client-s3": "^3.882.0",
+    "@aws-sdk/client-sqs": "^3.882.0",
     "@aws-sdk/client-ssm": "^3.882.0",
     "@aws-sdk/lib-dynamodb": "^3.882.0",
     "@aws-sdk/s3-request-presigner": "^3.882.0",
+    "ffmpeg-static": "^5.2.0",
+    "sharp": "^0.34.4",
     "zod": "^3.24.2"
   },
   "devDependencies": {

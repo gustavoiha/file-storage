@@ -4,7 +4,11 @@ import { z } from 'zod';
 import { normalizeFullPath, splitFullPath } from '../domain/path.js';
 import { requireEntitledUser } from '../lib/auth.js';
 import { errorResponse, jsonResponse, safeJsonParse } from '../lib/http.js';
-import { getDockspaceById, resolveFileByFullPath } from '../lib/repository.js';
+import {
+  getDockspaceById,
+  hasActiveMediaWithContentHash,
+  resolveFileByFullPath
+} from '../lib/repository.js';
 import { buildObjectKey, startMultipartUpload } from '../lib/s3.js';
 import { dockspaceTypeFromItem, isMediaContentType, isMediaDockspaceType } from '../types/models.js';
 
@@ -12,11 +16,13 @@ const MIN_PART_SIZE_BYTES = 5 * 1024 * 1024;
 const DEFAULT_PART_SIZE_BYTES = 8 * 1024 * 1024;
 const MAX_MULTIPART_PARTS = 10_000;
 const URL_EXPIRES_IN_SECONDS = 900;
+const CONTENT_HASH_REGEX = /^[a-f0-9]{64}$/;
 
 const bodySchema = z.object({
   fullPath: z.string().trim().min(2),
   contentType: z.string().trim().min(1),
-  size: z.number().int().positive()
+  size: z.number().int().positive(),
+  contentHash: z.string().trim().optional()
 });
 
 const calculatePartSize = (size: number): number => {
@@ -56,6 +62,28 @@ export const handler = async (event: APIGatewayProxyEventV2) => {
       if (splitFullPath(fullPath).folderPath !== '/') {
         return jsonResponse(400, {
           error: 'PHOTOS_VIDEOS dockspaces require uploads at the root path'
+        });
+      }
+
+      const contentHash = parsed.data.contentHash?.toLowerCase();
+      if (!contentHash || !CONTENT_HASH_REGEX.test(contentHash)) {
+        return jsonResponse(400, {
+          error: 'contentHash is required for PHOTOS_VIDEOS uploads and must be a sha256 hex value'
+        });
+      }
+
+      const duplicateByHash = await hasActiveMediaWithContentHash({
+        userId,
+        dockspaceId,
+        contentHash
+      });
+      if (duplicateByHash) {
+        return jsonResponse(409, {
+          error: 'Upload skipped due to duplicate',
+          code: 'UPLOAD_SKIPPED_DUPLICATE',
+          duplicateType: 'CONTENT_HASH',
+          fullPath,
+          reason: 'A media file with the same content already exists in this dockspace.'
         });
       }
     }

@@ -4,12 +4,14 @@ import type { APIGatewayProxyEventV2 } from 'aws-lambda';
 const {
   requireEntitledUserMock,
   getDockspaceByIdMock,
+  hasActiveMediaWithContentHashMock,
   resolveFileByFullPathMock,
   buildObjectKeyMock,
   createUploadUrlMock
 } = vi.hoisted(() => ({
   requireEntitledUserMock: vi.fn(),
   getDockspaceByIdMock: vi.fn(),
+  hasActiveMediaWithContentHashMock: vi.fn(),
   resolveFileByFullPathMock: vi.fn(),
   buildObjectKeyMock: vi.fn(),
   createUploadUrlMock: vi.fn()
@@ -21,6 +23,7 @@ vi.mock('../lib/auth.js', () => ({
 
 vi.mock('../lib/repository.js', () => ({
   getDockspaceById: getDockspaceByIdMock,
+  hasActiveMediaWithContentHash: hasActiveMediaWithContentHashMock,
   resolveFileByFullPath: resolveFileByFullPathMock
 }));
 
@@ -66,10 +69,12 @@ beforeEach(() => {
   process.env.BUCKET_NAME = 'bucket';
   requireEntitledUserMock.mockReset();
   getDockspaceByIdMock.mockReset();
+  hasActiveMediaWithContentHashMock.mockReset();
   resolveFileByFullPathMock.mockReset();
   buildObjectKeyMock.mockReset();
   createUploadUrlMock.mockReset();
   requireEntitledUserMock.mockReturnValue({ userId: 'user-1' });
+  hasActiveMediaWithContentHashMock.mockResolvedValue(false);
   resolveFileByFullPathMock.mockResolvedValue(null);
   buildObjectKeyMock.mockReturnValue('user-1/dockspaces/dock-1/files/file-1');
   createUploadUrlMock.mockResolvedValue('https://upload.example');
@@ -134,6 +139,47 @@ describe('media upload policy', () => {
       'user-1/dockspaces/dock-1/files/file-1',
       'text/plain'
     );
+  });
+
+  it('requires contentHash for PHOTOS_VIDEOS dockspaces', async () => {
+    getDockspaceByIdMock.mockResolvedValue({
+      dockspaceId: 'dock-1',
+      dockspaceType: 'PHOTOS_VIDEOS'
+    });
+
+    const { handler } = await import('../handlers/createUploadSession.js');
+    const response = await handler(
+      baseEvent({
+        fullPath: '/photo.jpg',
+        contentType: 'image/jpeg'
+      })
+    );
+
+    expect(response.statusCode).toBe(400);
+    expect(response.body).toContain('contentHash is required');
+    expect(createUploadUrlMock).not.toHaveBeenCalled();
+  });
+
+  it('returns duplicate skip for PHOTOS_VIDEOS when same content hash already exists', async () => {
+    getDockspaceByIdMock.mockResolvedValue({
+      dockspaceId: 'dock-1',
+      dockspaceType: 'PHOTOS_VIDEOS'
+    });
+    hasActiveMediaWithContentHashMock.mockResolvedValue(true);
+
+    const { handler } = await import('../handlers/createUploadSession.js');
+    const response = await handler(
+      baseEvent({
+        fullPath: '/photo.jpg',
+        contentType: 'image/jpeg',
+        contentHash: 'aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa'
+      })
+    );
+
+    expect(response.statusCode).toBe(409);
+    expect(response.body).toContain('UPLOAD_SKIPPED_DUPLICATE');
+    expect(response.body).toContain('CONTENT_HASH');
+    expect(createUploadUrlMock).not.toHaveBeenCalled();
   });
 
   it('returns duplicate skip for GENERIC_FILES when same fullPath already exists', async () => {

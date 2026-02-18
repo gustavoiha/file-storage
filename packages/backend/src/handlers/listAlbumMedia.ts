@@ -6,8 +6,10 @@ import {
   findFileNodeById,
   fullPathFromFileNode,
   getAlbumById,
-  listAlbumMemberships
+  listAlbumMemberships,
+  listThumbnailMetadata
 } from '../lib/repository.js';
+import { createDownloadUrl } from '../lib/s3.js';
 import type { FileNodeItem } from '../types/models.js';
 import { fileStateFromNode, isMediaContentType } from '../types/models.js';
 
@@ -49,15 +51,46 @@ export const handler = async (event: APIGatewayProxyEventV2) => {
       return fileStateFromNode(fileNode) === 'ACTIVE' && isMediaContentType(fileNode.contentType);
     });
 
-    const items = await Promise.all(
+    const baseItems = await Promise.all(
       activeMediaNodes.map(async (fileNode) => ({
         fileNodeId: fileNodeIdFromSk(fileNode.SK),
         fullPath: await fullPathFromFileNode(userId, dockspaceId, fileNode),
         size: fileNode.size,
         contentType: fileNode.contentType,
+        contentHash: fileNode.contentHash,
         updatedAt: fileNode.updatedAt,
         state: 'ACTIVE' as const
       }))
+    );
+    const thumbnailMetadataItems = await listThumbnailMetadata(userId, dockspaceId);
+    const thumbnailByFileNodeId = new Map(
+      thumbnailMetadataItems.map((item) => [item.fileNodeId, item] as const)
+    );
+    const items = await Promise.all(
+      baseItems.map(async (item) => {
+        const thumbnailMetadata = thumbnailByFileNodeId.get(item.fileNodeId);
+        if (
+          !thumbnailMetadata ||
+          thumbnailMetadata.status !== 'READY' ||
+          !thumbnailMetadata.thumbnailKey
+        ) {
+          return item;
+        }
+
+        return {
+          ...item,
+          thumbnail: {
+            url: await createDownloadUrl(thumbnailMetadata.thumbnailKey),
+            contentType: thumbnailMetadata.thumbnailContentType ?? 'image/jpeg',
+            ...(typeof thumbnailMetadata.width === 'number'
+              ? { width: thumbnailMetadata.width }
+              : {}),
+            ...(typeof thumbnailMetadata.height === 'number'
+              ? { height: thumbnailMetadata.height }
+              : {})
+          }
+        };
+      })
     );
 
     items.sort((left, right) => right.updatedAt.localeCompare(left.updatedAt));

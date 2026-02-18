@@ -5,12 +5,19 @@ import { requireEntitledUser } from '../lib/auth.js';
 import { normalizeFullPath, splitFullPath } from '../domain/path.js';
 import { errorResponse, jsonResponse, safeJsonParse } from '../lib/http.js';
 import { buildObjectKey, createUploadUrl } from '../lib/s3.js';
-import { getDockspaceById, resolveFileByFullPath } from '../lib/repository.js';
+import {
+  getDockspaceById,
+  hasActiveMediaWithContentHash,
+  resolveFileByFullPath
+} from '../lib/repository.js';
 import { dockspaceTypeFromItem, isMediaContentType, isMediaDockspaceType } from '../types/models.js';
+
+const CONTENT_HASH_REGEX = /^[a-f0-9]{64}$/;
 
 const bodySchema = z.object({
   fullPath: z.string().trim().min(2),
-  contentType: z.string().trim().min(1)
+  contentType: z.string().trim().min(1),
+  contentHash: z.string().trim().optional()
 });
 
 export const handler = async (event: APIGatewayProxyEventV2) => {
@@ -44,6 +51,28 @@ export const handler = async (event: APIGatewayProxyEventV2) => {
       if (splitFullPath(normalizedFullPath).folderPath !== '/') {
         return jsonResponse(400, {
           error: 'PHOTOS_VIDEOS dockspaces require uploads at the root path'
+        });
+      }
+
+      const contentHash = parsed.data.contentHash?.toLowerCase();
+      if (!contentHash || !CONTENT_HASH_REGEX.test(contentHash)) {
+        return jsonResponse(400, {
+          error: 'contentHash is required for PHOTOS_VIDEOS uploads and must be a sha256 hex value'
+        });
+      }
+
+      const duplicateByHash = await hasActiveMediaWithContentHash({
+        userId,
+        dockspaceId,
+        contentHash
+      });
+      if (duplicateByHash) {
+        return jsonResponse(409, {
+          error: 'Upload skipped due to duplicate',
+          code: 'UPLOAD_SKIPPED_DUPLICATE',
+          duplicateType: 'CONTENT_HASH',
+          fullPath: normalizedFullPath,
+          reason: 'A media file with the same content already exists in this dockspace.'
         });
       }
     }

@@ -1,4 +1,4 @@
-import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { useInfiniteQuery, useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useStore } from '@tanstack/react-store';
 import { authStore } from '@/lib/authStore';
 import {
@@ -8,6 +8,7 @@ import {
   listAlbumMedia,
   listAlbums,
   listMedia,
+  listMediaDuplicates,
   listMediaAlbums,
   removeAlbumMedia,
   renameAlbum
@@ -25,6 +26,9 @@ export const albumMediaQueryKey = (userId: string, dockspaceId: string, albumId:
 export const mediaAlbumsQueryKey = (userId: string, dockspaceId: string, fileNodeId: string) =>
   ['media-albums', userId, dockspaceId, fileNodeId] as const;
 
+export const mediaDuplicatesQueryKey = (userId: string, dockspaceId: string, pageSize: number) =>
+  ['media-duplicates', userId, dockspaceId, pageSize] as const;
+
 export const useMediaFiles = (dockspaceId: string) => {
   const { session } = useStore(authStore);
   const userId = session?.userId ?? '';
@@ -33,6 +37,27 @@ export const useMediaFiles = (dockspaceId: string) => {
     queryKey: mediaQueryKey(userId, dockspaceId),
     queryFn: () => listMedia(dockspaceId),
     enabled: Boolean(userId && dockspaceId)
+  });
+};
+
+export const useMediaDuplicates = (
+  dockspaceId: string,
+  pageSize = 20,
+  enabled = true
+) => {
+  const { session } = useStore(authStore);
+  const userId = session?.userId ?? '';
+
+  return useInfiniteQuery({
+    queryKey: mediaDuplicatesQueryKey(userId, dockspaceId, pageSize),
+    queryFn: ({ pageParam }) =>
+      listMediaDuplicates(dockspaceId, {
+        ...(pageParam ? { cursor: String(pageParam) } : {}),
+        limit: pageSize
+      }),
+    initialPageParam: undefined as string | undefined,
+    getNextPageParam: (lastPage) => lastPage.nextCursor,
+    enabled: Boolean(userId && dockspaceId && enabled)
   });
 };
 

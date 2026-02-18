@@ -1,4 +1,5 @@
 export type FileState = 'ACTIVE' | 'TRASH' | 'PURGED';
+export type ThumbnailStatus = 'READY' | 'UNSUPPORTED' | 'FAILED';
 export const DOCKSPACE_TYPES = ['GENERIC_FILES', 'PHOTOS_VIDEOS'] as const;
 export type DockspaceType = (typeof DOCKSPACE_TYPES)[number];
 export const DEFAULT_DOCKSPACE_TYPE: DockspaceType = 'GENERIC_FILES';
@@ -98,6 +99,36 @@ export interface MediaAlbumLinkItem {
   createdAt: string;
 }
 
+export interface MediaHashIndexItem {
+  PK: string;
+  SK: string;
+  type: 'MEDIA_HASH_INDEX';
+  fileNodeId: string;
+  contentHash: string;
+  updatedAt: string;
+}
+
+export interface ThumbnailMetadataItem {
+  PK: string;
+  SK: string;
+  type: 'THUMBNAIL_METADATA';
+  fileNodeId: string;
+  sourceS3Key: string;
+  sourceEtag: string;
+  sourceContentType: string;
+  status: ThumbnailStatus;
+  thumbnailKey?: string;
+  thumbnailContentType?: string;
+  width?: number;
+  height?: number;
+  size?: number;
+  attempts: number;
+  lastError?: string;
+  generatedAt?: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
 export interface FileStateIndexItem {
   PK: string;
   SK: string;
@@ -146,4 +177,6 @@ export type TableItem =
   | FileStateIndexItem
   | AlbumItem
   | AlbumMembershipItem
-  | MediaAlbumLinkItem;
+  | MediaAlbumLinkItem
+  | MediaHashIndexItem
+  | ThumbnailMetadataItem;

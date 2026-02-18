@@ -45,6 +45,12 @@ export const buildAlbumMembershipPrefix = (albumId: string): string => `AM#${alb
 export const buildMediaAlbumLinkSk = (fileNodeId: string, albumId: string): string =>
   `MA#${fileNodeId}#A#${albumId}`;
 export const buildMediaAlbumLinkPrefix = (fileNodeId: string): string => `MA#${fileNodeId}#A#`;
+export const buildThumbnailMetadataSk = (fileNodeId: string): string => `T#L#${fileNodeId}`;
+export const buildThumbnailMetadataPrefix = (): string => 'T#L#';
+export const buildMediaHashIndexSk = (contentHash: string, fileNodeId: string): string =>
+  `H#${contentHash}#L#${fileNodeId}`;
+export const buildMediaHashIndexPrefix = (contentHash?: string): string =>
+  contentHash ? `H#${contentHash}#L#` : 'H#';
 
 export const buildPurgeDueGsi1Sk = (
   flaggedForDeleteAt: string,

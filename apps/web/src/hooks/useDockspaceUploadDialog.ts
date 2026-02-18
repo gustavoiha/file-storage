@@ -22,7 +22,7 @@ export interface ActiveUploadFile {
 
 export interface SkippedUploadFile {
   fullPath: string;
-  duplicateType: 'NAME';
+  duplicateType: 'NAME' | 'CONTENT_HASH';
   reason: string;
 }
 
@@ -177,7 +177,7 @@ export const useDockspaceUploadDialog = ({
           if (
             error instanceof ApiError &&
             error.code === 'UPLOAD_SKIPPED_DUPLICATE' &&
-            duplicateType === 'NAME'
+            (duplicateType === 'NAME' || duplicateType === 'CONTENT_HASH')
           ) {
             setSkippedUploads((previous) =>
               previous.concat({

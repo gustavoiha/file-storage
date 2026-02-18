@@ -2,10 +2,8 @@ import type { APIGatewayProxyEventV2 } from 'aws-lambda';
 import { requireEntitledUser } from '../lib/auth.js';
 import { ensureMediaDockspace } from '../lib/dockspaceTypeGuards.js';
 import { errorResponse, jsonResponse } from '../lib/http.js';
-import { fullPathFromFileNode, listFileNodes } from '../lib/repository.js';
-import { fileStateFromNode, isMediaContentType } from '../types/models.js';
-
-const fileNodeIdFromSk = (sk: string): string => sk.replace(/^L#/, '');
+import { listActiveMediaItems, listThumbnailMetadata } from '../lib/repository.js';
+import { createDownloadUrl } from '../lib/s3.js';
 
 export const handler = async (event: APIGatewayProxyEventV2) => {
   try {
@@ -21,26 +19,41 @@ export const handler = async (event: APIGatewayProxyEventV2) => {
       return jsonResponse(mediaDockspace.statusCode, { error: mediaDockspace.error });
     }
 
-    const fileNodes = await listFileNodes(userId, dockspaceId);
-    const activeMediaNodes = fileNodes.filter(
-      (fileNode) =>
-        fileStateFromNode(fileNode) === 'ACTIVE' && isMediaContentType(fileNode.contentType)
+    const [items, thumbnailMetadataItems] = await Promise.all([
+      listActiveMediaItems(userId, dockspaceId),
+      listThumbnailMetadata(userId, dockspaceId)
+    ]);
+    const thumbnailByFileNodeId = new Map(
+      thumbnailMetadataItems.map((item) => [item.fileNodeId, item] as const)
     );
-    const items = await Promise.all(
-      activeMediaNodes.map(async (fileNode) => ({
-        fileNodeId: fileNodeIdFromSk(fileNode.SK),
-        fullPath: await fullPathFromFileNode(userId, dockspaceId, fileNode),
-        size: fileNode.size,
-        contentType: fileNode.contentType,
-        contentHash: fileNode.contentHash,
-        updatedAt: fileNode.updatedAt,
-        state: 'ACTIVE' as const
-      }))
+    const itemsWithThumbnails = await Promise.all(
+      items.map(async (item) => {
+        const thumbnailMetadata = thumbnailByFileNodeId.get(item.fileNodeId);
+        if (
+          !thumbnailMetadata ||
+          thumbnailMetadata.status !== 'READY' ||
+          !thumbnailMetadata.thumbnailKey
+        ) {
+          return item;
+        }
+
+        return {
+          ...item,
+          thumbnail: {
+            url: await createDownloadUrl(thumbnailMetadata.thumbnailKey),
+            contentType: thumbnailMetadata.thumbnailContentType ?? 'image/jpeg',
+            ...(typeof thumbnailMetadata.width === 'number'
+              ? { width: thumbnailMetadata.width }
+              : {}),
+            ...(typeof thumbnailMetadata.height === 'number'
+              ? { height: thumbnailMetadata.height }
+              : {})
+          }
+        };
+      })
     );
 
-    items.sort((left, right) => right.updatedAt.localeCompare(left.updatedAt));
-
-    return jsonResponse(200, { items });
+    return jsonResponse(200, { items: itemsWithThumbnails });
   } catch (error) {
     return errorResponse(error);
   }

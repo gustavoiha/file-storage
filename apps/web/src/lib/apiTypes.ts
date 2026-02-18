@@ -24,8 +24,33 @@ export interface MediaFileRecord {
   size: number;
   contentType: string;
   contentHash: string;
+  thumbnail?: {
+    url: string;
+    contentType: string;
+    width?: number;
+    height?: number;
+  };
   updatedAt: string;
   state: 'ACTIVE';
+}
+
+export interface MediaDuplicateGroupRecord {
+  contentHash: string;
+  items: MediaFileRecord[];
+  duplicateCount: number;
+  totalGroupSizeBytes: number;
+  reclaimableBytes: number;
+  defaultKeeperFileNodeId: string;
+}
+
+export interface MediaDuplicatesResponse {
+  items: MediaDuplicateGroupRecord[];
+  summary: {
+    groupCount: number;
+    duplicateItemCount: number;
+    reclaimableBytes: number;
+  };
+  nextCursor?: string;
 }
 
 export interface FileRecord {

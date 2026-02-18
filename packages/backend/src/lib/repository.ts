@@ -21,8 +21,12 @@ import {
   buildDockspaceMetricsSk,
   buildFolderNodeSk,
   buildDockspacePk,
+  buildMediaHashIndexPrefix,
+  buildMediaHashIndexSk,
   buildMediaAlbumLinkPrefix,
   buildMediaAlbumLinkSk,
+  buildThumbnailMetadataPrefix,
+  buildThumbnailMetadataSk,
   buildPurgeDueGsi1Sk,
   PURGE_DUE_GSI1_PK,
   ROOT_FOLDER_NODE_ID,
@@ -45,9 +49,12 @@ import type {
   DockspaceMetricsItem,
   AlbumItem,
   AlbumMembershipItem,
-  MediaAlbumLinkItem
+  MediaAlbumLinkItem,
+  MediaHashIndexItem,
+  ThumbnailMetadataItem,
+  ThumbnailStatus
 } from '../types/models.js';
-import { fileStateFromNode } from '../types/models.js';
+import { fileStateFromNode, isMediaContentType } from '../types/models.js';
 import { dynamoDoc } from './clients.js';
 import { env } from './env.js';
 import { listDirectoryChildrenByParentFolderNodeId as listDirectoryChildrenAction } from './repository/folderChildren.js';
@@ -66,6 +73,44 @@ const buildTrashFileStateIndexSk = (
 
 const buildPurgedFileStateIndexSk = (purgedAt: string, fileNodeId: string): string =>
   buildFileStateIndexSk('PURGED', purgedAt, fileNodeId);
+
+const normalizedContentHashOrNull = (contentHash: string | undefined): string | null => {
+  const normalized = contentHash?.trim();
+  return normalized ? normalized : null;
+};
+
+const buildMediaHashIndexDeleteItem = (params: {
+  filePk: string;
+  fileNodeId: string;
+  contentHash: string;
+}) => ({
+  Delete: {
+    TableName: env.tableName,
+    Key: {
+      PK: params.filePk,
+      SK: buildMediaHashIndexSk(params.contentHash, params.fileNodeId)
+    }
+  }
+});
+
+const buildMediaHashIndexPutItem = (params: {
+  filePk: string;
+  fileNodeId: string;
+  contentHash: string;
+  nowIso: string;
+}) => ({
+  Put: {
+    TableName: env.tableName,
+    Item: {
+      PK: params.filePk,
+      SK: buildMediaHashIndexSk(params.contentHash, params.fileNodeId),
+      type: 'MEDIA_HASH_INDEX',
+      fileNodeId: params.fileNodeId,
+      contentHash: params.contentHash,
+      updatedAt: params.nowIso
+    } as MediaHashIndexItem
+  }
+});
 
 const buildDockspaceMetricsItem = (
   userId: string,
@@ -370,6 +415,338 @@ export const listFileNodes = async (
       ':skPrefix': 'L#'
     }
   });
+
+export interface ThumbnailMetadataRecord {
+  fileNodeId: string;
+  sourceS3Key: string;
+  sourceEtag: string;
+  sourceContentType: string;
+  status: ThumbnailStatus;
+  thumbnailKey?: string;
+  thumbnailContentType?: string;
+  width?: number;
+  height?: number;
+  size?: number;
+  attempts: number;
+  lastError?: string;
+  generatedAt?: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export const getThumbnailMetadata = async (
+  userId: string,
+  dockspaceId: string,
+  fileNodeId: string
+): Promise<ThumbnailMetadataItem | null> => {
+  const response = await dynamoDoc.send(
+    new GetCommand({
+      TableName: env.tableName,
+      Key: {
+        PK: buildFilePk(userId, dockspaceId),
+        SK: buildThumbnailMetadataSk(fileNodeId)
+      }
+    })
+  );
+
+  return (response.Item as ThumbnailMetadataItem | undefined) ?? null;
+};
+
+export const listThumbnailMetadata = async (
+  userId: string,
+  dockspaceId: string
+): Promise<ThumbnailMetadataItem[]> =>
+  queryAll<ThumbnailMetadataItem>({
+    KeyConditionExpression: 'PK = :pk AND begins_with(SK, :skPrefix)',
+    ExpressionAttributeValues: {
+      ':pk': buildFilePk(userId, dockspaceId),
+      ':skPrefix': buildThumbnailMetadataPrefix()
+    }
+  });
+
+export const upsertThumbnailMetadata = async (params: {
+  userId: string;
+  dockspaceId: string;
+  fileNodeId: string;
+  sourceS3Key: string;
+  sourceEtag: string;
+  sourceContentType: string;
+  status: ThumbnailStatus;
+  attempts: number;
+  nowIso: string;
+  thumbnailKey?: string;
+  thumbnailContentType?: string;
+  width?: number;
+  height?: number;
+  size?: number;
+  generatedAt?: string;
+  lastError?: string;
+}): Promise<void> => {
+  const existing = await getThumbnailMetadata(params.userId, params.dockspaceId, params.fileNodeId);
+  const item: ThumbnailMetadataItem = {
+    PK: buildFilePk(params.userId, params.dockspaceId),
+    SK: buildThumbnailMetadataSk(params.fileNodeId),
+    type: 'THUMBNAIL_METADATA',
+    fileNodeId: params.fileNodeId,
+    sourceS3Key: params.sourceS3Key,
+    sourceEtag: params.sourceEtag,
+    sourceContentType: params.sourceContentType,
+    status: params.status,
+    attempts: params.attempts,
+    createdAt: existing?.createdAt ?? params.nowIso,
+    updatedAt: params.nowIso,
+    ...(params.thumbnailKey ? { thumbnailKey: params.thumbnailKey } : {}),
+    ...(params.thumbnailContentType ? { thumbnailContentType: params.thumbnailContentType } : {}),
+    ...(typeof params.width === 'number' ? { width: params.width } : {}),
+    ...(typeof params.height === 'number' ? { height: params.height } : {}),
+    ...(typeof params.size === 'number' ? { size: params.size } : {}),
+    ...(params.generatedAt ? { generatedAt: params.generatedAt } : {}),
+    ...(params.lastError ? { lastError: params.lastError } : {})
+  };
+
+  await dynamoDoc.send(
+    new PutCommand({
+      TableName: env.tableName,
+      Item: item
+    })
+  );
+};
+
+export interface ActiveMediaItemRecord {
+  fileNodeId: string;
+  fullPath: string;
+  size: number;
+  contentType: string;
+  contentHash: string;
+  updatedAt: string;
+  state: 'ACTIVE';
+}
+
+export interface MediaDuplicateGroupRecord {
+  contentHash: string;
+  items: ActiveMediaItemRecord[];
+  duplicateCount: number;
+  totalGroupSizeBytes: number;
+  reclaimableBytes: number;
+  defaultKeeperFileNodeId: string;
+}
+
+export interface ListMediaDuplicateGroupsResult {
+  items: MediaDuplicateGroupRecord[];
+  summary: {
+    groupCount: number;
+    duplicateItemCount: number;
+    reclaimableBytes: number;
+  };
+  nextCursor?: string;
+}
+
+export const listActiveMediaItems = async (
+  userId: string,
+  dockspaceId: string
+): Promise<ActiveMediaItemRecord[]> => {
+  const fileNodes = await listFileNodes(userId, dockspaceId);
+  const activeMediaNodes = fileNodes.filter(
+    (fileNode) =>
+      fileStateFromNode(fileNode) === 'ACTIVE' && isMediaContentType(fileNode.contentType)
+  );
+  const items = await Promise.all(
+    activeMediaNodes.map(async (fileNode) => ({
+      fileNodeId: getFileNodeIdFromSk(fileNode.SK),
+      fullPath: await fullPathFromFileNode(userId, dockspaceId, fileNode),
+      size: fileNode.size,
+      contentType: fileNode.contentType,
+      contentHash: fileNode.contentHash,
+      updatedAt: fileNode.updatedAt,
+      state: 'ACTIVE' as const
+    }))
+  );
+
+  items.sort((left, right) => right.updatedAt.localeCompare(left.updatedAt));
+  return items;
+};
+
+const listMediaHashIndexItems = async (
+  userId: string,
+  dockspaceId: string
+): Promise<MediaHashIndexItem[]> =>
+  queryAll<MediaHashIndexItem>({
+    KeyConditionExpression: 'PK = :pk AND begins_with(SK, :skPrefix)',
+    ExpressionAttributeValues: {
+      ':pk': buildFilePk(userId, dockspaceId),
+      ':skPrefix': buildMediaHashIndexPrefix()
+    }
+  });
+
+export const hasActiveMediaWithContentHash = async (params: {
+  userId: string;
+  dockspaceId: string;
+  contentHash: string;
+}): Promise<boolean> => {
+  const normalizedHash = normalizedContentHashOrNull(params.contentHash);
+  if (!normalizedHash) {
+    return false;
+  }
+
+  const response = await dynamoDoc.send(
+    new QueryCommand({
+      TableName: env.tableName,
+      KeyConditionExpression: 'PK = :pk AND begins_with(SK, :skPrefix)',
+      ExpressionAttributeValues: {
+        ':pk': buildFilePk(params.userId, params.dockspaceId),
+        ':skPrefix': buildMediaHashIndexPrefix(normalizedHash)
+      },
+      Limit: 1
+    })
+  );
+
+  return (response.Items ?? []).length > 0;
+};
+
+export const listMediaDuplicateGroups = async (params: {
+  userId: string;
+  dockspaceId: string;
+  cursor?: string;
+  limit: number;
+}): Promise<ListMediaDuplicateGroupsResult> => {
+  const mediaHashIndexItems = await listMediaHashIndexItems(params.userId, params.dockspaceId);
+  const uniqueFileNodeIds = Array.from(
+    new Set(
+      mediaHashIndexItems
+        .map((item) => item.fileNodeId)
+        .filter((fileNodeId): fileNodeId is string => Boolean(fileNodeId))
+    )
+  );
+  const fileNodes = await Promise.all(
+    uniqueFileNodeIds.map((fileNodeId) =>
+      getFileNodeById(params.userId, params.dockspaceId, fileNodeId)
+    )
+  );
+  const fileNodeById = new Map(
+    uniqueFileNodeIds
+      .map((fileNodeId, index) => [fileNodeId, fileNodes[index] ?? null] as const)
+      .filter((entry): entry is [string, FileNodeItem] => Boolean(entry[1]))
+  );
+  const dedupeKeySet = new Set<string>();
+  const validIndexEntries = mediaHashIndexItems.flatMap((item) => {
+    const fileNodeId = item.fileNodeId;
+    const indexHash = normalizedContentHashOrNull(item.contentHash);
+    if (!fileNodeId || !indexHash) {
+      return [];
+    }
+
+    const fileNode = fileNodeById.get(fileNodeId);
+    if (!fileNode) {
+      return [];
+    }
+
+    if (fileStateFromNode(fileNode) !== 'ACTIVE' || !isMediaContentType(fileNode.contentType)) {
+      return [];
+    }
+
+    const fileHash = normalizedContentHashOrNull(fileNode.contentHash);
+    if (!fileHash || fileHash !== indexHash) {
+      return [];
+    }
+
+    const dedupeKey = `${indexHash}#${fileNodeId}`;
+    if (dedupeKeySet.has(dedupeKey)) {
+      return [];
+    }
+
+    dedupeKeySet.add(dedupeKey);
+    return [
+      {
+        fileNode,
+        fileNodeId,
+        contentHash: indexHash
+      }
+    ];
+  });
+  const items = await Promise.all(
+    validIndexEntries.map(async (entry) => ({
+      fileNodeId: entry.fileNodeId,
+      fullPath: await fullPathFromFileNode(params.userId, params.dockspaceId, entry.fileNode),
+      size: entry.fileNode.size,
+      contentType: entry.fileNode.contentType,
+      contentHash: entry.contentHash,
+      updatedAt: entry.fileNode.updatedAt,
+      state: 'ACTIVE' as const
+    }))
+  );
+  const byHash = new Map<string, ActiveMediaItemRecord[]>();
+
+  for (const item of items) {
+    const contentHash = item.contentHash.trim();
+    if (!contentHash) {
+      continue;
+    }
+
+    const existing = byHash.get(contentHash);
+    if (existing) {
+      existing.push(item);
+      continue;
+    }
+
+    byHash.set(contentHash, [item]);
+  }
+
+  const allGroups = Array.from(byHash.entries())
+    .filter(([, groupItems]) => groupItems.length >= 2)
+    .map(([contentHash, groupItems]) => {
+      const sortedItems = [...groupItems].sort((left, right) => {
+        const updatedAtComparison = right.updatedAt.localeCompare(left.updatedAt);
+        if (updatedAtComparison !== 0) {
+          return updatedAtComparison;
+        }
+
+        return left.fullPath.localeCompare(right.fullPath);
+      });
+      const defaultKeeper = sortedItems[0];
+      const totalGroupSizeBytes = sortedItems.reduce((sum, item) => sum + item.size, 0);
+      const reclaimableBytes = defaultKeeper
+        ? totalGroupSizeBytes - defaultKeeper.size
+        : totalGroupSizeBytes;
+
+      return {
+        contentHash,
+        items: sortedItems,
+        duplicateCount: Math.max(0, sortedItems.length - 1),
+        totalGroupSizeBytes,
+        reclaimableBytes,
+        defaultKeeperFileNodeId: defaultKeeper?.fileNodeId ?? sortedItems[0]?.fileNodeId ?? ''
+      } satisfies MediaDuplicateGroupRecord;
+    })
+    .sort((left, right) => left.contentHash.localeCompare(right.contentHash));
+
+  const cursor = params.cursor;
+  const filteredGroups = cursor
+    ? allGroups.filter((group) => group.contentHash > cursor)
+    : allGroups;
+  const pagedGroups = filteredGroups.slice(0, params.limit);
+  const hasMore = filteredGroups.length > pagedGroups.length;
+  const nextCursor =
+    hasMore && pagedGroups.length ? pagedGroups[pagedGroups.length - 1]?.contentHash : undefined;
+
+  const summary = allGroups.reduce(
+    (result, group) => ({
+      groupCount: result.groupCount + 1,
+      duplicateItemCount: result.duplicateItemCount + group.duplicateCount,
+      reclaimableBytes: result.reclaimableBytes + group.reclaimableBytes
+    }),
+    {
+      groupCount: 0,
+      duplicateItemCount: 0,
+      reclaimableBytes: 0
+    }
+  );
+
+  return {
+    items: pagedGroups,
+    summary,
+    ...(nextCursor ? { nextCursor } : {})
+  };
+};
 
 export const listAlbums = async (userId: string, dockspaceId: string): Promise<AlbumItem[]> => {
   const response = await dynamoDoc.send(
@@ -883,6 +1260,37 @@ export const upsertActiveFileByPath = async (params: {
     const existingSize = existingFileNode?.size ?? params.size;
     const staleStateDeletes: Array<{ Delete: { TableName: string; Key: { PK: string; SK: string } } }> =
       [];
+    const mediaHashIndexWrites: Array<
+      { Put: { TableName: string; Item: MediaHashIndexItem } } | { Delete: { TableName: string; Key: { PK: string; SK: string } } }
+    > = [];
+    const existingMediaHash =
+      existingFileNode && isMediaContentType(existingFileNode.contentType)
+        ? normalizedContentHashOrNull(existingFileNode.contentHash)
+        : null;
+    const nextMediaHash = isMediaContentType(params.contentType)
+      ? normalizedContentHashOrNull(params.contentHash)
+      : null;
+
+    if (existingMediaHash && existingMediaHash !== nextMediaHash) {
+      mediaHashIndexWrites.push(
+        buildMediaHashIndexDeleteItem({
+          filePk,
+          fileNodeId: existingDirectory.childId,
+          contentHash: existingMediaHash
+        })
+      );
+    }
+
+    if (nextMediaHash) {
+      mediaHashIndexWrites.push(
+        buildMediaHashIndexPutItem({
+          filePk,
+          fileNodeId: existingDirectory.childId,
+          contentHash: nextMediaHash,
+          nowIso: params.nowIso
+        })
+      );
+    }
 
     if (existingFileNode?.flaggedForDeleteAt) {
       staleStateDeletes.push({
@@ -966,6 +1374,7 @@ export const upsertActiveFileByPath = async (params: {
             nowIso: params.nowIso,
             setLastUploadAt: true
           }),
+          ...mediaHashIndexWrites,
           ...staleStateDeletes
         ]
       })
@@ -978,6 +1387,9 @@ export const upsertActiveFileByPath = async (params: {
   }
 
   const fileNodeId = params.preferredFileNodeId ?? randomUUID();
+  const nextMediaHash = isMediaContentType(params.contentType)
+    ? normalizedContentHashOrNull(params.contentHash)
+    : null;
 
   await dynamoDoc.send(
     new TransactWriteCommand({
@@ -1027,7 +1439,17 @@ export const upsertActiveFileByPath = async (params: {
           totalSizeBytesDelta: params.size,
           nowIso: params.nowIso,
           setLastUploadAt: true
-        })
+        }),
+        ...(nextMediaHash
+          ? [
+              buildMediaHashIndexPutItem({
+                filePk,
+                fileNodeId,
+                contentHash: nextMediaHash,
+                nowIso: params.nowIso
+              })
+            ]
+          : [])
       ]
     })
   );
@@ -1338,6 +1760,9 @@ export const markResolvedFileNodeTrashed = async (
   const fileNodeId = getFileNodeIdFromSk(resolved.fileNode.SK);
   const gsi1Sk = buildPurgeDueGsi1Sk(flaggedForDeleteAt, filePk, resolved.fileNode.SK);
   const trashStateIndexSk = buildTrashFileStateIndexSk(flaggedForDeleteAt, fileNodeId);
+  const mediaHashToDelete = isMediaContentType(resolved.fileNode.contentType)
+    ? normalizedContentHashOrNull(resolved.fileNode.contentHash)
+    : null;
 
   await dynamoDoc.send(
     new TransactWriteCommand({
@@ -1389,7 +1814,16 @@ export const markResolvedFileNodeTrashed = async (
             },
             ConditionExpression: 'attribute_exists(PK) AND attribute_exists(SK)'
           }
-        }
+        },
+        ...(mediaHashToDelete
+          ? [
+              buildMediaHashIndexDeleteItem({
+                filePk,
+                fileNodeId,
+                contentHash: mediaHashToDelete
+              })
+            ]
+          : [])
       ]
     })
   );
@@ -1963,6 +2397,10 @@ export const restoreFileNodeFromTrash = async (params: {
     });
   }
 
+  const mediaHashToPut = isMediaContentType(params.fileNode.contentType)
+    ? normalizedContentHashOrNull(params.fileNode.contentHash)
+    : null;
+
   await dynamoDoc.send(
     new TransactWriteCommand({
       TransactItems: [
@@ -2009,6 +2447,16 @@ export const restoreFileNodeFromTrash = async (params: {
             ConditionExpression: 'attribute_not_exists(PK) AND attribute_not_exists(SK)'
           }
         },
+        ...(mediaHashToPut
+          ? [
+              buildMediaHashIndexPutItem({
+                filePk,
+                fileNodeId,
+                contentHash: mediaHashToPut,
+                nowIso: params.nowIso
+              })
+            ]
+          : []),
         ...stateIndexDeleteItems
       ]
     })
@@ -2027,6 +2475,9 @@ export const markFileNodePurged = async (params: {
     ? buildTrashFileStateIndexSk(params.fileNode.flaggedForDeleteAt, fileNodeId)
     : null;
   const purgedStateIndexSk = buildPurgedFileStateIndexSk(params.nowIso, fileNodeId);
+  const mediaHashToDelete = isMediaContentType(params.fileNode.contentType)
+    ? normalizedContentHashOrNull(params.fileNode.contentHash)
+    : null;
 
   await dynamoDoc.send(
     new TransactWriteCommand({
@@ -2081,6 +2532,15 @@ export const markFileNodePurged = async (params: {
                   }
                 }
               }
+            ]
+          : []),
+        ...(mediaHashToDelete
+          ? [
+              buildMediaHashIndexDeleteItem({
+                filePk,
+                fileNodeId,
+                contentHash: mediaHashToDelete
+              })
             ]
           : [])
       ]

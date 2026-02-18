@@ -13,9 +13,11 @@ import { requireEntitledUser } from '../lib/auth.js';
 import { errorResponse, jsonResponse, safeJsonParse } from '../lib/http.js';
 import {
   getDockspaceById,
+  hasActiveMediaWithContentHash,
   resolveFileByFullPath,
   upsertActiveFileByPath
 } from '../lib/repository.js';
+import { buildThumbnailJob, enqueueThumbnailJobIfConfigured } from '../lib/thumbnailQueue.js';
 import { dockspaceTypeFromItem, isMediaContentType, isMediaDockspaceType } from '../types/models.js';
 
 const bodySchema = z.object({
@@ -112,9 +114,27 @@ export const handler = async (event: APIGatewayProxyEventV2) => {
     }
 
     const contentHash = await computeObjectSha256Hex(parsed.data.objectKey);
+    if (isMediaDockspaceType(dockspaceType)) {
+      const duplicateByHash = await hasActiveMediaWithContentHash({
+        userId,
+        dockspaceId,
+        contentHash
+      });
+      if (duplicateByHash) {
+        await deleteObjectIfExists(parsed.data.objectKey);
+        return jsonResponse(409, {
+          error: 'Upload skipped due to duplicate',
+          code: 'UPLOAD_SKIPPED_DUPLICATE',
+          duplicateType: 'CONTENT_HASH',
+          fullPath,
+          reason: 'A media file with the same content already exists in this dockspace.'
+        });
+      }
+    }
+    const finalEtag = completedEtag ?? parsed.data.parts[parsed.data.parts.length - 1]!.etag;
 
     const now = new Date().toISOString();
-    await upsertActiveFileByPath({
+    const upserted = await upsertActiveFileByPath({
       userId,
       dockspaceId,
       fullPath,
@@ -123,9 +143,27 @@ export const handler = async (event: APIGatewayProxyEventV2) => {
       size: parsed.data.size,
       contentType: parsed.data.contentType,
       contentHash,
-      etag: completedEtag ?? parsed.data.parts[parsed.data.parts.length - 1]!.etag,
+      etag: finalEtag,
       nowIso: now
     });
+    try {
+      await enqueueThumbnailJobIfConfigured(
+        buildThumbnailJob({
+          userId,
+          dockspaceId,
+          fileNodeId: upserted.fileNodeId,
+          s3Key: parsed.data.objectKey,
+          contentType: parsed.data.contentType,
+          etag: finalEtag
+        })
+      );
+    } catch (error) {
+      console.warn('thumbnail-job-enqueue-failed', {
+        dockspaceId,
+        fileNodeId: upserted.fileNodeId,
+        error: error instanceof Error ? error.message : String(error)
+      });
+    }
     if (
       isMediaDockspaceType(dockspaceType) &&
       existingFile?.fileNode.s3Key &&

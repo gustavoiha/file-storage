@@ -17,7 +17,7 @@ import { Alert } from '@/components/ui/Alert';
 import { Button } from '@/components/ui/Button';
 import { Card } from '@/components/ui/Card';
 import { Page } from '@/components/ui/Page';
-import { useMoveToTrash, useUploadFile } from '@/hooks/useFiles';
+import { useMoveToTrash, useTrashFilesBatch, useUploadFile } from '@/hooks/useFiles';
 import { useDockspaceUploadDialog } from '@/hooks/useDockspaceUploadDialog';
 import {
   useAlbumMedia,
@@ -26,6 +26,7 @@ import {
   useCreateAlbum,
   useDeleteAlbum,
   useMediaAlbums,
+  useMediaDuplicates,
   useMediaFiles,
   useRemoveAlbumMedia,
   useRenameAlbum
@@ -39,6 +40,11 @@ interface DockspaceMediaPageProps {
 }
 
 type MediaViewTab = 'all' | 'albums';
+
+interface DuplicateGroupSelection {
+  keeperFileNodeId: string;
+  selectedForTrashFileNodeIds: string[];
+}
 
 const bytesFormatter = new Intl.NumberFormat('en-US');
 const timestampFormatter = new Intl.DateTimeFormat('en-US', {
@@ -72,14 +78,24 @@ const isMediaFile = (file: File): boolean =>
 export const DockspaceMediaPage = ({ dockspaceId, dockspaceName }: DockspaceMediaPageProps) => {
   const [activeTab, setActiveTab] = useState<MediaViewTab>('all');
   const [albumFilterId, setAlbumFilterId] = useState('');
+  const [duplicatesVisible, setDuplicatesVisible] = useState(false);
   const [selectedAlbumId, setSelectedAlbumId] = useState<string | null>(null);
   const [selectedMediaId, setSelectedMediaId] = useState<string | null>(null);
   const [newAlbumName, setNewAlbumName] = useState('');
   const [localError, setLocalError] = useState<string | null>(null);
+  const [duplicateActionMessage, setDuplicateActionMessage] = useState<string | null>(null);
+  const [duplicateSelections, setDuplicateSelections] = useState<
+    Record<string, DuplicateGroupSelection>
+  >({});
   const [viewerFile, setViewerFile] = useState<FileRecord | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const mediaQuery = useMediaFiles(dockspaceId);
+  const mediaDuplicatesQuery = useMediaDuplicates(
+    dockspaceId,
+    20,
+    activeTab === 'all' && duplicatesVisible
+  );
   const albumsQuery = useAlbums(dockspaceId);
   const filteredAlbumMediaQuery = useAlbumMedia(dockspaceId, albumFilterId || null);
   const selectedAlbumMediaQuery = useAlbumMedia(dockspaceId, selectedAlbumId);
@@ -92,6 +108,7 @@ export const DockspaceMediaPage = ({ dockspaceId, dockspaceName }: DockspaceMedi
   const removeAlbumMediaMutation = useRemoveAlbumMedia(dockspaceId);
   const uploadFileMutation = useUploadFile(dockspaceId, '/');
   const moveToTrashMutation = useMoveToTrash(dockspaceId, '/');
+  const trashFilesBatchMutation = useTrashFilesBatch(dockspaceId);
 
   const uploadDialog = useDockspaceUploadDialog({
     currentFolderPath: '/',
@@ -109,10 +126,49 @@ export const DockspaceMediaPage = ({ dockspaceId, dockspaceName }: DockspaceMedi
     [selectedMediaAlbumsQuery.data]
   );
   const albumViewItems = selectedAlbumMediaQuery.data ?? [];
+  const duplicateGroups = useMemo(
+    () => mediaDuplicatesQuery.data?.pages.flatMap((page) => page.items) ?? [],
+    [mediaDuplicatesQuery.data]
+  );
+  const duplicateSummary = useMemo(
+    () =>
+      mediaDuplicatesQuery.data?.pages[0]?.summary ?? {
+        groupCount: 0,
+        duplicateItemCount: 0,
+        reclaimableBytes: 0
+      },
+    [mediaDuplicatesQuery.data]
+  );
+  const selectedDuplicatePaths = useMemo(() => {
+    const pathByGroupAndFileNode = new Map<string, string>();
+    for (const group of duplicateGroups) {
+      for (const item of group.items) {
+        pathByGroupAndFileNode.set(`${group.contentHash}#${item.fileNodeId}`, item.fullPath);
+      }
+    }
+
+    const paths: string[] = [];
+    for (const group of duplicateGroups) {
+      const selection = duplicateSelections[group.contentHash];
+      if (!selection) {
+        continue;
+      }
+
+      for (const fileNodeId of selection.selectedForTrashFileNodeIds) {
+        const fullPath = pathByGroupAndFileNode.get(`${group.contentHash}#${fileNodeId}`);
+        if (fullPath) {
+          paths.push(fullPath);
+        }
+      }
+    }
+
+    return Array.from(new Set(paths));
+  }, [duplicateGroups, duplicateSelections]);
 
   const unauthorized =
     (mediaQuery.error instanceof ApiError && mediaQuery.error.statusCode === 403) ||
-    (albumsQuery.error instanceof ApiError && albumsQuery.error.statusCode === 403);
+    (albumsQuery.error instanceof ApiError && albumsQuery.error.statusCode === 403) ||
+    (mediaDuplicatesQuery.error instanceof ApiError && mediaDuplicatesQuery.error.statusCode === 403);
   const uploadErrorMessage =
     localError ??
     uploadDialog.validationError ??
@@ -130,6 +186,8 @@ export const DockspaceMediaPage = ({ dockspaceId, dockspaceName }: DockspaceMedi
       : filteredAlbumMediaQuery.error instanceof Error
         ? filteredAlbumMediaQuery.error.message
         : null;
+  const duplicatesListError =
+    mediaDuplicatesQuery.error instanceof Error ? mediaDuplicatesQuery.error.message : null;
 
   useEffect(() => {
     if (!selectedMediaId) {
@@ -153,11 +211,52 @@ export const DockspaceMediaPage = ({ dockspaceId, dockspaceName }: DockspaceMedi
     }
   }, [albums, selectedAlbumId]);
 
+  useEffect(() => {
+    if (!duplicateGroups.length) {
+      setDuplicateSelections({});
+      return;
+    }
+
+    setDuplicateSelections((previous) => {
+      const next: Record<string, DuplicateGroupSelection> = {};
+
+      for (const group of duplicateGroups) {
+        const fileNodeIds = group.items.map((item) => item.fileNodeId);
+        const previousSelection = previous[group.contentHash];
+        const keeperFileNodeId = fileNodeIds.includes(previousSelection?.keeperFileNodeId ?? '')
+          ? (previousSelection?.keeperFileNodeId ?? group.defaultKeeperFileNodeId)
+          : group.defaultKeeperFileNodeId;
+        const defaultSelections = group.items
+          .map((item) => item.fileNodeId)
+          .filter((fileNodeId) => fileNodeId !== keeperFileNodeId);
+        const selectedForTrashFileNodeIds = Array.from(
+          new Set(
+            (previousSelection?.selectedForTrashFileNodeIds ?? defaultSelections).filter(
+              (fileNodeId) => fileNodeIds.includes(fileNodeId) && fileNodeId !== keeperFileNodeId
+            )
+          )
+        );
+
+        next[group.contentHash] = {
+          keeperFileNodeId,
+          selectedForTrashFileNodeIds
+        };
+      }
+
+      return next;
+    });
+  }, [duplicateGroups]);
+
   const onUploadButtonClick = useCallback(() => {
     uploadDialog.clearValidationError();
     setLocalError(null);
     fileInputRef.current?.click();
   }, [uploadDialog]);
+
+  const onToggleDuplicates = useCallback(() => {
+    setDuplicateActionMessage(null);
+    setDuplicatesVisible((previous) => !previous);
+  }, []);
 
   const onMediaFileInputChange = useCallback(
     (event: ChangeEvent<HTMLInputElement>) => {
@@ -302,6 +401,77 @@ export const DockspaceMediaPage = ({ dockspaceId, dockspaceName }: DockspaceMedi
     }
   }, [moveToTrashMutation, selectedMedia]);
 
+  const onSelectDuplicateKeeper = useCallback((contentHash: string, fileNodeId: string) => {
+    setDuplicateSelections((previous) => {
+      const current = previous[contentHash];
+      if (!current) {
+        return previous;
+      }
+
+      const nextSelectedForTrash = Array.from(
+        new Set(current.selectedForTrashFileNodeIds.filter((candidate) => candidate !== fileNodeId))
+      );
+      if (current.keeperFileNodeId && current.keeperFileNodeId !== fileNodeId) {
+        nextSelectedForTrash.push(current.keeperFileNodeId);
+      }
+
+      return {
+        ...previous,
+        [contentHash]: {
+          keeperFileNodeId: fileNodeId,
+          selectedForTrashFileNodeIds: Array.from(new Set(nextSelectedForTrash))
+        }
+      };
+    });
+  }, []);
+
+  const onToggleDuplicateSelection = useCallback((contentHash: string, fileNodeId: string) => {
+    setDuplicateSelections((previous) => {
+      const current = previous[contentHash];
+      if (!current || current.keeperFileNodeId === fileNodeId) {
+        return previous;
+      }
+
+      const selectedSet = new Set(current.selectedForTrashFileNodeIds);
+      if (selectedSet.has(fileNodeId)) {
+        selectedSet.delete(fileNodeId);
+      } else {
+        selectedSet.add(fileNodeId);
+      }
+
+      return {
+        ...previous,
+        [contentHash]: {
+          ...current,
+          selectedForTrashFileNodeIds: Array.from(selectedSet)
+        }
+      };
+    });
+  }, []);
+
+  const onTrashSelectedDuplicates = useCallback(async () => {
+    if (!selectedDuplicatePaths.length || trashFilesBatchMutation.isPending) {
+      return;
+    }
+
+    try {
+      setDuplicateActionMessage(null);
+      const result = await trashFilesBatchMutation.mutateAsync(selectedDuplicatePaths);
+      const failedCount = result.failed.length;
+      if (failedCount > 0) {
+        setDuplicateActionMessage(
+          `Moved ${result.movedPaths.length} items to trash. ${failedCount} failed.`
+        );
+      } else {
+        setDuplicateActionMessage(`Moved ${result.movedPaths.length} items to trash.`);
+      }
+    } catch (error) {
+      setDuplicateActionMessage(
+        error instanceof Error ? error.message : 'Failed to move selected duplicates to trash.'
+      );
+    }
+  }, [selectedDuplicatePaths, trashFilesBatchMutation]);
+
   const openPreview = useCallback((item: MediaFileRecord) => {
     setViewerFile({
       fileNodeId: item.fileNodeId,
@@ -348,6 +518,11 @@ export const DockspaceMediaPage = ({ dockspaceId, dockspaceName }: DockspaceMedi
                   <Button type="button" onClick={onUploadButtonClick}>
                     Upload media
                   </Button>
+                  {activeTab === 'all' ? (
+                    <Button type="button" variant="secondary" onClick={onToggleDuplicates}>
+                      {duplicatesVisible ? 'Browse media' : 'Find duplicates'}
+                    </Button>
+                  ) : null}
                   <Link to="/dockspaces/$dockspaceId/trash" params={{ dockspaceId }}>
                     Trash
                   </Link>
@@ -368,66 +543,189 @@ export const DockspaceMediaPage = ({ dockspaceId, dockspaceName }: DockspaceMedi
 
               {uploadErrorMessage ? <Alert message={uploadErrorMessage} /> : null}
               {mediaListError ? <Alert message={mediaListError} /> : null}
+              {duplicatesVisible && duplicatesListError ? <Alert message={duplicatesListError} /> : null}
               {localError && localError !== uploadErrorMessage ? <Alert message={localError} /> : null}
 
               {activeTab === 'all' ? (
                 <div className="media-workspace__layout">
                   <section className="media-workspace__main">
-                    <div className="media-workspace__filter-row">
-                      <label htmlFor="album-filter">Filter by album</label>
-                      <select
-                        id="album-filter"
-                        value={albumFilterId}
-                        onChange={(event) => setAlbumFilterId(event.target.value)}
-                      >
-                        <option value="">All media</option>
-                        {albums.map((album) => (
-                          <option key={album.albumId} value={album.albumId}>
-                            {album.name}
-                          </option>
-                        ))}
-                      </select>
-                    </div>
+                    {duplicatesVisible ? (
+                      <div className="media-duplicates">
+                        <div className="media-duplicates__summary">
+                          <p>{duplicateSummary.groupCount} duplicate groups found.</p>
+                          <p>{duplicateSummary.duplicateItemCount} repeated files.</p>
+                          <p>{formatBytes(duplicateSummary.reclaimableBytes)} reclaimable.</p>
+                        </div>
+                        {duplicateActionMessage ? <Alert message={duplicateActionMessage} /> : null}
+                        {mediaDuplicatesQuery.isLoading ? (
+                          <p>Loading duplicates...</p>
+                        ) : duplicateGroups.length === 0 ? (
+                          <p>No duplicate media files found.</p>
+                        ) : (
+                          <ul className="media-duplicates__groups">
+                            {duplicateGroups.map((group) => {
+                              const selection = duplicateSelections[group.contentHash];
+                              const keeperFileNodeId =
+                                selection?.keeperFileNodeId ?? group.defaultKeeperFileNodeId;
+                              const selectedForTrash = new Set(
+                                selection?.selectedForTrashFileNodeIds ?? []
+                              );
 
-                    {mediaQuery.isLoading || (albumFilterId ? filteredAlbumMediaQuery.isLoading : false) ? (
-                      <p>Loading media...</p>
-                    ) : mediaItems.length === 0 ? (
-                      <p>No media files available.</p>
+                              return (
+                                <li key={group.contentHash} className="media-duplicates__group">
+                                  <p className="media-duplicates__group-title">
+                                    Hash {group.contentHash.slice(0, 12)}...
+                                  </p>
+                                  <p className="media-duplicates__group-meta">
+                                    {group.items.length} files, {formatBytes(group.reclaimableBytes)} reclaimable
+                                  </p>
+                                  <ul className="media-duplicates__items">
+                                    {group.items.map((item) => (
+                                      <li key={item.fileNodeId} className="media-duplicates__item">
+                                        <div className="media-duplicates__item-main">
+                                          <span>{basename(item.fullPath)}</span>
+                                          <small>{formatTimestamp(item.updatedAt)}</small>
+                                        </div>
+                                        <label className="media-duplicates__item-control">
+                                          <input
+                                            type="radio"
+                                            name={`keeper-${group.contentHash}`}
+                                            checked={keeperFileNodeId === item.fileNodeId}
+                                            onChange={() =>
+                                              onSelectDuplicateKeeper(group.contentHash, item.fileNodeId)
+                                            }
+                                          />
+                                          <span>Keep</span>
+                                        </label>
+                                        <label className="media-duplicates__item-control">
+                                          <input
+                                            type="checkbox"
+                                            checked={selectedForTrash.has(item.fileNodeId)}
+                                            disabled={keeperFileNodeId === item.fileNodeId}
+                                            onChange={() =>
+                                              onToggleDuplicateSelection(group.contentHash, item.fileNodeId)
+                                            }
+                                          />
+                                          <span>Trash</span>
+                                        </label>
+                                      </li>
+                                    ))}
+                                  </ul>
+                                </li>
+                              );
+                            })}
+                          </ul>
+                        )}
+                        {mediaDuplicatesQuery.hasNextPage ? (
+                          <Button
+                            type="button"
+                            variant="secondary"
+                            onClick={() => void mediaDuplicatesQuery.fetchNextPage()}
+                            disabled={mediaDuplicatesQuery.isFetchingNextPage}
+                          >
+                            {mediaDuplicatesQuery.isFetchingNextPage ? 'Loading...' : 'Load more'}
+                          </Button>
+                        ) : null}
+                        <div className="media-duplicates__footer">
+                          <p>{selectedDuplicatePaths.length} items selected for trash.</p>
+                          <Button
+                            type="button"
+                            variant="secondary"
+                            onClick={onTrashSelectedDuplicates}
+                            disabled={
+                              trashFilesBatchMutation.isPending || selectedDuplicatePaths.length === 0
+                            }
+                          >
+                            {trashFilesBatchMutation.isPending
+                              ? 'Moving...'
+                              : 'Move selected to trash'}
+                          </Button>
+                        </div>
+                      </div>
                     ) : (
-                      <ul className="media-grid">
-                        {mediaItems.map((item) => {
-                          const selected = selectedMediaId === item.fileNodeId;
-                          const fileName = basename(item.fullPath);
-                          const isImage = item.contentType.startsWith('image/');
+                      <>
+                        <div className="media-workspace__filter-row">
+                          <label htmlFor="album-filter">Filter by album</label>
+                          <select
+                            id="album-filter"
+                            value={albumFilterId}
+                            onChange={(event) => setAlbumFilterId(event.target.value)}
+                          >
+                            <option value="">All media</option>
+                            {albums.map((album) => (
+                              <option key={album.albumId} value={album.albumId}>
+                                {album.name}
+                              </option>
+                            ))}
+                          </select>
+                        </div>
 
-                          return (
-                            <li key={item.fileNodeId} className="media-grid__item">
-                              <button
-                                type="button"
-                                className="media-card"
-                                data-selected={selected}
-                                onClick={() => setSelectedMediaId(item.fileNodeId)}
-                              >
-                                <span className="media-card__thumbnail" aria-hidden="true">
-                                  {isImage ? <ImageIcon size={18} /> : <Film size={18} />}
-                                </span>
-                                <span className="media-card__name">{fileName}</span>
-                                <span className="media-card__meta">{formatBytes(item.size)}</span>
-                                <span className="media-card__meta">{formatTimestamp(item.updatedAt)}</span>
-                              </button>
-                              <div className="media-card__actions">
-                                <Button
-                                  type="button"
-                                  variant="secondary"
-                                  onClick={() => openPreview(item)}
-                                >
-                                  Preview
-                                </Button>
-                              </div>
-                            </li>
-                          );
-                        })}
-                      </ul>
+                        {mediaQuery.isLoading || (albumFilterId ? filteredAlbumMediaQuery.isLoading : false) ? (
+                          <p>Loading media...</p>
+                        ) : mediaItems.length === 0 ? (
+                          <p>No media files available.</p>
+                        ) : (
+                          <ul className="media-grid">
+                            {mediaItems.map((item) => {
+                              const selected = selectedMediaId === item.fileNodeId;
+                              const fileName = basename(item.fullPath);
+                              const isImage = item.contentType.startsWith('image/');
+
+                              return (
+                                <li key={item.fileNodeId} className="media-grid__item">
+                                  <button
+                                    type="button"
+                                    className="media-card"
+                                    data-selected={selected}
+                                    onClick={(event) => {
+                                      const target = event.target as HTMLElement;
+                                      if (target.closest('[data-thumbnail-trigger="true"]')) {
+                                        setSelectedMediaId(item.fileNodeId);
+                                        openPreview(item);
+                                        return;
+                                      }
+
+                                      setSelectedMediaId(item.fileNodeId);
+                                    }}
+                                  >
+                                    <span
+                                      className="media-card__thumbnail"
+                                      data-thumbnail-trigger="true"
+                                      title="Open full preview"
+                                      aria-hidden="true"
+                                    >
+                                      {item.thumbnail?.url ? (
+                                        <img
+                                          className="media-card__thumbnail-image"
+                                          src={item.thumbnail.url}
+                                          alt=""
+                                          loading="lazy"
+                                        />
+                                      ) : isImage ? (
+                                        <ImageIcon size={18} />
+                                      ) : (
+                                        <Film size={18} />
+                                      )}
+                                    </span>
+                                    <span className="media-card__name">{fileName}</span>
+                                    <span className="media-card__meta">{formatBytes(item.size)}</span>
+                                    <span className="media-card__meta">{formatTimestamp(item.updatedAt)}</span>
+                                  </button>
+                                  <div className="media-card__actions">
+                                    <Button
+                                      type="button"
+                                      variant="secondary"
+                                      onClick={() => openPreview(item)}
+                                    >
+                                      Preview
+                                    </Button>
+                                  </div>
+                                </li>
+                              );
+                            })}
+                          </ul>
+                        )}
+                      </>
                     )}
                   </section>
 
@@ -609,7 +907,18 @@ export const DockspaceMediaPage = ({ dockspaceId, dockspaceName }: DockspaceMedi
                                   onClick={() => openPreview(item)}
                                 >
                                   <span className="media-card__thumbnail" aria-hidden="true">
-                                    {isImage ? <ImageIcon size={18} /> : <Film size={18} />}
+                                    {item.thumbnail?.url ? (
+                                      <img
+                                        className="media-card__thumbnail-image"
+                                        src={item.thumbnail.url}
+                                        alt=""
+                                        loading="lazy"
+                                      />
+                                    ) : isImage ? (
+                                      <ImageIcon size={18} />
+                                    ) : (
+                                      <Film size={18} />
+                                    )}
                                   </span>
                                   <span className="media-card__name">{basename(item.fullPath)}</span>
                                   <span className="media-card__meta">{formatBytes(item.size)}</span>

@@ -5,6 +5,7 @@ import type {
   Dockspace,
   DockspaceType,
   FileRecord,
+  MediaDuplicatesResponse,
   MediaFileRecord
 } from './apiTypes';
 
@@ -25,6 +26,25 @@ export const createDockspace = async (params: {
 export const listMedia = async (dockspaceId: string): Promise<MediaFileRecord[]> => {
   const response = await apiRequest<{ items: MediaFileRecord[] }>(`/dockspaces/${dockspaceId}/media`);
   return response.items;
+};
+
+export const listMediaDuplicates = async (
+  dockspaceId: string,
+  options?: { cursor?: string; limit?: number }
+): Promise<MediaDuplicatesResponse> => {
+  const search = new URLSearchParams();
+  if (options?.cursor) {
+    search.set('cursor', options.cursor);
+  }
+
+  if (options?.limit) {
+    search.set('limit', String(options.limit));
+  }
+
+  const query = search.toString();
+  return apiRequest<MediaDuplicatesResponse>(
+    `/dockspaces/${dockspaceId}/media/duplicates${query ? `?${query}` : ''}`
+  );
 };
 
 export const listAlbums = async (dockspaceId: string): Promise<AlbumRecord[]> => {
@@ -197,9 +217,20 @@ const chunksOf = <T>(values: T[], chunkSize: number): T[][] => {
   return chunks;
 };
 
+const computeFileSha256Hex = async (file: File): Promise<string> => {
+  if (!globalThis.crypto?.subtle) {
+    throw new Error('Browser does not support file hashing required for media duplicate checks.');
+  }
+
+  const arrayBuffer = await file.arrayBuffer();
+  const digest = await globalThis.crypto.subtle.digest('SHA-256', arrayBuffer);
+  const bytes = new Uint8Array(digest);
+  return Array.from(bytes, (value) => value.toString(16).padStart(2, '0')).join('');
+};
+
 const startMultipartUpload = async (
   dockspaceId: string,
-  params: { fullPath: string; contentType: string; size: number }
+  params: { fullPath: string; contentType: string; size: number; contentHash?: string }
 ): Promise<MultipartUploadStartResponse> =>
   apiRequest<MultipartUploadStartResponse>(`/dockspaces/${dockspaceId}/files/multipart/start`, {
     method: 'POST',
@@ -248,13 +279,15 @@ const uploadSinglePutFile = async (
   file: File,
   options?: UploadFileOptions
 ): Promise<void> => {
+  const contentHash = await computeFileSha256Hex(file);
   const session = await apiRequest<UploadSessionResponse>(
     `/dockspaces/${dockspaceId}/files/upload-session`,
     {
       method: 'POST',
       body: JSON.stringify({
         fullPath,
-        contentType: file.type || 'application/octet-stream'
+        contentType: file.type || 'application/octet-stream',
+        contentHash
       })
     }
   );
@@ -313,10 +346,12 @@ const uploadFileMultipart = async (
   options?: UploadFileOptions
 ): Promise<void> => {
   const contentType = file.type || 'application/octet-stream';
+  const contentHash = await computeFileSha256Hex(file);
   const session = await startMultipartUpload(dockspaceId, {
     fullPath,
     contentType,
-    size: file.size
+    size: file.size,
+    contentHash
   });
   const partNumbers = Array.from({ length: session.partCount }, (_, index) => index + 1);
   const partUrlByNumber = new Map<number, string>();

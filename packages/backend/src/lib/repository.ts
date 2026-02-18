@@ -541,19 +541,93 @@ export interface ListMediaDuplicateGroupsResult {
   nextCursor?: string;
 }
 
+export interface ListActiveMediaItemsResult {
+  items: ActiveMediaItemRecord[];
+  nextCursor?: string;
+}
+
+interface ActiveMediaNodeWithId {
+  fileNode: FileNodeItem;
+  fileNodeId: string;
+}
+
+interface ActiveMediaCursor {
+  updatedAt: string;
+  fileNodeId: string;
+}
+
+const encodeActiveMediaCursor = (item: ActiveMediaNodeWithId): string =>
+  `${item.fileNode.updatedAt}|${item.fileNodeId}`;
+
+const parseActiveMediaCursor = (value: string | undefined): ActiveMediaCursor | null => {
+  const normalized = value?.trim();
+  if (!normalized) {
+    return null;
+  }
+
+  const separatorIndex = normalized.indexOf('|');
+  if (separatorIndex === -1) {
+    return null;
+  }
+
+  const updatedAt = normalized.slice(0, separatorIndex);
+  const fileNodeId = normalized.slice(separatorIndex + 1);
+  if (!updatedAt || !fileNodeId) {
+    return null;
+  }
+
+  return { updatedAt, fileNodeId };
+};
+
 export const listActiveMediaItems = async (
-  userId: string,
-  dockspaceId: string
-): Promise<ActiveMediaItemRecord[]> => {
-  const fileNodes = await listFileNodes(userId, dockspaceId);
-  const activeMediaNodes = fileNodes.filter(
-    (fileNode) =>
+  params: {
+    userId: string;
+    dockspaceId: string;
+    cursor?: string;
+    limit: number;
+  }
+): Promise<ListActiveMediaItemsResult> => {
+  const fileNodes = await listFileNodes(params.userId, params.dockspaceId);
+  const activeMediaNodes = fileNodes
+    .flatMap((fileNode) =>
       fileStateFromNode(fileNode) === 'ACTIVE' && isMediaContentType(fileNode.contentType)
-  );
+        ? [
+            {
+              fileNode,
+              fileNodeId: getFileNodeIdFromSk(fileNode.SK)
+            } satisfies ActiveMediaNodeWithId
+          ]
+        : []
+    )
+    .sort((left, right) => {
+      const updatedAtComparison = right.fileNode.updatedAt.localeCompare(left.fileNode.updatedAt);
+      if (updatedAtComparison !== 0) {
+        return updatedAtComparison;
+      }
+
+      return left.fileNodeId.localeCompare(right.fileNodeId);
+    });
+  const cursor = parseActiveMediaCursor(params.cursor);
+  const filteredNodes = cursor
+    ? activeMediaNodes.filter((item) => {
+        const updatedAtComparison = item.fileNode.updatedAt.localeCompare(cursor.updatedAt);
+        if (updatedAtComparison < 0) {
+          return true;
+        }
+
+        if (updatedAtComparison > 0) {
+          return false;
+        }
+
+        return item.fileNodeId.localeCompare(cursor.fileNodeId) > 0;
+      })
+    : activeMediaNodes;
+  const pagedNodes = filteredNodes.slice(0, params.limit);
+  const hasMore = filteredNodes.length > pagedNodes.length;
   const items = await Promise.all(
-    activeMediaNodes.map(async (fileNode) => ({
-      fileNodeId: getFileNodeIdFromSk(fileNode.SK),
-      fullPath: await fullPathFromFileNode(userId, dockspaceId, fileNode),
+    pagedNodes.map(async ({ fileNode, fileNodeId }) => ({
+      fileNodeId,
+      fullPath: await fullPathFromFileNode(params.userId, params.dockspaceId, fileNode),
       size: fileNode.size,
       contentType: fileNode.contentType,
       contentHash: fileNode.contentHash,
@@ -561,9 +635,13 @@ export const listActiveMediaItems = async (
       state: 'ACTIVE' as const
     }))
   );
+  const nextCursor =
+    hasMore && pagedNodes.length ? encodeActiveMediaCursor(pagedNodes[pagedNodes.length - 1]!) : undefined;
 
-  items.sort((left, right) => right.updatedAt.localeCompare(left.updatedAt));
-  return items;
+  return {
+    items,
+    ...(nextCursor ? { nextCursor } : {})
+  };
 };
 
 const listMediaHashIndexItems = async (

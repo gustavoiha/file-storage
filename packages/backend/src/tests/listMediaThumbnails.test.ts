@@ -72,17 +72,19 @@ beforeEach(() => {
 
   requireEntitledUserMock.mockReturnValue({ userId: 'user-1' });
   ensureMediaDockspaceMock.mockResolvedValue({ ok: true });
-  listActiveMediaItemsMock.mockResolvedValue([
-    {
-      fileNodeId: 'file-1',
-      fullPath: '/photo.jpg',
-      size: 10,
-      contentType: 'image/jpeg',
-      contentHash: 'hash-1',
-      updatedAt: '2026-02-18T00:00:00.000Z',
-      state: 'ACTIVE'
-    }
-  ]);
+  listActiveMediaItemsMock.mockResolvedValue({
+    items: [
+      {
+        fileNodeId: 'file-1',
+        fullPath: '/photo.jpg',
+        size: 10,
+        contentType: 'image/jpeg',
+        contentHash: 'hash-1',
+        updatedAt: '2026-02-18T00:00:00.000Z',
+        state: 'ACTIVE'
+      }
+    ]
+  });
   listThumbnailMetadataMock.mockResolvedValue([
     {
       fileNodeId: 'file-1',
@@ -107,6 +109,11 @@ describe('listMedia thumbnails', () => {
     };
 
     expect(response.statusCode).toBe(200);
+    expect(listActiveMediaItemsMock).toHaveBeenCalledWith({
+      userId: 'user-1',
+      dockspaceId: 'dock-1',
+      limit: 60
+    });
     expect(createDownloadUrlMock).toHaveBeenCalledWith('dock-1/thumbnails/file-1/v-etag.jpg');
     expect(body.items[0]?.thumbnail?.url).toBe('https://cdn.example/thumb.jpg');
     expect(body.items[0]?.thumbnail?.width).toBe(320);
@@ -130,5 +137,23 @@ describe('listMedia thumbnails', () => {
     expect(response.statusCode).toBe(200);
     expect(createDownloadUrlMock).not.toHaveBeenCalled();
     expect(body.items[0]?.thumbnail).toBeUndefined();
+  });
+
+  it('forwards cursor and limit query parameters', async () => {
+    const { handler } = await import('../handlers/listMedia.js');
+    await handler({
+      ...baseEvent(),
+      queryStringParameters: {
+        cursor: '2026-02-18T00:00:00.000Z|file-1',
+        limit: '25'
+      }
+    } as APIGatewayProxyEventV2);
+
+    expect(listActiveMediaItemsMock).toHaveBeenCalledWith({
+      userId: 'user-1',
+      dockspaceId: 'dock-1',
+      cursor: '2026-02-18T00:00:00.000Z|file-1',
+      limit: 25
+    });
   });
 });

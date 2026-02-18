@@ -34,6 +34,11 @@ export interface MediaFileRecord {
   state: 'ACTIVE';
 }
 
+export interface MediaListResponse {
+  items: MediaFileRecord[];
+  nextCursor?: string;
+}
+
 export interface MediaDuplicateGroupRecord {
   contentHash: string;
   items: MediaFileRecord[];

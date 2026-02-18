@@ -73,6 +73,179 @@ const formatTimestamp = (value: string): string => {
   return timestampFormatter.format(date);
 };
 
+interface VirtualizedMediaGridProps {
+  items: MediaFileRecord[];
+  selectedMediaId: string | null;
+  onSelectMedia: (fileNodeId: string) => void;
+  onOpenPreview: (item: MediaFileRecord) => void;
+  hasNextPage: boolean;
+  isFetchingNextPage: boolean;
+  onLoadMore: () => void;
+}
+
+const MEDIA_GRID_MIN_COLUMN_WIDTH_PX = 190;
+const MEDIA_GRID_GAP_PX = 12;
+const MEDIA_GRID_ROW_HEIGHT_PX = 288;
+const MEDIA_GRID_OVERSCAN_ROWS = 2;
+
+const VirtualizedMediaGrid = ({
+  items,
+  selectedMediaId,
+  onSelectMedia,
+  onOpenPreview,
+  hasNextPage,
+  isFetchingNextPage,
+  onLoadMore
+}: VirtualizedMediaGridProps) => {
+  const containerRef = useRef<HTMLDivElement>(null);
+  const [viewportWidth, setViewportWidth] = useState(0);
+  const [viewportHeight, setViewportHeight] = useState(0);
+  const [scrollTop, setScrollTop] = useState(0);
+
+  useEffect(() => {
+    const element = containerRef.current;
+    if (!element) {
+      return;
+    }
+
+    const updateViewport = () => {
+      setViewportWidth(element.clientWidth);
+      setViewportHeight(element.clientHeight);
+    };
+
+    updateViewport();
+    if (typeof ResizeObserver === 'undefined') {
+      window.addEventListener('resize', updateViewport);
+      return () => {
+        window.removeEventListener('resize', updateViewport);
+      };
+    }
+
+    const observer = new ResizeObserver(() => {
+      updateViewport();
+    });
+    observer.observe(element);
+
+    return () => {
+      observer.disconnect();
+    };
+  }, []);
+
+  const columnCount = Math.max(
+    1,
+    Math.floor((viewportWidth + MEDIA_GRID_GAP_PX) / (MEDIA_GRID_MIN_COLUMN_WIDTH_PX + MEDIA_GRID_GAP_PX))
+  );
+  const rowCount = Math.ceil(items.length / columnCount);
+  const totalHeight = rowCount * MEDIA_GRID_ROW_HEIGHT_PX;
+  const startRow = Math.max(0, Math.floor(scrollTop / MEDIA_GRID_ROW_HEIGHT_PX) - MEDIA_GRID_OVERSCAN_ROWS);
+  const endRow =
+    rowCount > 0
+      ? Math.min(
+          rowCount - 1,
+          Math.ceil((scrollTop + viewportHeight) / MEDIA_GRID_ROW_HEIGHT_PX) + MEDIA_GRID_OVERSCAN_ROWS
+        )
+      : -1;
+  const visibleStartIndex = startRow * columnCount;
+  const visibleEndIndex = endRow >= 0 ? Math.min(items.length, (endRow + 1) * columnCount) : 0;
+  const visibleItems = items.slice(visibleStartIndex, visibleEndIndex);
+  const topSpacerHeight = startRow * MEDIA_GRID_ROW_HEIGHT_PX;
+  const visibleRowCount = endRow >= startRow ? endRow - startRow + 1 : 0;
+  const bottomSpacerHeight = Math.max(
+    0,
+    totalHeight - topSpacerHeight - visibleRowCount * MEDIA_GRID_ROW_HEIGHT_PX
+  );
+
+  useEffect(() => {
+    if (!hasNextPage || isFetchingNextPage) {
+      return;
+    }
+
+    const remainingHeight = totalHeight - (scrollTop + viewportHeight);
+    if (remainingHeight <= MEDIA_GRID_ROW_HEIGHT_PX * 2) {
+      onLoadMore();
+    }
+  }, [hasNextPage, isFetchingNextPage, onLoadMore, scrollTop, totalHeight, viewportHeight]);
+
+  return (
+    <div
+      ref={containerRef}
+      className="media-grid-virtual"
+      onScroll={(event) => setScrollTop(event.currentTarget.scrollTop)}
+    >
+      {topSpacerHeight > 0 ? (
+        <div className="media-grid-virtual__spacer" style={{ height: `${topSpacerHeight}px` }} />
+      ) : null}
+
+      <ul
+        className="media-grid media-grid--virtual"
+        style={{
+          gridTemplateColumns: `repeat(${columnCount}, minmax(0, 1fr))`
+        }}
+      >
+        {visibleItems.map((item) => {
+          const selected = selectedMediaId === item.fileNodeId;
+          const fileName = basename(item.fullPath);
+          const isImage = item.contentType.startsWith('image/');
+
+          return (
+            <li key={item.fileNodeId} className="media-grid__item media-grid__item--virtual">
+              <button
+                type="button"
+                className="media-card"
+                data-selected={selected}
+                onClick={(event) => {
+                  const target = event.target;
+                  if (target instanceof Element && target.closest('[data-thumbnail-trigger="true"]')) {
+                    onSelectMedia(item.fileNodeId);
+                    onOpenPreview(item);
+                    return;
+                  }
+
+                  onSelectMedia(item.fileNodeId);
+                }}
+              >
+                <span
+                  className="media-card__thumbnail"
+                  data-thumbnail-trigger="true"
+                  title="Open full preview"
+                  aria-hidden="true"
+                >
+                  {item.thumbnail?.url ? (
+                    <img
+                      className="media-card__thumbnail-image"
+                      src={item.thumbnail.url}
+                      alt=""
+                      loading="lazy"
+                    />
+                  ) : isImage ? (
+                    <ImageIcon size={18} />
+                  ) : (
+                    <Film size={18} />
+                  )}
+                </span>
+                <span className="media-card__name">{fileName}</span>
+                <span className="media-card__meta">{formatBytes(item.size)}</span>
+                <span className="media-card__meta">{formatTimestamp(item.updatedAt)}</span>
+              </button>
+              <div className="media-card__actions">
+                <Button type="button" variant="secondary" onClick={() => onOpenPreview(item)}>
+                  Preview
+                </Button>
+              </div>
+            </li>
+          );
+        })}
+      </ul>
+
+      {bottomSpacerHeight > 0 ? (
+        <div className="media-grid-virtual__spacer" style={{ height: `${bottomSpacerHeight}px` }} />
+      ) : null}
+
+      {isFetchingNextPage ? <p className="media-grid-virtual__status">Loading more media...</p> : null}
+    </div>
+  );
+};
+
 export const DockspaceMediaPage = ({ dockspaceId, dockspaceName }: DockspaceMediaPageProps) => {
   const [activeTab, setActiveTab] = useState<MediaViewTab>('all');
   const [albumFilterId, setAlbumFilterId] = useState('');
@@ -114,11 +287,17 @@ export const DockspaceMediaPage = ({ dockspaceId, dockspaceName }: DockspaceMedi
   });
 
   const albums = albumsQuery.data ?? [];
-  const allMedia = mediaQuery.data ?? [];
+  const allMedia = useMemo(
+    () => mediaQuery.data?.pages.flatMap((page) => page.items) ?? [],
+    [mediaQuery.data]
+  );
   const mediaItems =
     albumFilterId && activeTab === 'all' ? (filteredAlbumMediaQuery.data ?? []) : allMedia;
   const selectedMedia =
-    (selectedMediaId ? allMedia.find((item) => item.fileNodeId === selectedMediaId) : null) ?? null;
+    (selectedMediaId
+      ? mediaItems.find((item) => item.fileNodeId === selectedMediaId) ??
+        allMedia.find((item) => item.fileNodeId === selectedMediaId)
+      : null) ?? null;
   const selectedMediaAlbumIds = useMemo(
     () => new Set((selectedMediaAlbumsQuery.data ?? []).map((album) => album.albumId)),
     [selectedMediaAlbumsQuery.data]
@@ -186,16 +365,31 @@ export const DockspaceMediaPage = ({ dockspaceId, dockspaceName }: DockspaceMedi
         : null;
   const duplicatesListError =
     mediaDuplicatesQuery.error instanceof Error ? mediaDuplicatesQuery.error.message : null;
+  const mediaHasNextPage = !albumFilterId && Boolean(mediaQuery.hasNextPage);
+  const mediaIsFetchingNextPage = !albumFilterId && mediaQuery.isFetchingNextPage;
+  const mediaListIsLoading =
+    mediaQuery.isLoading || (albumFilterId ? filteredAlbumMediaQuery.isLoading : false);
+
+  const onLoadMoreMedia = useCallback(() => {
+    if (!mediaHasNextPage || mediaIsFetchingNextPage) {
+      return;
+    }
+
+    void mediaQuery.fetchNextPage();
+  }, [mediaHasNextPage, mediaIsFetchingNextPage, mediaQuery.fetchNextPage]);
 
   useEffect(() => {
     if (!selectedMediaId) {
       return;
     }
 
-    if (!allMedia.some((item) => item.fileNodeId === selectedMediaId)) {
+    const selectedExists =
+      mediaItems.some((item) => item.fileNodeId === selectedMediaId) ||
+      allMedia.some((item) => item.fileNodeId === selectedMediaId);
+    if (!selectedExists) {
       setSelectedMediaId(null);
     }
-  }, [allMedia, selectedMediaId]);
+  }, [allMedia, mediaItems, selectedMediaId]);
 
   useEffect(() => {
     if (albumFilterId && !albums.some((album) => album.albumId === albumFilterId)) {
@@ -658,70 +852,21 @@ export const DockspaceMediaPage = ({ dockspaceId, dockspaceName }: DockspaceMedi
                           </select>
                         </div>
 
-                        {mediaQuery.isLoading || (albumFilterId ? filteredAlbumMediaQuery.isLoading : false) ? (
+                        {mediaListIsLoading ? (
                           <p>Loading media...</p>
                         ) : mediaItems.length === 0 ? (
                           <p>No media files available.</p>
                         ) : (
-                          <ul className="media-grid">
-                            {mediaItems.map((item) => {
-                              const selected = selectedMediaId === item.fileNodeId;
-                              const fileName = basename(item.fullPath);
-                              const isImage = item.contentType.startsWith('image/');
-
-                              return (
-                                <li key={item.fileNodeId} className="media-grid__item">
-                                  <button
-                                    type="button"
-                                    className="media-card"
-                                    data-selected={selected}
-                                    onClick={(event) => {
-                                      const target = event.target as HTMLElement;
-                                      if (target.closest('[data-thumbnail-trigger="true"]')) {
-                                        setSelectedMediaId(item.fileNodeId);
-                                        openPreview(item);
-                                        return;
-                                      }
-
-                                      setSelectedMediaId(item.fileNodeId);
-                                    }}
-                                  >
-                                    <span
-                                      className="media-card__thumbnail"
-                                      data-thumbnail-trigger="true"
-                                      title="Open full preview"
-                                      aria-hidden="true"
-                                    >
-                                      {item.thumbnail?.url ? (
-                                        <img
-                                          className="media-card__thumbnail-image"
-                                          src={item.thumbnail.url}
-                                          alt=""
-                                          loading="lazy"
-                                        />
-                                      ) : isImage ? (
-                                        <ImageIcon size={18} />
-                                      ) : (
-                                        <Film size={18} />
-                                      )}
-                                    </span>
-                                    <span className="media-card__name">{fileName}</span>
-                                    <span className="media-card__meta">{formatBytes(item.size)}</span>
-                                    <span className="media-card__meta">{formatTimestamp(item.updatedAt)}</span>
-                                  </button>
-                                  <div className="media-card__actions">
-                                    <Button
-                                      type="button"
-                                      variant="secondary"
-                                      onClick={() => openPreview(item)}
-                                    >
-                                      Preview
-                                    </Button>
-                                  </div>
-                                </li>
-                              );
-                            })}
-                          </ul>
+                          <VirtualizedMediaGrid
+                            key={albumFilterId || 'all-media'}
+                            items={mediaItems}
+                            selectedMediaId={selectedMediaId}
+                            onSelectMedia={setSelectedMediaId}
+                            onOpenPreview={openPreview}
+                            hasNextPage={mediaHasNextPage}
+                            isFetchingNextPage={mediaIsFetchingNextPage}
+                            onLoadMore={onLoadMoreMedia}
+                          />
                         )}
                       </>
                     )}

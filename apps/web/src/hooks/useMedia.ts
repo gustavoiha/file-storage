@@ -32,10 +32,17 @@ export const mediaDuplicatesQueryKey = (userId: string, dockspaceId: string, pag
 export const useMediaFiles = (dockspaceId: string) => {
   const { session } = useStore(authStore);
   const userId = session?.userId ?? '';
+  const pageSize = 60;
 
-  return useQuery({
+  return useInfiniteQuery({
     queryKey: mediaQueryKey(userId, dockspaceId),
-    queryFn: () => listMedia(dockspaceId),
+    queryFn: ({ pageParam }) =>
+      listMedia(dockspaceId, {
+        ...(pageParam ? { cursor: String(pageParam) } : {}),
+        limit: pageSize
+      }),
+    initialPageParam: undefined as string | undefined,
+    getNextPageParam: (lastPage) => lastPage.nextCursor,
     enabled: Boolean(userId && dockspaceId)
   });
 };

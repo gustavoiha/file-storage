@@ -6,7 +6,8 @@ import type {
   DockspaceType,
   FileRecord,
   MediaDuplicatesResponse,
-  MediaFileRecord
+  MediaFileRecord,
+  MediaListResponse
 } from './apiTypes';
 import { inferUploadContentType } from './fileContentType';
 
@@ -24,9 +25,21 @@ export const createDockspace = async (params: {
     body: JSON.stringify(params)
   });
 
-export const listMedia = async (dockspaceId: string): Promise<MediaFileRecord[]> => {
-  const response = await apiRequest<{ items: MediaFileRecord[] }>(`/dockspaces/${dockspaceId}/media`);
-  return response.items;
+export const listMedia = async (
+  dockspaceId: string,
+  options?: { cursor?: string; limit?: number }
+): Promise<MediaListResponse> => {
+  const search = new URLSearchParams();
+  if (options?.cursor) {
+    search.set('cursor', options.cursor);
+  }
+
+  if (options?.limit) {
+    search.set('limit', String(options.limit));
+  }
+
+  const query = search.toString();
+  return apiRequest<MediaListResponse>(`/dockspaces/${dockspaceId}/media${query ? `?${query}` : ''}`);
 };
 
 export const listMediaDuplicates = async (

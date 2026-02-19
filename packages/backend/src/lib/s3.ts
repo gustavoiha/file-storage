@@ -177,17 +177,15 @@ const toNodeReadable = (body: unknown): Readable | null => {
   return null;
 };
 
+const chunkToBuffer = (chunk: unknown): Buffer =>
+  chunk instanceof Uint8Array ? Buffer.from(chunk) : Buffer.from(String(chunk));
+
 const readObjectBodyAsBytes = async (body: unknown, key: string): Promise<Uint8Array> => {
   const readable = toNodeReadable(body);
   if (readable) {
     const chunks: Buffer[] = [];
     for await (const chunk of readable) {
-      if (chunk instanceof Uint8Array) {
-        chunks.push(Buffer.from(chunk));
-        continue;
-      }
-
-      chunks.push(Buffer.from(String(chunk)));
+      chunks.push(chunkToBuffer(chunk));
     }
 
     return new Uint8Array(Buffer.concat(chunks));
@@ -215,6 +213,15 @@ export const computeObjectSha256Hex = async (key: string): Promise<string> => {
   }
 
   const hash = createHash('sha256');
+  const readable = toNodeReadable(body);
+  if (readable) {
+    for await (const chunk of readable) {
+      hash.update(chunkToBuffer(chunk));
+    }
+
+    return hash.digest('hex');
+  }
+
   hash.update(await readObjectBodyAsBytes(body, key));
   return hash.digest('hex');
 };

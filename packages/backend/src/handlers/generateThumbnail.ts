@@ -1,7 +1,5 @@
 import { spawn } from 'node:child_process';
-import { mkdtemp, readFile, rm, writeFile } from 'node:fs/promises';
-import { tmpdir } from 'node:os';
-import path from 'node:path';
+import { Readable } from 'node:stream';
 import type { SQSEvent, SQSRecord } from 'aws-lambda';
 import ffmpegPath from 'ffmpeg-static';
 import heicConvert from 'heic-convert';
@@ -12,7 +10,13 @@ import {
   getThumbnailMetadata,
   upsertThumbnailMetadata
 } from '../lib/repository.js';
-import { buildThumbnailObjectKey, getObjectBytes, objectExists, putObjectBytes } from '../lib/s3.js';
+import {
+  buildThumbnailObjectKey,
+  getObjectBytes,
+  getObjectReadStream,
+  objectExists,
+  putObjectBytes
+} from '../lib/s3.js';
 import {
   buildThumbnailJob,
   enqueueThumbnailFailureToDlq,
@@ -212,28 +216,10 @@ const createImageThumbnailForContent = async (params: {
   }
 };
 
-const contentTypeExtension = (contentType: string): string => {
-  const normalized = contentType.toLowerCase();
-  if (normalized === 'video/mp4') {
-    return 'mp4';
-  }
+const chunkToBuffer = (chunk: unknown): Buffer =>
+  chunk instanceof Uint8Array ? Buffer.from(chunk) : Buffer.from(String(chunk));
 
-  if (normalized === 'video/quicktime') {
-    return 'mov';
-  }
-
-  if (normalized === 'video/webm') {
-    return 'webm';
-  }
-
-  if (normalized === 'video/x-matroska') {
-    return 'mkv';
-  }
-
-  return 'bin';
-};
-
-const runFfmpeg = async (args: string[]): Promise<void> =>
+const runFfmpeg = async (args: string[], inputStream?: Readable): Promise<Uint8Array> =>
   await new Promise((resolve, reject) => {
     if (!ffmpegPath) {
       reject(new NonRetryableThumbnailError('Video thumbnail extraction is unavailable'));
@@ -241,53 +227,93 @@ const runFfmpeg = async (args: string[]): Promise<void> =>
     }
 
     const child = spawn(ffmpegPath, args, {
-      stdio: ['ignore', 'ignore', 'pipe']
+      stdio: ['pipe', 'pipe', 'pipe']
     });
+    let settled = false;
+    const rejectOnce = (error: unknown) => {
+      if (settled) {
+        return;
+      }
+
+      settled = true;
+      reject(error);
+    };
+    const resolveOnce = (bytes: Uint8Array) => {
+      if (settled) {
+        return;
+      }
+
+      settled = true;
+      resolve(bytes);
+    };
+
     let stderr = '';
+    const stdoutChunks: Buffer[] = [];
 
     child.stderr?.on('data', (chunk) => {
       stderr += String(chunk);
     });
-    child.on('error', reject);
+    child.stdout?.on('data', (chunk) => {
+      stdoutChunks.push(chunkToBuffer(chunk));
+    });
+    child.on('error', rejectOnce);
+    child.stdin?.on('error', (error) => {
+      const message = error instanceof Error ? error.message.toLowerCase() : String(error).toLowerCase();
+      if (message.includes('epipe') || message.includes('broken pipe')) {
+        return;
+      }
+
+      rejectOnce(error);
+    });
     child.on('close', (code) => {
       if (code === 0) {
-        resolve();
+        const frameBytes = Buffer.concat(stdoutChunks);
+        if (!frameBytes.length) {
+          rejectOnce(new Error('ffmpeg did not produce thumbnail output'));
+          return;
+        }
+
+        resolveOnce(new Uint8Array(frameBytes));
         return;
       }
 
       const message = `ffmpeg exited with code ${code ?? 'unknown'}${stderr ? `: ${stderr}` : ''}`;
-      reject(new Error(message));
+      rejectOnce(new Error(message));
     });
+
+    if (!inputStream || !child.stdin) {
+      child.stdin?.end();
+      return;
+    }
+
+    inputStream.on('error', rejectOnce);
+    inputStream.pipe(child.stdin);
   });
 
 const createVideoThumbnail = async (params: {
-  sourceBytes: Uint8Array;
-  contentType: string;
+  sourceStream: Readable;
 }): Promise<{ bytes: Uint8Array; width?: number; height?: number; size: number; contentType: string }> => {
-  const tempRoot = await mkdtemp(path.join(tmpdir(), 'thumbnail-video-'));
-  const inputPath = path.join(tempRoot, `input.${contentTypeExtension(params.contentType)}`);
-  const outputPath = path.join(tempRoot, 'frame.jpg');
-
   try {
-    await writeFile(inputPath, params.sourceBytes);
-    await runFfmpeg([
+    const frameBytes = await runFfmpeg([
       '-hide_banner',
       '-loglevel',
       'error',
       '-ss',
       '1',
       '-i',
-      inputPath,
+      'pipe:0',
       '-frames:v',
       '1',
       '-q:v',
       '2',
-      '-y',
-      outputPath
-    ]);
+      '-f',
+      'image2pipe',
+      '-vcodec',
+      'mjpeg',
+      'pipe:1'
+    ], params.sourceStream);
 
-    const frameBytes = await readFile(outputPath);
-    return createImageThumbnail(new Uint8Array(frameBytes));
+    return createImageThumbnail(frameBytes);
   } catch (error) {
     const message = error instanceof Error ? error.message.toLowerCase() : '';
     if (
@@ -299,8 +325,6 @@ const createVideoThumbnail = async (params: {
     }
 
     throw error;
-  } finally {
-    await rm(tempRoot, { recursive: true, force: true });
   }
 };
 
@@ -388,39 +412,41 @@ const processThumbnailJob = async (job: z.infer<typeof thumbnailJobSchema>): Pro
     return;
   }
 
-  const loadedSourceBytes = await getSourceBytes();
   let thumbnail:
     | { bytes: Uint8Array; width?: number; height?: number; size: number; contentType: string }
     | null = null;
 
   if (isVideoType) {
     thumbnail = await createVideoThumbnail({
-      sourceBytes: loadedSourceBytes,
-      contentType: normalizedContentType
+      sourceStream: await getObjectReadStream(job.s3Key)
     });
   } else if (isImageType) {
+    const loadedSourceBytes = await getSourceBytes();
     thumbnail = await createImageThumbnailForContent({
       sourceBytes: loadedSourceBytes,
       contentType: normalizedContentType
     });
-  } else if (isLikelyHeicBytes(loadedSourceBytes)) {
+  } else {
+    const loadedSourceBytes = await getSourceBytes();
+    if (!isLikelyHeicBytes(loadedSourceBytes)) {
+      await upsertThumbnailMetadata({
+        userId: job.userId,
+        dockspaceId: job.dockspaceId,
+        fileNodeId: job.fileNodeId,
+        sourceS3Key: job.s3Key,
+        sourceEtag: job.etag,
+        sourceContentType: job.contentType,
+        status: 'UNSUPPORTED',
+        attempts: job.attempt,
+        nowIso
+      });
+      return;
+    }
+
     thumbnail = await createImageThumbnailForContent({
       sourceBytes: loadedSourceBytes,
       contentType: 'image/heic'
     });
-  } else {
-    await upsertThumbnailMetadata({
-      userId: job.userId,
-      dockspaceId: job.dockspaceId,
-      fileNodeId: job.fileNodeId,
-      sourceS3Key: job.s3Key,
-      sourceEtag: job.etag,
-      sourceContentType: job.contentType,
-      status: 'UNSUPPORTED',
-      attempts: job.attempt,
-      nowIso
-    });
-    return;
   }
 
   if (!thumbnail) {

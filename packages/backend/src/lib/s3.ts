@@ -242,6 +242,27 @@ export const getObjectBytes = async (key: string): Promise<Uint8Array> => {
   return readObjectBodyAsBytes(body, key);
 };
 
+export const getObjectReadStream = async (key: string): Promise<Readable> => {
+  const response = await s3Client.send(
+    new GetObjectCommand({
+      Bucket: env.bucketName,
+      Key: key
+    })
+  );
+
+  const body = response.Body;
+  if (!body) {
+    throw new Error(`Object body missing for key "${key}"`);
+  }
+
+  const readable = toNodeReadable(body);
+  if (readable) {
+    return readable;
+  }
+
+  return Readable.from([await readObjectBodyAsBytes(body, key)]);
+};
+
 export const putObjectBytes = async (params: {
   key: string;
   body: Uint8Array;

@@ -1,3 +1,5 @@
+import { EventEmitter } from 'node:events';
+import { PassThrough, Readable } from 'node:stream';
 import type { SQSEvent } from 'aws-lambda';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
@@ -7,6 +9,7 @@ const {
   upsertThumbnailMetadataMock,
   buildThumbnailObjectKeyMock,
   getObjectBytesMock,
+  getObjectReadStreamMock,
   putObjectBytesMock,
   objectExistsMock,
   buildThumbnailJobMock,
@@ -14,13 +17,15 @@ const {
   enqueueThumbnailFailureToDlqMock,
   heicConvertMock,
   sharpMock,
-  sharpToBufferMock
+  sharpToBufferMock,
+  spawnMock
 } = vi.hoisted(() => ({
   findFileNodeByIdMock: vi.fn(),
   getThumbnailMetadataMock: vi.fn(),
   upsertThumbnailMetadataMock: vi.fn(),
   buildThumbnailObjectKeyMock: vi.fn(),
   getObjectBytesMock: vi.fn(),
+  getObjectReadStreamMock: vi.fn(),
   putObjectBytesMock: vi.fn(),
   objectExistsMock: vi.fn(),
   buildThumbnailJobMock: vi.fn(),
@@ -28,7 +33,8 @@ const {
   enqueueThumbnailFailureToDlqMock: vi.fn(),
   heicConvertMock: vi.fn(),
   sharpToBufferMock: vi.fn(),
-  sharpMock: vi.fn()
+  sharpMock: vi.fn(),
+  spawnMock: vi.fn()
 }));
 
 vi.mock('../lib/repository.js', () => ({
@@ -40,6 +46,7 @@ vi.mock('../lib/repository.js', () => ({
 vi.mock('../lib/s3.js', () => ({
   buildThumbnailObjectKey: buildThumbnailObjectKeyMock,
   getObjectBytes: getObjectBytesMock,
+  getObjectReadStream: getObjectReadStreamMock,
   putObjectBytes: putObjectBytesMock,
   objectExists: objectExistsMock
 }));
@@ -56,6 +63,10 @@ vi.mock('heic-convert', () => ({
 
 vi.mock('sharp', () => ({
   default: sharpMock
+}));
+
+vi.mock('node:child_process', () => ({
+  spawn: spawnMock
 }));
 
 const baseEvent = (body: Record<string, unknown>): SQSEvent =>
@@ -103,6 +114,7 @@ beforeEach(() => {
   upsertThumbnailMetadataMock.mockReset();
   buildThumbnailObjectKeyMock.mockReset();
   getObjectBytesMock.mockReset();
+  getObjectReadStreamMock.mockReset();
   putObjectBytesMock.mockReset();
   objectExistsMock.mockReset();
   buildThumbnailJobMock.mockReset();
@@ -111,6 +123,7 @@ beforeEach(() => {
   heicConvertMock.mockReset();
   sharpMock.mockReset();
   sharpToBufferMock.mockReset();
+  spawnMock.mockReset();
 
   findFileNodeByIdMock.mockResolvedValue({
     SK: 'L#file-1',
@@ -119,6 +132,7 @@ beforeEach(() => {
   getThumbnailMetadataMock.mockResolvedValue(null);
   buildThumbnailObjectKeyMock.mockReturnValue('dock-1/thumbnails/file-1/v-etag-1.jpg');
   getObjectBytesMock.mockResolvedValue(new Uint8Array([1, 2, 3]));
+  getObjectReadStreamMock.mockResolvedValue(Readable.from([new Uint8Array([1, 2, 3])]));
   putObjectBytesMock.mockResolvedValue(undefined);
   objectExistsMock.mockResolvedValue(true);
   buildThumbnailJobMock.mockImplementation((payload) => ({
@@ -143,6 +157,17 @@ beforeEach(() => {
       height: 64,
       size: 3
     }
+  });
+  spawnMock.mockImplementation(() => {
+    const child = new EventEmitter() as EventEmitter & {
+      stdout: PassThrough;
+      stderr: PassThrough;
+      stdin: PassThrough;
+    };
+    child.stdout = new PassThrough();
+    child.stderr = new PassThrough();
+    child.stdin = new PassThrough();
+    return child;
   });
 
   vi.resetModules();
@@ -226,6 +251,51 @@ describe('generateThumbnail handler', () => {
       expect.objectContaining({
         status: 'UNSUPPORTED',
         sourceContentType: 'application/octet-stream'
+      })
+    );
+  });
+
+  it('streams source video into ffmpeg without loading whole object bytes in memory', async () => {
+    spawnMock.mockImplementation(() => {
+      const child = new EventEmitter() as EventEmitter & {
+        stdout: PassThrough;
+        stderr: PassThrough;
+        stdin: PassThrough;
+      };
+      child.stdout = new PassThrough();
+      child.stderr = new PassThrough();
+      child.stdin = new PassThrough();
+      queueMicrotask(() => {
+        child.stdout.end(Buffer.from([4, 5, 6]));
+        child.stderr.end();
+        child.emit('close', 0);
+      });
+      return child;
+    });
+    getObjectReadStreamMock.mockResolvedValue(
+      Readable.from([Buffer.from([1, 2, 3]), Buffer.from([7, 8, 9])])
+    );
+
+    const { handler } = await import('../handlers/generateThumbnail.js');
+    await handler(
+      baseEvent({
+        ...baseJob,
+        contentType: 'video/mp4'
+      })
+    );
+
+    expect(getObjectReadStreamMock).toHaveBeenCalledWith('dock-1/file-1');
+    expect(getObjectBytesMock).not.toHaveBeenCalled();
+    expect(putObjectBytesMock).toHaveBeenCalledWith(
+      expect.objectContaining({
+        key: 'dock-1/thumbnails/file-1/v-etag-1.jpg',
+        contentType: 'image/jpeg'
+      })
+    );
+    expect(upsertThumbnailMetadataMock).toHaveBeenCalledWith(
+      expect.objectContaining({
+        status: 'READY',
+        sourceContentType: 'video/mp4'
       })
     );
   });

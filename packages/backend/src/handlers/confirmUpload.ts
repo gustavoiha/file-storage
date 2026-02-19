@@ -24,8 +24,10 @@ const bodySchema = z.object({
   objectKey: z.string().trim().min(3),
   size: z.number().nonnegative(),
   etag: z.string().trim().min(1),
-  contentType: z.string().trim().min(1)
+  contentType: z.string().trim().min(1),
+  contentHash: z.string().trim().optional()
 });
+const CONTENT_HASH_REGEX = /^[a-f0-9]{64}$/;
 
 export const handler = async (event: APIGatewayProxyEventV2) => {
   try {
@@ -92,7 +94,14 @@ export const handler = async (event: APIGatewayProxyEventV2) => {
       return jsonResponse(409, { error: 'Object not found in S3' });
     }
 
-    const contentHash = await computeObjectSha256Hex(parsed.data.objectKey);
+    const providedContentHash = parsed.data.contentHash?.toLowerCase();
+    if (providedContentHash && !CONTENT_HASH_REGEX.test(providedContentHash)) {
+      return jsonResponse(400, {
+        error: 'contentHash must be a sha256 hex value when provided'
+      });
+    }
+
+    const contentHash = providedContentHash ?? (await computeObjectSha256Hex(parsed.data.objectKey));
     if (isMediaDockspaceType(dockspaceType)) {
       const duplicateByHash = await hasActiveMediaWithContentHash({
         userId,

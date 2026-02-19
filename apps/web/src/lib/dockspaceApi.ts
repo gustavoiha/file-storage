@@ -269,6 +269,7 @@ const completeMultipartUpload = async (
     parts: Array<{ partNumber: number; etag: string }>;
     size: number;
     contentType: string;
+    contentHash?: string;
   }
 ): Promise<void> => {
   await apiRequest(`/dockspaces/${dockspaceId}/files/multipart/complete`, {
@@ -349,7 +350,8 @@ const uploadSinglePutFile = async (
       objectKey: session.objectKey,
       size: file.size,
       contentType,
-      etag
+      etag,
+      contentHash
     })
   });
 };
@@ -516,7 +518,8 @@ const uploadFileMultipart = async (
       uploadId: session.uploadId,
       parts: completedParts,
       size: file.size,
-      contentType
+      contentType,
+      contentHash
     });
     options?.onProgress?.(100);
   } catch (error) {

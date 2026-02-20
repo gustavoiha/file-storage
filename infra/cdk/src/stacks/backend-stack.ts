@@ -1,6 +1,6 @@
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { CfnOutput, Duration, Stack, type StackProps } from 'aws-cdk-lib';
+import { CfnOutput, Duration, Size, Stack, type StackProps } from 'aws-cdk-lib';
 import {
   HttpMethod,
   HttpApi,
@@ -10,7 +10,13 @@ import { HttpUserPoolAuthorizer } from 'aws-cdk-lib/aws-apigatewayv2-authorizers
 import { HttpLambdaIntegration } from 'aws-cdk-lib/aws-apigatewayv2-integrations';
 import { Rule, Schedule } from 'aws-cdk-lib/aws-events';
 import { LambdaFunction } from 'aws-cdk-lib/aws-events-targets';
-import { Runtime } from 'aws-cdk-lib/aws-lambda';
+import { Platform } from 'aws-cdk-lib/aws-ecr-assets';
+import {
+  Architecture,
+  DockerImageCode,
+  DockerImageFunction,
+  Runtime
+} from 'aws-cdk-lib/aws-lambda';
 import { SqsEventSource } from 'aws-cdk-lib/aws-lambda-event-sources';
 import { NodejsFunction, type NodejsFunctionProps } from 'aws-cdk-lib/aws-lambda-nodejs';
 import { Queue } from 'aws-cdk-lib/aws-sqs';
@@ -39,6 +45,7 @@ export class BackendStack extends Stack {
     const currentFilePath = fileURLToPath(import.meta.url);
     const currentDir = path.dirname(currentFilePath);
     const backendRoot = path.resolve(currentDir, '../../../../packages/backend/src/handlers');
+    const workspaceRoot = path.resolve(currentDir, '../../../../');
 
     const thumbnailJobsDlq = new Queue(this, 'ThumbnailJobsDlq', {
       retentionPeriod: Duration.days(14)
@@ -62,7 +69,7 @@ export class BackendStack extends Stack {
 
     const createHandler = (name: string, overrides?: Partial<NodejsFunctionProps>): NodejsFunction =>
       new NodejsFunction(this, `${name}Fn`, {
-        runtime: Runtime.NODEJS_22_X,
+        runtime: Runtime.NODEJS_24_X,
         entry: path.join(backendRoot, `${name}.ts`),
         handler: 'handler',
         timeout: Duration.seconds(30),
@@ -106,20 +113,23 @@ export class BackendStack extends Stack {
       listAlbumMedia: createHandler('listAlbumMedia'),
       listMediaAlbums: createHandler('listMediaAlbums')
     };
-    const generateThumbnail = createHandler('generateThumbnail', {
+    const generateThumbnail = new DockerImageFunction(this, 'generateThumbnailFn', {
+      code: DockerImageCode.fromImageAsset(workspaceRoot, {
+        file: 'packages/backend/Dockerfile.generate-thumbnail',
+        platform: Platform.LINUX_AMD64,
+        exclude: [
+          'infra/cdk/cdk.out',
+          'infra/cdk/cdk.out/**',
+          '**/cdk.out',
+          '**/cdk.out/**'
+        ]
+      }),
+      architecture: Architecture.X86_64,
       timeout: Duration.seconds(60),
-      memorySize: 1024,
-      bundling: {
-        nodeModules: ['sharp', 'ffmpeg-static', 'heic-convert'],
-        environment: {
-          npm_config_os: 'linux',
-          npm_config_cpu: 'x64',
-          npm_config_libc: 'glibc',
-          npm_config_include: 'optional'
-        }
-      },
+      memorySize: 2048,
+      ephemeralStorageSize: Size.gibibytes(4),
       environment: {
-        THUMBNAIL_DLQ_URL: thumbnailJobsDlq.queueUrl,
+        ...baseHandlerEnvironment,
         THUMBNAIL_MAX_ATTEMPTS: '8'
       }
     });
@@ -175,11 +185,11 @@ export class BackendStack extends Stack {
     thumbnailJobsQueue.grantSendMessages(handlers.confirmUpload);
     thumbnailJobsQueue.grantSendMessages(handlers.completeMultipartUpload);
     thumbnailJobsQueue.grantSendMessages(generateThumbnail);
-    thumbnailJobsDlq.grantSendMessages(generateThumbnail);
 
     generateThumbnail.addEventSource(
       new SqsEventSource(thumbnailJobsQueue, {
-        batchSize: 5
+        batchSize: 5,
+        reportBatchItemFailures: true
       })
     );
 

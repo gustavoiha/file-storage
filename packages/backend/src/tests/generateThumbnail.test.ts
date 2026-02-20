@@ -1,5 +1,5 @@
 import { EventEmitter } from 'node:events';
-import { PassThrough, Readable } from 'node:stream';
+import { PassThrough } from 'node:stream';
 import type { SQSEvent } from 'aws-lambda';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
@@ -8,13 +8,12 @@ const {
   getThumbnailMetadataMock,
   upsertThumbnailMetadataMock,
   buildThumbnailObjectKeyMock,
+  createDownloadUrlMock,
   getObjectBytesMock,
-  getObjectReadStreamMock,
   putObjectBytesMock,
   objectExistsMock,
   buildThumbnailJobMock,
   enqueueThumbnailJobMock,
-  enqueueThumbnailFailureToDlqMock,
   heicConvertMock,
   sharpMock,
   sharpToBufferMock,
@@ -24,13 +23,12 @@ const {
   getThumbnailMetadataMock: vi.fn(),
   upsertThumbnailMetadataMock: vi.fn(),
   buildThumbnailObjectKeyMock: vi.fn(),
+  createDownloadUrlMock: vi.fn(),
   getObjectBytesMock: vi.fn(),
-  getObjectReadStreamMock: vi.fn(),
   putObjectBytesMock: vi.fn(),
   objectExistsMock: vi.fn(),
   buildThumbnailJobMock: vi.fn(),
   enqueueThumbnailJobMock: vi.fn(),
-  enqueueThumbnailFailureToDlqMock: vi.fn(),
   heicConvertMock: vi.fn(),
   sharpToBufferMock: vi.fn(),
   sharpMock: vi.fn(),
@@ -45,16 +43,15 @@ vi.mock('../lib/repository.js', () => ({
 
 vi.mock('../lib/s3.js', () => ({
   buildThumbnailObjectKey: buildThumbnailObjectKeyMock,
+  createDownloadUrl: createDownloadUrlMock,
   getObjectBytes: getObjectBytesMock,
-  getObjectReadStream: getObjectReadStreamMock,
   putObjectBytes: putObjectBytesMock,
   objectExists: objectExistsMock
 }));
 
 vi.mock('../lib/thumbnailQueue.js', () => ({
   buildThumbnailJob: buildThumbnailJobMock,
-  enqueueThumbnailJob: enqueueThumbnailJobMock,
-  enqueueThumbnailFailureToDlq: enqueueThumbnailFailureToDlqMock
+  enqueueThumbnailJob: enqueueThumbnailJobMock
 }));
 
 vi.mock('heic-convert', () => ({
@@ -113,13 +110,12 @@ beforeEach(() => {
   getThumbnailMetadataMock.mockReset();
   upsertThumbnailMetadataMock.mockReset();
   buildThumbnailObjectKeyMock.mockReset();
+  createDownloadUrlMock.mockReset();
   getObjectBytesMock.mockReset();
-  getObjectReadStreamMock.mockReset();
   putObjectBytesMock.mockReset();
   objectExistsMock.mockReset();
   buildThumbnailJobMock.mockReset();
   enqueueThumbnailJobMock.mockReset();
-  enqueueThumbnailFailureToDlqMock.mockReset();
   heicConvertMock.mockReset();
   sharpMock.mockReset();
   sharpToBufferMock.mockReset();
@@ -131,8 +127,8 @@ beforeEach(() => {
   });
   getThumbnailMetadataMock.mockResolvedValue(null);
   buildThumbnailObjectKeyMock.mockReturnValue('dock-1/thumbnails/file-1/v-etag-1.jpg');
+  createDownloadUrlMock.mockResolvedValue('https://signed.example.com/video.mp4');
   getObjectBytesMock.mockResolvedValue(new Uint8Array([1, 2, 3]));
-  getObjectReadStreamMock.mockResolvedValue(Readable.from([new Uint8Array([1, 2, 3])]));
   putObjectBytesMock.mockResolvedValue(undefined);
   objectExistsMock.mockResolvedValue(true);
   buildThumbnailJobMock.mockImplementation((payload) => ({
@@ -141,7 +137,6 @@ beforeEach(() => {
     jobType: 'GENERATE_THUMBNAIL'
   }));
   enqueueThumbnailJobMock.mockResolvedValue(undefined);
-  enqueueThumbnailFailureToDlqMock.mockResolvedValue(undefined);
   heicConvertMock.mockResolvedValue(Buffer.from([7, 7, 7]));
 
   sharpMock.mockReturnValue({
@@ -181,12 +176,12 @@ describe('generateThumbnail handler', () => {
     });
 
     const { handler } = await import('../handlers/generateThumbnail.js');
-    await handler(baseEvent(baseJob));
+    const response = await handler(baseEvent(baseJob));
 
     expect(upsertThumbnailMetadataMock).not.toHaveBeenCalled();
     expect(putObjectBytesMock).not.toHaveBeenCalled();
     expect(enqueueThumbnailJobMock).not.toHaveBeenCalled();
-    expect(enqueueThumbnailFailureToDlqMock).not.toHaveBeenCalled();
+    expect(response.batchItemFailures).toEqual([]);
   });
 
   it('marks unsupported non-image types without retry', async () => {
@@ -255,7 +250,7 @@ describe('generateThumbnail handler', () => {
     );
   });
 
-  it('streams source video into ffmpeg without loading whole object bytes in memory', async () => {
+  it('uses a presigned source URL for ffmpeg video extraction', async () => {
     spawnMock.mockImplementation(() => {
       const child = new EventEmitter() as EventEmitter & {
         stdout: PassThrough;
@@ -272,20 +267,22 @@ describe('generateThumbnail handler', () => {
       });
       return child;
     });
-    getObjectReadStreamMock.mockResolvedValue(
-      Readable.from([Buffer.from([1, 2, 3]), Buffer.from([7, 8, 9])])
-    );
-
     const { handler } = await import('../handlers/generateThumbnail.js');
-    await handler(
+    const response = await handler(
       baseEvent({
         ...baseJob,
         contentType: 'video/mp4'
       })
     );
 
-    expect(getObjectReadStreamMock).toHaveBeenCalledWith('dock-1/file-1');
+    expect(createDownloadUrlMock).toHaveBeenCalledWith('dock-1/file-1');
     expect(getObjectBytesMock).not.toHaveBeenCalled();
+    expect(spawnMock).toHaveBeenCalled();
+    const ffmpegArgs = spawnMock.mock.calls[0]?.[1] as string[] | undefined;
+    expect(ffmpegArgs).toBeDefined();
+    const inputFlagIndex = ffmpegArgs?.findIndex((value) => value === '-i') ?? -1;
+    expect(inputFlagIndex).toBeGreaterThanOrEqual(0);
+    expect(ffmpegArgs?.[inputFlagIndex + 1]).toBe('https://signed.example.com/video.mp4');
     expect(putObjectBytesMock).toHaveBeenCalledWith(
       expect.objectContaining({
         key: 'dock-1/thumbnails/file-1/v-etag-1.jpg',
@@ -300,9 +297,46 @@ describe('generateThumbnail handler', () => {
     );
   });
 
+  it('treats ffmpeg binary incompatibility as non-retryable', async () => {
+    spawnMock.mockImplementation(() => {
+      const child = new EventEmitter() as EventEmitter & {
+        stdout: PassThrough;
+        stderr: PassThrough;
+        stdin: PassThrough;
+      };
+      child.stdout = new PassThrough();
+      child.stderr = new PassThrough();
+      child.stdin = new PassThrough();
+      queueMicrotask(() => {
+        child.stderr.write(
+          '/var/task/node_modules/ffmpeg-static/ffmpeg: cannot execute binary file'
+        );
+        child.stderr.end();
+        child.emit('close', 126);
+      });
+      return child;
+    });
+
+    const { handler } = await import('../handlers/generateThumbnail.js');
+    const response = await handler(
+      baseEvent({
+        ...baseJob,
+        contentType: 'video/mp4'
+      })
+    );
+
+    expect(enqueueThumbnailJobMock).not.toHaveBeenCalled();
+    expect(upsertThumbnailMetadataMock).toHaveBeenCalledWith(
+      expect.objectContaining({
+        status: 'FAILED'
+      })
+    );
+    expect(response.batchItemFailures).toEqual([{ itemIdentifier: 'msg-1' }]);
+  });
+
   it('creates thumbnail and writes READY metadata for images', async () => {
     const { handler } = await import('../handlers/generateThumbnail.js');
-    await handler(baseEvent(baseJob));
+    const response = await handler(baseEvent(baseJob));
 
     expect(putObjectBytesMock).toHaveBeenCalledWith(
       expect.objectContaining({
@@ -318,13 +352,14 @@ describe('generateThumbnail handler', () => {
         height: 64
       })
     );
+    expect(response.batchItemFailures).toEqual([]);
   });
 
   it('requeues retryable failures with exponential backoff', async () => {
     getObjectBytesMock.mockRejectedValue(new Error('request timeout'));
 
     const { handler } = await import('../handlers/generateThumbnail.js');
-    await handler(baseEvent(baseJob));
+    const response = await handler(baseEvent(baseJob));
 
     expect(enqueueThumbnailJobMock).toHaveBeenCalledWith(
       expect.objectContaining({
@@ -334,7 +369,7 @@ describe('generateThumbnail handler', () => {
         delaySeconds: 30
       })
     );
-    expect(enqueueThumbnailFailureToDlqMock).not.toHaveBeenCalled();
+    expect(response.batchItemFailures).toEqual([]);
   });
 
   it('moves to dlq after max attempts and persists FAILED state', async () => {
@@ -342,7 +377,7 @@ describe('generateThumbnail handler', () => {
     getObjectBytesMock.mockRejectedValue(new Error('request timeout'));
 
     const { handler } = await import('../handlers/generateThumbnail.js');
-    await handler(
+    const response = await handler(
       baseEvent({
         ...baseJob,
         attempt: 2
@@ -356,11 +391,7 @@ describe('generateThumbnail handler', () => {
         attempts: 2
       })
     );
-    expect(enqueueThumbnailFailureToDlqMock).toHaveBeenCalledWith(
-      expect.objectContaining({
-        reason: 'MAX_ATTEMPTS_EXCEEDED'
-      })
-    );
+    expect(response.batchItemFailures).toEqual([{ itemIdentifier: 'msg-1' }]);
   });
 
   it('skips generation when matching READY metadata already exists', async () => {

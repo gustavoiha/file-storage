@@ -1,0 +1,20 @@
+FROM public.ecr.aws/docker/library/node:24-bookworm-slim AS build
+
+WORKDIR /app
+
+COPY package.json package-lock.json tsconfig.base.json ./
+COPY packages/backend/package.json packages/backend/tsconfig.json ./packages/backend/
+COPY packages/backend/src ./packages/backend/src
+
+RUN npm ci --workspace @dockspace/backend
+RUN npm run build --workspace @dockspace/backend
+
+FROM public.ecr.aws/lambda/nodejs:24
+
+WORKDIR ${LAMBDA_TASK_ROOT}
+
+COPY --from=build /app/node_modules ./node_modules
+COPY --from=build /app/packages/backend/package.json ./packages/backend/package.json
+COPY --from=build /app/packages/backend/dist ./packages/backend/dist
+
+CMD ["packages/backend/dist/handlers/generateThumbnail.handler"]

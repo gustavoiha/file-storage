@@ -1,6 +1,5 @@
 import { spawn } from 'node:child_process';
-import { Readable } from 'node:stream';
-import type { SQSEvent, SQSRecord } from 'aws-lambda';
+import type { SQSBatchResponse, SQSEvent, SQSRecord } from 'aws-lambda';
 import ffmpegPath from 'ffmpeg-static';
 import heicConvert from 'heic-convert';
 import sharp from 'sharp';
@@ -12,14 +11,13 @@ import {
 } from '../lib/repository.js';
 import {
   buildThumbnailObjectKey,
+  createDownloadUrl,
   getObjectBytes,
-  getObjectReadStream,
   objectExists,
   putObjectBytes
 } from '../lib/s3.js';
 import {
   buildThumbnailJob,
-  enqueueThumbnailFailureToDlq,
   enqueueThumbnailJob
 } from '../lib/thumbnailQueue.js';
 import { fileStateFromNode } from '../types/models.js';
@@ -54,6 +52,14 @@ const maxAttempts = (): number => {
 
 const computeRetryDelaySeconds = (attempt: number): number =>
   Math.min(900, Math.max(1, (2 ** Math.max(0, attempt - 1)) * BASE_RETRY_DELAY_SECONDS));
+
+const parseJsonString = (value: string): unknown | null => {
+  try {
+    return JSON.parse(value);
+  } catch {
+    return null;
+  }
+};
 
 const truncatedErrorMessage = (error: unknown): string => {
   const message = error instanceof Error ? error.message : String(error);
@@ -219,7 +225,7 @@ const createImageThumbnailForContent = async (params: {
 const chunkToBuffer = (chunk: unknown): Buffer =>
   chunk instanceof Uint8Array ? Buffer.from(chunk) : Buffer.from(String(chunk));
 
-const runFfmpeg = async (args: string[], inputStream?: Readable): Promise<Uint8Array> =>
+const runFfmpeg = async (args: string[]): Promise<Uint8Array> =>
   await new Promise((resolve, reject) => {
     if (!ffmpegPath) {
       reject(new NonRetryableThumbnailError('Video thumbnail extraction is unavailable'));
@@ -227,7 +233,7 @@ const runFfmpeg = async (args: string[], inputStream?: Readable): Promise<Uint8A
     }
 
     const child = spawn(ffmpegPath, args, {
-      stdio: ['pipe', 'pipe', 'pipe']
+      stdio: ['ignore', 'pipe', 'pipe']
     });
     let settled = false;
     const rejectOnce = (error: unknown) => {
@@ -257,14 +263,6 @@ const runFfmpeg = async (args: string[], inputStream?: Readable): Promise<Uint8A
       stdoutChunks.push(chunkToBuffer(chunk));
     });
     child.on('error', rejectOnce);
-    child.stdin?.on('error', (error) => {
-      const message = error instanceof Error ? error.message.toLowerCase() : String(error).toLowerCase();
-      if (message.includes('epipe') || message.includes('broken pipe')) {
-        return;
-      }
-
-      rejectOnce(error);
-    });
     child.on('close', (code) => {
       if (code === 0) {
         const frameBytes = Buffer.concat(stdoutChunks);
@@ -280,18 +278,10 @@ const runFfmpeg = async (args: string[], inputStream?: Readable): Promise<Uint8A
       const message = `ffmpeg exited with code ${code ?? 'unknown'}${stderr ? `: ${stderr}` : ''}`;
       rejectOnce(new Error(message));
     });
-
-    if (!inputStream || !child.stdin) {
-      child.stdin?.end();
-      return;
-    }
-
-    inputStream.on('error', rejectOnce);
-    inputStream.pipe(child.stdin);
   });
 
 const createVideoThumbnail = async (params: {
-  sourceStream: Readable;
+  sourceUrl: string;
 }): Promise<{ bytes: Uint8Array; width?: number; height?: number; size: number; contentType: string }> => {
   try {
     const frameBytes = await runFfmpeg([
@@ -300,8 +290,12 @@ const createVideoThumbnail = async (params: {
       'error',
       '-ss',
       '1',
+      '-analyzeduration',
+      '2M',
+      '-probesize',
+      '2M',
       '-i',
-      'pipe:0',
+      params.sourceUrl,
       '-frames:v',
       '1',
       '-q:v',
@@ -311,7 +305,7 @@ const createVideoThumbnail = async (params: {
       '-vcodec',
       'mjpeg',
       'pipe:1'
-    ], params.sourceStream);
+    ]);
 
     return createImageThumbnail(frameBytes);
   } catch (error) {
@@ -322,6 +316,13 @@ const createVideoThumbnail = async (params: {
       message.includes('could not find codec parameters')
     ) {
       throw new NonRetryableThumbnailError('Unable to decode source video');
+    }
+    if (
+      message.includes('cannot execute binary file') ||
+      message.includes('exec format error') ||
+      message.includes('permission denied')
+    ) {
+      throw new NonRetryableThumbnailError('Video thumbnail extraction binary is not executable');
     }
 
     throw error;
@@ -418,7 +419,7 @@ const processThumbnailJob = async (job: z.infer<typeof thumbnailJobSchema>): Pro
 
   if (isVideoType) {
     thumbnail = await createVideoThumbnail({
-      sourceStream: await getObjectReadStream(job.s3Key)
+      sourceUrl: await createDownloadUrl(job.s3Key)
     });
   } else if (isImageType) {
     const loadedSourceBytes = await getSourceBytes();
@@ -481,41 +482,23 @@ const processThumbnailJob = async (job: z.infer<typeof thumbnailJobSchema>): Pro
   });
 };
 
-const handleRecord = async (record: SQSRecord): Promise<void> => {
-  const jsonPayload = (() => {
-    try {
-      return JSON.parse(record.body);
-    } catch {
-      return null;
-    }
-  })();
+const handleRecord = async (record: SQSRecord): Promise<'success' | 'failure'> => {
+  const jsonPayload = parseJsonString(record.body);
 
   if (!jsonPayload) {
-    await enqueueThumbnailFailureToDlq({
-      reason: 'INVALID_JSON',
-      messageId: record.messageId,
-      body: record.body,
-      failedAt: new Date().toISOString()
-    });
-    return;
+    return 'failure';
   }
 
   const parsed = thumbnailJobSchema.safeParse(jsonPayload);
   if (!parsed.success) {
-    await enqueueThumbnailFailureToDlq({
-      reason: 'INVALID_PAYLOAD',
-      messageId: record.messageId,
-      body: record.body,
-      issues: parsed.error.issues,
-      failedAt: new Date().toISOString()
-    });
-    return;
+    return 'failure';
   }
 
   const job = parsed.data;
 
   try {
     await processThumbnailJob(job);
+    return 'success';
   } catch (error) {
     const retryable = isRetryableError(error);
     const errorMessage = truncatedErrorMessage(error);
@@ -537,22 +520,27 @@ const handleRecord = async (record: SQSRecord): Promise<void> => {
           delaySeconds: computeRetryDelaySeconds(job.attempt)
         }
       );
-      return;
+      return 'success';
     }
 
     await persistFailedStatusIfCurrent(job, errorMessage);
-    await enqueueThumbnailFailureToDlq({
-      reason: retryable ? 'MAX_ATTEMPTS_EXCEEDED' : 'NON_RETRYABLE_FAILURE',
-      messageId: record.messageId,
-      job,
-      error: errorMessage,
-      failedAt: new Date().toISOString()
-    });
+    return 'failure';
   }
 };
 
-export const handler = async (event: SQSEvent): Promise<void> => {
+export const handler = async (event: SQSEvent): Promise<SQSBatchResponse> => {
+  const batchItemFailures: SQSBatchResponse['batchItemFailures'] = [];
+
   for (const record of event.Records) {
-    await handleRecord(record);
+    try {
+      const result = await handleRecord(record);
+      if (result === 'failure') {
+        batchItemFailures.push({ itemIdentifier: record.messageId });
+      }
+    } catch {
+      batchItemFailures.push({ itemIdentifier: record.messageId });
+    }
   }
+
+  return { batchItemFailures };
 };

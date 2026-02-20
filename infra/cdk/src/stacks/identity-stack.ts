@@ -33,7 +33,7 @@ export class IdentityStack extends Stack {
     const triggerRoot = path.resolve(currentDir, '../../../../packages/backend/src/triggers');
 
     const preSignUpAllowlistFn = new NodejsFunction(this, 'PreSignUpAllowlistFn', {
-      runtime: Runtime.NODEJS_22_X,
+      runtime: Runtime.NODEJS_24_X,
       entry: path.join(triggerRoot, 'preSignUpAllowlist.ts'),
       handler: 'handler',
       timeout: Duration.seconds(15),
@@ -44,7 +44,7 @@ export class IdentityStack extends Stack {
     });
 
     const postConfirmationAssignGroupFn = new NodejsFunction(this, 'PostConfirmationAssignGroupFn', {
-      runtime: Runtime.NODEJS_22_X,
+      runtime: Runtime.NODEJS_24_X,
       entry: path.join(triggerRoot, 'postConfirmationAssignGroup.ts'),
       handler: 'handler',
       timeout: Duration.seconds(15),

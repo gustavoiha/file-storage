@@ -54,6 +54,10 @@ vi.mock('@/components/files/FileViewerDialog', () => ({
   FileViewerDialog: () => null
 }));
 
+vi.mock('@/components/files/FilePreviewContent', () => ({
+  FilePreviewContent: () => <div>FilePreviewContent</div>
+}));
+
 vi.mock('@/components/files/UploadStagingList', () => ({
   UploadStagingList: () => <div>UploadStagingList</div>
 }));
@@ -119,6 +123,7 @@ describe('DockspaceMediaPage', () => {
         }
       ]
     };
+    mockState.albumsData = [];
     mockState.mediaHasNextPage = false;
     mockState.mediaIsFetchingNextPage = false;
     mockState.mediaIsLoading = false;
@@ -141,9 +146,13 @@ describe('DockspaceMediaPage', () => {
 
     render(<DockspaceMediaPage dockspaceId="dock-1" dockspaceName="Camera Roll" />);
 
-    expect(screen.getByText('item-0001.jpg')).toBeInTheDocument();
-    expect(screen.queryByText('item-0010.jpg')).not.toBeInTheDocument();
-    expect(screen.getAllByRole('button', { name: 'Preview' }).length).toBeLessThan(120);
+    expect(screen.queryByText('item-0001.jpg')).not.toBeInTheDocument();
+    expect(document.querySelectorAll('.media-card').length).toBeGreaterThan(0);
+    expect(document.querySelectorAll('.media-card').length).toBeLessThan(120);
+    expect(screen.getByRole('button', { name: 'Show small thumbnails' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Show medium thumbnails' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Show large thumbnails' })).toBeInTheDocument();
+    expect(screen.queryByText('Filter by album')).not.toBeInTheDocument();
   });
 
   it('fetches the next page when scrolling near the bottom', async () => {
@@ -165,5 +174,59 @@ describe('DockspaceMediaPage', () => {
     await waitFor(() => {
       expect(mockState.mediaFetchNextPage).toHaveBeenCalledTimes(1);
     });
+  });
+
+  it('updates grid size class when selecting another gallery size', () => {
+    mockState.mediaData = {
+      pages: [
+        {
+          items: mockState.buildMediaItems(24)
+        }
+      ]
+    };
+
+    render(<DockspaceMediaPage dockspaceId="dock-1" dockspaceName="Camera Roll" />);
+
+    expect(document.querySelector('.media-grid--virtual.media-grid--medium')).not.toBeNull();
+    fireEvent.click(screen.getByRole('button', { name: 'Show large thumbnails' }));
+    expect(document.querySelector('.media-grid--virtual.media-grid--large')).not.toBeNull();
+  });
+
+  it('shows selected preview section and fullscreen action after selecting an item', () => {
+    mockState.mediaData = {
+      pages: [
+        {
+          items: mockState.buildMediaItems(8)
+        }
+      ]
+    };
+
+    render(<DockspaceMediaPage dockspaceId="dock-1" dockspaceName="Camera Roll" />);
+
+    fireEvent.click(screen.getByRole('button', { name: 'Select item-0001.jpg' }));
+
+    expect(screen.getByText('FilePreviewContent')).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Open fullscreen' })).toBeInTheDocument();
+  });
+
+  it('switches to album dropdown mode while keeping the same side panel visible', () => {
+    mockState.mediaData = {
+      pages: [
+        {
+          items: mockState.buildMediaItems(8)
+        }
+      ]
+    };
+    mockState.albumsData = [{ albumId: 'album-1', name: 'Travel' }];
+
+    render(<DockspaceMediaPage dockspaceId="dock-1" dockspaceName="Camera Roll" />);
+
+    expect(screen.getByRole('button', { name: 'Find duplicates' })).toBeInTheDocument();
+    fireEvent.change(screen.getByRole('combobox', { name: 'Select album' }), {
+      target: { value: 'album-1' }
+    });
+
+    expect(screen.queryByRole('button', { name: 'Find duplicates' })).not.toBeInTheDocument();
+    expect(screen.getByText('Selected Media')).toBeInTheDocument();
   });
 });

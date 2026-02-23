@@ -1,6 +1,6 @@
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { CfnOutput, Duration, Size, Stack, type StackProps } from 'aws-cdk-lib';
+import { ArnFormat, CfnOutput, Duration, Size, Stack, type StackProps } from 'aws-cdk-lib';
 import {
   HttpMethod,
   HttpApi,
@@ -18,8 +18,8 @@ import {
   Runtime
 } from 'aws-cdk-lib/aws-lambda';
 import { SqsEventSource } from 'aws-cdk-lib/aws-lambda-event-sources';
+import { PolicyStatement } from 'aws-cdk-lib/aws-iam';
 import { NodejsFunction, type NodejsFunctionProps } from 'aws-cdk-lib/aws-lambda-nodejs';
-import { StringParameter } from 'aws-cdk-lib/aws-ssm';
 import { Queue } from 'aws-cdk-lib/aws-sqs';
 import type { UserPool, UserPoolClient } from 'aws-cdk-lib/aws-cognito';
 import type { Table } from 'aws-cdk-lib/aws-dynamodb';
@@ -189,14 +189,27 @@ export class BackendStack extends Stack {
     props.bucket.grantReadWrite(generateThumbnail);
     props.bucket.grantReadWrite(purgeReconciliation);
 
-    const fileReadPrivateKeyParameter = StringParameter.fromStringParameterName(
-      this,
-      'FileReadPrivateKeyParameter',
-      props.fileReadPrivateKeyParameterName
+    const privateKeyParameterResourceName = props.fileReadPrivateKeyParameterName.replace(
+      /^\/+/,
+      ''
     );
-    fileReadPrivateKeyParameter.grantRead(handlers.createDownloadSession);
-    fileReadPrivateKeyParameter.grantRead(handlers.listMedia);
-    fileReadPrivateKeyParameter.grantRead(handlers.listAlbumMedia);
+    const privateKeyParameterArn = this.formatArn({
+      service: 'ssm',
+      resource: 'parameter',
+      resourceName: privateKeyParameterResourceName,
+      arnFormat: ArnFormat.SLASH_RESOURCE_NAME
+    });
+    const grantFileReadPrivateKey = (handler: NodejsFunction): void => {
+      handler.addToRolePolicy(
+        new PolicyStatement({
+          actions: ['ssm:GetParameter', 'ssm:GetParameters'],
+          resources: [privateKeyParameterArn]
+        })
+      );
+    };
+    grantFileReadPrivateKey(handlers.createDownloadSession);
+    grantFileReadPrivateKey(handlers.listMedia);
+    grantFileReadPrivateKey(handlers.listAlbumMedia);
 
     thumbnailJobsQueue.grantSendMessages(handlers.confirmUpload);
     thumbnailJobsQueue.grantSendMessages(handlers.completeMultipartUpload);

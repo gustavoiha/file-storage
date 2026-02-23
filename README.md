@@ -376,7 +376,7 @@ Future sharing can be added via new item types without schema changes.
 ## 14. Security Guarantees
 
 * S3 bucket is private
-* Access via presigned URLs only
+* File reads use CloudFront signed URLs minted by authenticated API handlers
 * Cognito-authenticated API access
 * IAM scoped to:
 
@@ -385,7 +385,32 @@ Future sharing can be added via new item types without schema changes.
 
 ---
 
-## 15. Explicit Non-Goals
+## 15. File Read CDN Environment Variables
+
+To attach the new file-read CloudFront distribution to the app stack, set these values:
+
+### Infra CDK (`infra/cdk/.env.<env>`)
+
+* `FILE_READ_PUBLIC_KEY_PEM`
+  * CloudFront public key (PEM) for the `KeyGroup`
+* `FILE_READ_PRIVATE_KEY_PARAMETER_NAME`
+  * SSM `SecureString` parameter containing the matching private key
+
+You can generate keys locally with:
+
+```bash
+/Users/gustavoiha/Personal/file-storage/infra/cdk/scripts/generate-cloudfront-keypair.sh
+```
+
+### Web App (`apps/web/.env.<env>`)
+
+No additional file-read CDN env vars are required for the web app.
+
+The web app receives per-object signed download/thumbnail URLs from the API responses.
+
+---
+
+## 16. Explicit Non-Goals
 
 * No multi-tenant SaaS model
 * No cross-user sharing
@@ -394,7 +419,7 @@ Future sharing can be added via new item types without schema changes.
 
 ---
 
-## 16. Invariants
+## 17. Invariants
 
 * `PURGED` implies object absence (verified)
 * `ACTIVE` implies no TRASH lifecycle tag
@@ -404,7 +429,7 @@ Future sharing can be added via new item types without schema changes.
 
 ---
 
-## 17. Authorization Setup (Allowlist + Entitlement Group)
+## 18. Authorization Setup (Allowlist + Entitlement Group)
 
 Dockspace supports signup allowlisting and runtime entitlement checks:
 
@@ -435,7 +460,7 @@ Create this parameter before first production signup:
 
 ---
 
-## 18. One-Time Backfill For Purge GSI
+## 19. One-Time Backfill For Purge GSI
 
 When introducing purge-due indexing for already-trashed records, run this one-time backfill:
 
@@ -460,7 +485,7 @@ Optional controls:
 
 ---
 
-## 19. One-Time Backfill For Trash/Purged State Index
+## 20. One-Time Backfill For Trash/Purged State Index
 
 When introducing `FILE_STATE_INDEX` records (`X#TRASH#...` / `X#PURGED#...`), run:
 
@@ -485,7 +510,7 @@ Optional controls:
 
 ---
 
-## 20. One-Time Backfill For Dockspace Metrics
+## 21. One-Time Backfill For Dockspace Metrics
 
 When introducing `DOCKSPACE_METRICS` records (`M#S#{dockspaceId}`), run:
 
@@ -510,7 +535,7 @@ Optional controls:
 
 ---
 
-## 21. One-Time Backfill For File Content Hash
+## 22. One-Time Backfill For File Content Hash
 
 When introducing `contentHash` on uploaded file nodes, run:
 
@@ -537,7 +562,7 @@ Optional controls:
 
 ---
 
-## 22. One-Time Backfill For Media Hash Index
+## 23. One-Time Backfill For Media Hash Index
 
 When introducing `MEDIA_HASH_INDEX` records (`H#{contentHash}#L#{fileNodeId}`), run:
 

@@ -19,6 +19,7 @@ import {
 } from 'aws-cdk-lib/aws-lambda';
 import { SqsEventSource } from 'aws-cdk-lib/aws-lambda-event-sources';
 import { NodejsFunction, type NodejsFunctionProps } from 'aws-cdk-lib/aws-lambda-nodejs';
+import { StringParameter } from 'aws-cdk-lib/aws-ssm';
 import { Queue } from 'aws-cdk-lib/aws-sqs';
 import type { UserPool, UserPoolClient } from 'aws-cdk-lib/aws-cognito';
 import type { Table } from 'aws-cdk-lib/aws-dynamodb';
@@ -33,6 +34,9 @@ interface BackendStackProps extends StackProps {
   bucket: Bucket;
   entitledGroupName: string;
   deploymentEnvironment: string;
+  fileReadDomainName: string;
+  fileReadKeyPairId: string;
+  fileReadPrivateKeyParameterName: string;
 }
 
 export class BackendStack extends Stack {
@@ -64,7 +68,10 @@ export class BackendStack extends Stack {
       BUCKET_NAME: props.bucket.bucketName,
       TRASH_RETENTION_DAYS: '30',
       ENTITLED_GROUP_NAME: props.entitledGroupName,
-      THUMBNAIL_QUEUE_URL: thumbnailJobsQueue.queueUrl
+      THUMBNAIL_QUEUE_URL: thumbnailJobsQueue.queueUrl,
+      FILE_READ_DOMAIN_NAME: props.fileReadDomainName,
+      FILE_READ_KEY_PAIR_ID: props.fileReadKeyPairId,
+      FILE_READ_PRIVATE_KEY_PARAMETER_NAME: props.fileReadPrivateKeyParameterName
     };
 
     const createHandler = (name: string, overrides?: Partial<NodejsFunctionProps>): NodejsFunction =>
@@ -181,6 +188,15 @@ export class BackendStack extends Stack {
     props.bucket.grantReadWrite(handlers.purgeFileNow);
     props.bucket.grantReadWrite(generateThumbnail);
     props.bucket.grantReadWrite(purgeReconciliation);
+
+    const fileReadPrivateKeyParameter = StringParameter.fromStringParameterName(
+      this,
+      'FileReadPrivateKeyParameter',
+      props.fileReadPrivateKeyParameterName
+    );
+    fileReadPrivateKeyParameter.grantRead(handlers.createDownloadSession);
+    fileReadPrivateKeyParameter.grantRead(handlers.listMedia);
+    fileReadPrivateKeyParameter.grantRead(handlers.listAlbumMedia);
 
     thumbnailJobsQueue.grantSendMessages(handlers.confirmUpload);
     thumbnailJobsQueue.grantSendMessages(handlers.completeMultipartUpload);

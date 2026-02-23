@@ -8,4 +8,5 @@ coverage
 .env
 .env.dev
 .env.prod
+infra/cdk/.keys
 .codex

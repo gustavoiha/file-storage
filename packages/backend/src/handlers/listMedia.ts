@@ -1,9 +1,9 @@
 import type { APIGatewayProxyEventV2 } from 'aws-lambda';
 import { requireEntitledUser } from '../lib/auth.js';
+import { createFileReadUrl } from '../lib/cdn.js';
 import { ensureMediaDockspace } from '../lib/dockspaceTypeGuards.js';
 import { errorResponse, jsonResponse } from '../lib/http.js';
 import { listActiveMediaItems, listThumbnailMetadata } from '../lib/repository.js';
-import { createDownloadUrl } from '../lib/s3.js';
 
 const DEFAULT_LIMIT = 60;
 const MAX_LIMIT = 200;
@@ -68,7 +68,11 @@ export const handler = async (event: APIGatewayProxyEventV2) => {
         return {
           ...item,
           thumbnail: {
-            url: await createDownloadUrl(thumbnailMetadata.thumbnailKey),
+            url: (
+              await createFileReadUrl(thumbnailMetadata.thumbnailKey, {
+                expiresInSeconds: 900
+              })
+            ).url,
             contentType: thumbnailMetadata.thumbnailContentType ?? 'image/jpeg',
             ...(typeof thumbnailMetadata.width === 'number'
               ? { width: thumbnailMetadata.width }

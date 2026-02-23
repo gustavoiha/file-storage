@@ -17,6 +17,8 @@ const requiredEnv = (key: string): string => {
 };
 
 const deploymentEnvironment = requiredEnv('ENVIRONMENT');
+const fileReadPublicKeyPem = requiredEnv('FILE_READ_PUBLIC_KEY_PEM');
+const fileReadPrivateKeyParameterName = requiredEnv('FILE_READ_PRIVATE_KEY_PARAMETER_NAME');
 
 interface BaseStackProps extends StackProps {
   deploymentEnvironment: string;
@@ -35,7 +37,10 @@ const stackProps: BaseStackProps = {
 };
 
 const identity = new IdentityStack(app, 'DockspaceIdentity', stackProps);
-const storage = new StorageStack(app, 'DockspaceStorage', stackProps);
+const storage = new StorageStack(app, 'DockspaceStorage', {
+  ...stackProps,
+  fileReadPublicKeyPem
+});
 
 new BackendStack(app, 'DockspaceBackend', {
   ...stackProps,
@@ -43,7 +48,10 @@ new BackendStack(app, 'DockspaceBackend', {
   userPoolClient: identity.userPoolClient,
   entitledGroupName: identity.entitledGroupName,
   table: storage.metadataTable,
-  bucket: storage.fileBucket
+  bucket: storage.fileBucket,
+  fileReadDomainName: storage.fileReadDistributionDomainName,
+  fileReadKeyPairId: storage.fileReadKeyPairId,
+  fileReadPrivateKeyParameterName
 });
 
 new FrontendHostingStack(app, 'DockspaceFrontendHosting', stackProps);

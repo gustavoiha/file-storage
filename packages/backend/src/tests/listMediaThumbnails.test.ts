@@ -6,13 +6,13 @@ const {
   ensureMediaDockspaceMock,
   listActiveMediaItemsMock,
   listThumbnailMetadataMock,
-  createDownloadUrlMock
+  createFileReadUrlMock
 } = vi.hoisted(() => ({
   requireEntitledUserMock: vi.fn(),
   ensureMediaDockspaceMock: vi.fn(),
   listActiveMediaItemsMock: vi.fn(),
   listThumbnailMetadataMock: vi.fn(),
-  createDownloadUrlMock: vi.fn()
+  createFileReadUrlMock: vi.fn()
 }));
 
 vi.mock('../lib/auth.js', () => ({
@@ -28,8 +28,8 @@ vi.mock('../lib/repository.js', () => ({
   listThumbnailMetadata: listThumbnailMetadataMock
 }));
 
-vi.mock('../lib/s3.js', () => ({
-  createDownloadUrl: createDownloadUrlMock
+vi.mock('../lib/cdn.js', () => ({
+  createFileReadUrl: createFileReadUrlMock
 }));
 
 const baseEvent = (): APIGatewayProxyEventV2 =>
@@ -68,7 +68,7 @@ beforeEach(() => {
   ensureMediaDockspaceMock.mockReset();
   listActiveMediaItemsMock.mockReset();
   listThumbnailMetadataMock.mockReset();
-  createDownloadUrlMock.mockReset();
+  createFileReadUrlMock.mockReset();
 
   requireEntitledUserMock.mockReturnValue({ userId: 'user-1' });
   ensureMediaDockspaceMock.mockResolvedValue({ ok: true });
@@ -95,7 +95,10 @@ beforeEach(() => {
       height: 200
     }
   ]);
-  createDownloadUrlMock.mockResolvedValue('https://cdn.example/thumb.jpg');
+  createFileReadUrlMock.mockResolvedValue({
+    url: 'https://cdn.example/thumb.jpg',
+    expiresInSeconds: 900
+  });
 
   vi.resetModules();
 });
@@ -114,7 +117,9 @@ describe('listMedia thumbnails', () => {
       dockspaceId: 'dock-1',
       limit: 60
     });
-    expect(createDownloadUrlMock).toHaveBeenCalledWith('dock-1/thumbnails/file-1/v-etag.jpg');
+    expect(createFileReadUrlMock).toHaveBeenCalledWith('dock-1/thumbnails/file-1/v-etag.jpg', {
+      expiresInSeconds: 900
+    });
     expect(body.items[0]?.thumbnail?.url).toBe('https://cdn.example/thumb.jpg');
     expect(body.items[0]?.thumbnail?.width).toBe(320);
     expect(body.items[0]?.thumbnail?.height).toBe(200);
@@ -135,7 +140,7 @@ describe('listMedia thumbnails', () => {
     };
 
     expect(response.statusCode).toBe(200);
-    expect(createDownloadUrlMock).not.toHaveBeenCalled();
+    expect(createFileReadUrlMock).not.toHaveBeenCalled();
     expect(body.items[0]?.thumbnail).toBeUndefined();
   });
 

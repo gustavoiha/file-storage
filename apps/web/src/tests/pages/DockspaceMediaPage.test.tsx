@@ -35,7 +35,8 @@ const mockState = vi.hoisted(() => ({
   albumsData: [] as Array<{ albumId: string; name: string; mediaCount?: number }>,
   uploadFile: vi.fn(async () => ({})),
   moveToTrash: vi.fn(async () => ({})),
-  trashFilesBatch: vi.fn(async () => ({ movedPaths: [], failed: [] }))
+  trashFilesBatch: vi.fn(async () => ({ movedPaths: [], failed: [] })),
+  assignAlbumMedia: vi.fn(async () => ({}))
 }));
 
 vi.mock('@tanstack/react-router', () => ({
@@ -110,7 +111,7 @@ vi.mock('@/hooks/useMedia', () => ({
   }),
   useRenameAlbum: () => ({ mutateAsync: vi.fn(async () => ({})), isPending: false }),
   useDeleteAlbum: () => ({ mutateAsync: vi.fn(async () => ({})), isPending: false }),
-  useAssignAlbumMedia: () => ({ mutateAsync: vi.fn(async () => ({})), isPending: false }),
+  useAssignAlbumMedia: () => ({ mutateAsync: mockState.assignAlbumMedia, isPending: false }),
   useRemoveAlbumMedia: () => ({ mutateAsync: vi.fn(async () => ({})), isPending: false })
 }));
 
@@ -129,6 +130,8 @@ describe('DockspaceMediaPage', () => {
     mockState.mediaIsLoading = false;
     mockState.mediaError = null;
     mockState.mediaFetchNextPage.mockClear();
+    mockState.trashFilesBatch.mockClear();
+    mockState.assignAlbumMedia.mockClear();
   });
 
   afterEach(() => {
@@ -228,5 +231,88 @@ describe('DockspaceMediaPage', () => {
 
     expect(screen.queryByRole('button', { name: 'Find duplicates' })).not.toBeInTheDocument();
     expect(screen.getByText('Selected Media')).toBeInTheDocument();
+  });
+
+  it('replaces default actions with multi-selection actions and can trash selected media', async () => {
+    mockState.mediaData = {
+      pages: [
+        {
+          items: mockState.buildMediaItems(8)
+        }
+      ]
+    };
+    mockState.albumsData = [{ albumId: 'album-1', name: 'Travel' }];
+
+    render(<DockspaceMediaPage dockspaceId="dock-1" dockspaceName="Camera Roll" />);
+
+    fireEvent.click(screen.getByRole('button', { name: 'Select multiple' }));
+    expect(screen.queryByRole('button', { name: 'Upload media' })).not.toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Trash selected' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Add to album' })).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole('button', { name: 'Select item-0001.jpg' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Select item-0002.jpg' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Trash selected' }));
+
+    await waitFor(() => {
+      expect(mockState.trashFilesBatch).toHaveBeenCalledWith([
+        '/photos/item-0001.jpg',
+        '/photos/item-0002.jpg'
+      ]);
+    });
+  });
+
+  it('selects the full range when shift-clicking in multi-select mode', async () => {
+    mockState.mediaData = {
+      pages: [
+        {
+          items: mockState.buildMediaItems(8)
+        }
+      ]
+    };
+
+    render(<DockspaceMediaPage dockspaceId="dock-1" dockspaceName="Camera Roll" />);
+
+    fireEvent.click(screen.getByRole('button', { name: 'Select multiple' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Select item-0001.jpg' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Select item-0003.jpg' }), {
+      shiftKey: true
+    });
+    fireEvent.click(screen.getByRole('button', { name: 'Trash selected' }));
+
+    await waitFor(() => {
+      expect(mockState.trashFilesBatch).toHaveBeenCalledWith([
+        '/photos/item-0001.jpg',
+        '/photos/item-0002.jpg',
+        '/photos/item-0003.jpg'
+      ]);
+    });
+  });
+
+  it('adds multi-selected media to the chosen album', async () => {
+    mockState.mediaData = {
+      pages: [
+        {
+          items: mockState.buildMediaItems(8)
+        }
+      ]
+    };
+    mockState.albumsData = [{ albumId: 'album-1', name: 'Travel' }];
+
+    render(<DockspaceMediaPage dockspaceId="dock-1" dockspaceName="Camera Roll" />);
+
+    fireEvent.click(screen.getByRole('button', { name: 'Select multiple' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Select item-0001.jpg' }));
+    fireEvent.change(screen.getByRole('combobox', { name: 'Bulk add to album' }), {
+      target: { value: 'album-1' }
+    });
+    fireEvent.click(screen.getByRole('button', { name: 'Add to album' }));
+
+    await waitFor(() => {
+      expect(mockState.assignAlbumMedia).toHaveBeenCalledWith({
+        albumId: 'album-1',
+        fileNodeIds: ['file-0001']
+      });
+    });
   });
 });

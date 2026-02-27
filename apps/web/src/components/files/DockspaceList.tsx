@@ -1,4 +1,5 @@
 import { Link } from '@tanstack/react-router';
+import { Film, FolderOpen } from 'lucide-react';
 import type { Dockspace } from '@/lib/apiTypes';
 
 interface DockspaceListProps {
@@ -51,35 +52,42 @@ const formatDockspaceType = (dockspaceType: Dockspace['dockspaceType']): string 
 
 export const DockspaceList = ({ dockspaces }: DockspaceListProps) => {
   if (!dockspaces.length) {
-    return <p>No dockspaces yet.</p>;
+    return null;
   }
 
   return (
-    <ul className="resource-list">
+    <div className="dockspace-grid__list" role="list" aria-label="Your dockspaces">
       {dockspaces.map((dockspace) => (
-        <li key={dockspace.dockspaceId} className="resource-list__item resource-list__item--dockspace">
-          <div className="dockspace-list-item__header">
-            <Link to="/dockspaces/$dockspaceId" params={{ dockspaceId: dockspace.dockspaceId }}>
-              {dockspace.name}
-            </Link>
-            <span className="dockspace-list-item__type">{formatDockspaceType(dockspace.dockspaceType)}</span>
-          </div>
-          <dl className="dockspace-list-item__metrics">
-            <div className="dockspace-list-item__metric">
-              <dt>Files</dt>
-              <dd>{formatFileCount(dockspace.totalFileCount)}</dd>
-            </div>
-            <div className="dockspace-list-item__metric">
-              <dt>Total size</dt>
-              <dd>{formatSize(dockspace.totalSizeBytes)}</dd>
-            </div>
-            <div className="dockspace-list-item__metric">
-              <dt>Last upload</dt>
-              <dd>{formatLastUpload(dockspace.lastUploadAt)}</dd>
-            </div>
-          </dl>
-        </li>
+        <article key={dockspace.dockspaceId} className="dockspace-grid__item" role="listitem">
+          <Link
+            to="/dockspaces/$dockspaceId"
+            params={{ dockspaceId: dockspace.dockspaceId }}
+            className={`dockspace-card dockspace-card--workspace ${
+              dockspace.dockspaceType === 'PHOTOS_VIDEOS' ? 'dockspace-card--media' : 'dockspace-card--generic'
+            }`}
+          >
+            <span className="dockspace-card__icon" aria-hidden="true">
+              {dockspace.dockspaceType === 'PHOTOS_VIDEOS' ? <Film size={24} /> : <FolderOpen size={24} />}
+            </span>
+            <span className="dockspace-card__title">{dockspace.name}</span>
+            <span className="dockspace-card__type">{formatDockspaceType(dockspace.dockspaceType)}</span>
+            <dl className="dockspace-card__metrics">
+              <div className="dockspace-card__metric">
+                <dt>Files</dt>
+                <dd>{formatFileCount(dockspace.totalFileCount)}</dd>
+              </div>
+              <div className="dockspace-card__metric">
+                <dt>Total size</dt>
+                <dd>{formatSize(dockspace.totalSizeBytes)}</dd>
+              </div>
+              <div className="dockspace-card__metric">
+                <dt>Last upload</dt>
+                <dd>{formatLastUpload(dockspace.lastUploadAt)}</dd>
+              </div>
+            </dl>
+          </Link>
+        </article>
       ))}
-    </ul>
+    </div>
   );
 };

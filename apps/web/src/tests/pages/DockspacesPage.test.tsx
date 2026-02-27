@@ -1,7 +1,7 @@
-import { cleanup, render, screen, waitFor } from '@testing-library/react';
+import { cleanup, render, screen } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { ApiError } from '@/lib/apiClient';
-import { clearSession, setSession } from '@/lib/authStore';
+import { clearSession } from '@/lib/authStore';
 import { DockspacesPage } from '@/pages/DockspacesPage';
 
 const mutateAsync = vi.hoisted(() => vi.fn(async () => {}));
@@ -81,55 +81,11 @@ describe('DockspacesPage', () => {
     expect(screen.getByText('UnauthorizedNotice')).toBeInTheDocument();
   });
 
-  it('creates a first dockspace with default name for empty state accounts', async () => {
-    setSession({
-      accessToken: 'a',
-      idToken: 'i',
-      email: 'first.user@example.com',
-      userId: 'u1'
-    });
-
+  it('does not auto-create a first dockspace on empty accounts', () => {
     mockState.dockspacesResult = { isLoading: false, data: [], error: null };
-    mockState.createDockspaceResult = {
-      mutateAsync,
-      isPending: false,
-      isError: false,
-      error: null
-    };
-
     render(<DockspacesPage />);
 
-    await waitFor(() => {
-      expect(mutateAsync).toHaveBeenCalledWith({
-        name: 'My dockspace',
-        dockspaceType: 'GENERIC_FILES'
-      });
-    });
-  });
-
-  it('shows preparing empty state and disables create action while creating first dockspace', () => {
-    setSession({
-      accessToken: 'a',
-      idToken: 'i',
-      email: 'gustavo@example.com',
-      userId: 'u1'
-    });
-
-    mockState.dockspacesResult = { isLoading: false, data: [], error: null };
-    mockState.createDockspaceResult = {
-      mutateAsync,
-      isPending: true,
-      isError: false,
-      error: null
-    };
-
-    render(<DockspacesPage />);
-
-    expect(
-      screen.getByText('Preparing your first dockspace,', {
-        exact: false
-      })
-    ).toBeInTheDocument();
-    expect(screen.getByText('CreateDockspaceForm-disabled')).toBeInTheDocument();
+    expect(screen.getByText('CreateDockspaceForm-enabled')).toBeInTheDocument();
+    expect(mutateAsync).not.toHaveBeenCalled();
   });
 });

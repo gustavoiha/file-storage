@@ -1,5 +1,5 @@
 import { useMemo, useState, type FormEvent } from 'react';
-import { Film, FolderOpen } from 'lucide-react';
+import { Plus } from 'lucide-react';
 import { Alert } from '@/components/ui/Alert';
 import { Button } from '@/components/ui/Button';
 import { InputField } from '@/components/ui/InputField';
@@ -29,6 +29,13 @@ export const CreateDockspaceForm = ({ disabled = false }: CreateDockspaceFormPro
 
     return createDockspace.isPending ? 'Creating...' : 'Create Generic Dockspace';
   }, [createDockspace.isPending, selectedType]);
+  const selectedTypeDescription = useMemo(() => {
+    if (selectedType === 'PHOTOS_VIDEOS') {
+      return 'Folderless media workspace with album organization and media-only upload rules.';
+    }
+
+    return 'Structured folders and files for documents, source code, archives, and everything else.';
+  }, [selectedType]);
 
   const openDialog = (dockspaceType: DockspaceType) => {
     if (isDisabled) {
@@ -66,34 +73,28 @@ export const CreateDockspaceForm = ({ disabled = false }: CreateDockspaceFormPro
   return (
     <>
       {createDockspace.error instanceof Error ? <Alert message={createDockspace.error.message} /> : null}
-      <div className="dockspace-create-picker">
+      <div className="dockspace-create-picker dockspace-create-picker--in-grid">
         <button
           type="button"
-          className="dockspace-create-picker__tile dockspace-create-picker__tile--generic"
+          className="dockspace-card dockspace-card--create dockspace-card--generic"
           disabled={isDisabled}
           onClick={() => openDialog('GENERIC_FILES')}
         >
-          <span className="dockspace-create-picker__tile-icon" aria-hidden="true">
-            <FolderOpen size={24} />
+          <span className="dockspace-card__create-plus" aria-hidden="true">
+            <Plus size={54} strokeWidth={1.8} />
           </span>
-          <span className="dockspace-create-picker__tile-title">Generic Files</span>
-          <span className="dockspace-create-picker__tile-description">
-            Structured folders and files for documents, source code, archives, and everything else.
-          </span>
+          <span className="dockspace-card__title">Generic Files</span>
         </button>
         <button
           type="button"
-          className="dockspace-create-picker__tile dockspace-create-picker__tile--media"
+          className="dockspace-card dockspace-card--create dockspace-card--media"
           disabled={isDisabled}
           onClick={() => openDialog('PHOTOS_VIDEOS')}
         >
-          <span className="dockspace-create-picker__tile-icon" aria-hidden="true">
-            <Film size={24} />
+          <span className="dockspace-card__create-plus" aria-hidden="true">
+            <Plus size={54} strokeWidth={1.8} />
           </span>
-          <span className="dockspace-create-picker__tile-title">Photos &amp; Videos</span>
-          <span className="dockspace-create-picker__tile-description">
-            Folderless media workspace with album organization and media-only upload rules.
-          </span>
+          <span className="dockspace-card__title">Photos &amp; Videos</span>
         </button>
       </div>
 
@@ -110,9 +111,8 @@ export const CreateDockspaceForm = ({ disabled = false }: CreateDockspaceFormPro
             }}
           >
             <h3 className="dockspace-dialog__title">{title}</h3>
-            <p className="dockspace-dialog__description">
-              Confirm the dockspace type and choose a name to continue.
-            </p>
+            <p className="dockspace-dialog__description">{selectedTypeDescription}</p>
+            <p className="dockspace-dialog__description">Choose a name to continue.</p>
             <form onSubmit={onSubmit}>
               <InputField
                 id="dockspace-name"

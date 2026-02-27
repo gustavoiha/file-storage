@@ -17,7 +17,10 @@ import {
   resolveFileByFullPath,
   upsertActiveFileByPath
 } from '../lib/repository.js';
-import { buildThumbnailJob, enqueueThumbnailJobIfConfigured } from '../lib/thumbnailQueue.js';
+import {
+  buildThumbnailJob,
+  enqueueThumbnailJobIfConfigured
+} from '../lib/thumbnailQueue.js';
 import { dockspaceTypeFromItem, isMediaContentType, isMediaDockspaceType } from '../types/models.js';
 
 const bodySchema = z.object({

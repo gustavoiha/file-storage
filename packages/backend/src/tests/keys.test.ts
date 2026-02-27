@@ -16,7 +16,9 @@ import {
   buildDockspacePk,
   buildDockspaceSk,
   buildDockspaceMetricsSk,
-  buildDockspaceMetricsPrefix
+  buildDockspaceMetricsPrefix,
+  buildThumbnailMetadataSk,
+  buildThumbnailMetadataPrefix
 } from '../domain/keys.js';
 
 describe('keys', () => {
@@ -67,5 +69,10 @@ describe('keys', () => {
     );
     expect(buildFileStateIndexPrefix('TRASH')).toBe('X#TRASH#');
     expect(buildFileStateIndexPrefix('PURGED')).toBe('X#PURGED#');
+  });
+
+  it('builds metadata keys', () => {
+    expect(buildThumbnailMetadataSk('file_1')).toBe('T#L#file_1');
+    expect(buildThumbnailMetadataPrefix()).toBe('T#L#');
   });
 });

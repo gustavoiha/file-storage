@@ -69,17 +69,21 @@ export const handler = async (event: APIGatewayProxyEventV2) => {
     const items = await Promise.all(
       baseItems.map(async (item) => {
         const thumbnailMetadata = thumbnailByFileNodeId.get(item.fileNodeId);
-        if (
-          !thumbnailMetadata ||
-          thumbnailMetadata.status !== 'READY' ||
-          !thumbnailMetadata.thumbnailKey
-        ) {
-          return item;
-        }
 
-        return {
-          ...item,
-          thumbnail: {
+        let thumbnail:
+          | {
+              url: string;
+              contentType: string;
+              width?: number;
+              height?: number;
+            }
+          | undefined;
+        if (
+          thumbnailMetadata &&
+          thumbnailMetadata.status === 'READY' &&
+          thumbnailMetadata.thumbnailKey
+        ) {
+          thumbnail = {
             url: (
               await createFileReadUrl(thumbnailMetadata.thumbnailKey, {
                 expiresInSeconds: 900
@@ -92,7 +96,12 @@ export const handler = async (event: APIGatewayProxyEventV2) => {
             ...(typeof thumbnailMetadata.height === 'number'
               ? { height: thumbnailMetadata.height }
               : {})
-          }
+          };
+        }
+
+        return {
+          ...item,
+          ...(thumbnail ? { thumbnail } : {})
         };
       })
     );

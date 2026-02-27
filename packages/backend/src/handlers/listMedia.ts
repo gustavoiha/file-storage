@@ -3,7 +3,10 @@ import { requireEntitledUser } from '../lib/auth.js';
 import { createFileReadUrl } from '../lib/cdn.js';
 import { ensureMediaDockspace } from '../lib/dockspaceTypeGuards.js';
 import { errorResponse, jsonResponse } from '../lib/http.js';
-import { listActiveMediaItems, listThumbnailMetadata } from '../lib/repository.js';
+import {
+  listActiveMediaItems,
+  listThumbnailMetadata
+} from '../lib/repository.js';
 
 const DEFAULT_LIMIT = 60;
 const MAX_LIMIT = 200;
@@ -57,17 +60,20 @@ export const handler = async (event: APIGatewayProxyEventV2) => {
     const itemsWithThumbnails = await Promise.all(
       mediaPage.items.map(async (item) => {
         const thumbnailMetadata = thumbnailByFileNodeId.get(item.fileNodeId);
+        let thumbnail:
+          | {
+              url: string;
+              contentType: string;
+              width?: number;
+              height?: number;
+            }
+          | undefined;
         if (
-          !thumbnailMetadata ||
-          thumbnailMetadata.status !== 'READY' ||
-          !thumbnailMetadata.thumbnailKey
+          thumbnailMetadata &&
+          thumbnailMetadata.status === 'READY' &&
+          thumbnailMetadata.thumbnailKey
         ) {
-          return item;
-        }
-
-        return {
-          ...item,
-          thumbnail: {
+          thumbnail = {
             url: (
               await createFileReadUrl(thumbnailMetadata.thumbnailKey, {
                 expiresInSeconds: 900
@@ -80,7 +86,12 @@ export const handler = async (event: APIGatewayProxyEventV2) => {
             ...(typeof thumbnailMetadata.height === 'number'
               ? { height: thumbnailMetadata.height }
               : {})
-          }
+          };
+        }
+
+        return {
+          ...item,
+          ...(thumbnail ? { thumbnail } : {})
         };
       })
     );

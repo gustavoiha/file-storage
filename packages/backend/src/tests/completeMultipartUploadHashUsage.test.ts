@@ -143,6 +143,13 @@ describe('complete multipart upload hash usage', () => {
         contentHash: 'aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa'
       })
     );
+    expect(enqueueThumbnailJobIfConfiguredMock).toHaveBeenCalledWith(
+      expect.objectContaining({
+        fileNodeId: 'new-file',
+        s3Key: 'dock-1/new-file',
+        contentType: 'video/mp4'
+      })
+    );
   });
 
   it('rejects invalid provided contentHash', async () => {

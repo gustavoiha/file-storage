@@ -16,7 +16,10 @@ import {
   objectExists,
   parseObjectKey
 } from '../lib/s3.js';
-import { buildThumbnailJob, enqueueThumbnailJobIfConfigured } from '../lib/thumbnailQueue.js';
+import {
+  buildThumbnailJob,
+  enqueueThumbnailJobIfConfigured
+} from '../lib/thumbnailQueue.js';
 import { dockspaceTypeFromItem, isMediaContentType, isMediaDockspaceType } from '../types/models.js';
 
 const bodySchema = z.object({

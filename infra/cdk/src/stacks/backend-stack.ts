@@ -140,7 +140,6 @@ export class BackendStack extends Stack {
         THUMBNAIL_MAX_ATTEMPTS: '8'
       }
     });
-
     const purgeReconciliation = createHandler('purgeReconciliation');
 
     props.table.grantReadWriteData(handlers.createDockspace);
@@ -189,27 +188,24 @@ export class BackendStack extends Stack {
     props.bucket.grantReadWrite(generateThumbnail);
     props.bucket.grantReadWrite(purgeReconciliation);
 
-    const privateKeyParameterResourceName = props.fileReadPrivateKeyParameterName.replace(
-      /^\/+/,
-      ''
-    );
-    const privateKeyParameterArn = this.formatArn({
-      service: 'ssm',
-      resource: 'parameter',
-      resourceName: privateKeyParameterResourceName,
-      arnFormat: ArnFormat.SLASH_RESOURCE_NAME
-    });
-    const grantFileReadPrivateKey = (handler: NodejsFunction): void => {
+    const parameterArn = (parameterName: string): string =>
+      this.formatArn({
+        service: 'ssm',
+        resource: 'parameter',
+        resourceName: parameterName.replace(/^\/+/, ''),
+        arnFormat: ArnFormat.SLASH_RESOURCE_NAME
+      });
+    const grantReadSsmParameter = (handler: NodejsFunction, parameterName: string): void => {
       handler.addToRolePolicy(
         new PolicyStatement({
           actions: ['ssm:GetParameter', 'ssm:GetParameters'],
-          resources: [privateKeyParameterArn]
+          resources: [parameterArn(parameterName)]
         })
       );
     };
-    grantFileReadPrivateKey(handlers.createDownloadSession);
-    grantFileReadPrivateKey(handlers.listMedia);
-    grantFileReadPrivateKey(handlers.listAlbumMedia);
+    grantReadSsmParameter(handlers.createDownloadSession, props.fileReadPrivateKeyParameterName);
+    grantReadSsmParameter(handlers.listMedia, props.fileReadPrivateKeyParameterName);
+    grantReadSsmParameter(handlers.listAlbumMedia, props.fileReadPrivateKeyParameterName);
 
     thumbnailJobsQueue.grantSendMessages(handlers.confirmUpload);
     thumbnailJobsQueue.grantSendMessages(handlers.completeMultipartUpload);

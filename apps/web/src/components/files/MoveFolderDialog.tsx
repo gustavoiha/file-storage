@@ -1,6 +1,7 @@
 import type { FormEventHandler } from 'react';
 import { Alert } from '@/components/ui/Alert';
 import { Button } from '@/components/ui/Button';
+import { useDialogDismiss } from '@/components/files/useDialogDismiss';
 
 interface MoveFolderDialogOption {
   path: string;
@@ -30,12 +31,15 @@ export const MoveFolderDialog = ({
   onDestinationFolderPathChange,
   onSubmit
 }: MoveFolderDialogProps) => {
-  if (!isOpen || !sourceFolderPath) {
+  const isDialogOpen = isOpen && Boolean(sourceFolderPath);
+  const { onBackdropMouseDown } = useDialogDismiss({ isOpen: isDialogOpen, onClose });
+
+  if (!isDialogOpen || !sourceFolderPath) {
     return null;
   }
 
   return (
-    <div className="dockspace-dialog-backdrop">
+    <div className="dockspace-dialog-backdrop" onMouseDown={onBackdropMouseDown}>
       <dialog
         className="dockspace-dialog"
         open

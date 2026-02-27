@@ -1,6 +1,7 @@
 import type { FormEventHandler } from 'react';
 import { Alert } from '@/components/ui/Alert';
 import { Button } from '@/components/ui/Button';
+import { useDialogDismiss } from '@/components/files/useDialogDismiss';
 
 interface RenameFileDialogProps {
   errorMessage: string | null;
@@ -21,12 +22,14 @@ export const RenameFileDialog = ({
   onFileNameChange,
   onSubmit
 }: RenameFileDialogProps) => {
+  const { onBackdropMouseDown } = useDialogDismiss({ isOpen, onClose });
+
   if (!isOpen) {
     return null;
   }
 
   return (
-    <div className="dockspace-dialog-backdrop">
+    <div className="dockspace-dialog-backdrop" onMouseDown={onBackdropMouseDown}>
       <dialog
         className="dockspace-dialog"
         open

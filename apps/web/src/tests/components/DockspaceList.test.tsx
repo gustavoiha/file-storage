@@ -25,8 +25,6 @@ describe('DockspaceList', () => {
     );
 
     expect(screen.getByText('Main')).toBeInTheDocument();
-    expect(screen.getByText('12 files')).toBeInTheDocument();
-    expect(screen.getByText('3.00 MB')).toBeInTheDocument();
-    expect(screen.getByText('Feb 10, 2026')).toBeInTheDocument();
+    expect(screen.getByText('Generic Files')).toBeInTheDocument();
   });
 });

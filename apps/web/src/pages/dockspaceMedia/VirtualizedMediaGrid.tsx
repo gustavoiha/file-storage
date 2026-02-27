@@ -138,7 +138,7 @@ export const VirtualizedMediaGrid = ({
                 type="button"
                 className="media-card"
                 data-selected={selected}
-                aria-label={`Select ${basename(item.fullPath)}`}
+                aria-label={`${isMultiSelectMode ? 'Select' : 'Open'} ${basename(item.fullPath)}`}
                 aria-pressed={isMultiSelectMode ? selected : undefined}
                 onClick={(event) => {
                   if (isMultiSelectMode) {
@@ -149,14 +149,6 @@ export const VirtualizedMediaGrid = ({
                     return;
                   }
 
-                  onSelectMedia(item.fileNodeId);
-                }}
-                onDoubleClick={() => {
-                  if (isMultiSelectMode) {
-                    return;
-                  }
-
-                  onSelectMedia(item.fileNodeId);
                   onOpenPreview(item);
                 }}
               >

@@ -10,12 +10,12 @@ interface DockspaceMediaPageProps {
   dockspaceName: string;
 }
 
-export const DockspaceMediaPage = ({ dockspaceId, dockspaceName }: DockspaceMediaPageProps) => {
+export const DockspaceMediaPage = ({ dockspaceId }: DockspaceMediaPageProps) => {
   const controller = useDockspaceMediaController({ dockspaceId });
 
   return (
     <RequireAuth>
-      <Page className="page--media" title={dockspaceName}>
+      <Page className="page--dockspace">
         {controller.unauthorized ? (
           <UnauthorizedNotice />
         ) : (
@@ -28,6 +28,11 @@ export const DockspaceMediaPage = ({ dockspaceId, dockspaceName }: DockspaceMedi
         isOpen={Boolean(controller.viewerFile)}
         thumbnailUrl={controller.viewerThumbnailUrl}
         onClose={controller.closePreview}
+        variant="media-fullscreen"
+        onPrevious={controller.openPreviousPreview}
+        onNext={controller.openNextPreview}
+        canPrevious={controller.canPreviewPrevious}
+        canNext={controller.canPreviewNext}
       />
     </RequireAuth>
   );

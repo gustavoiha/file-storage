@@ -73,6 +73,11 @@ export const DockspaceFilesHeaderActions = ({
           Trash
         </Link>
       </DropdownMenu.Link>
+      <DropdownMenu.Link asChild className="dockspace-page-menu__item">
+        <Link to="/dockspaces/$dockspaceId/usage" params={{ dockspaceId }}>
+          Detailed usage
+        </Link>
+      </DropdownMenu.Link>
     </DropdownMenu.Content>
   </DropdownMenu>
 );

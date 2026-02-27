@@ -1,6 +1,7 @@
 import type { FormEventHandler } from 'react';
 import { Alert } from '@/components/ui/Alert';
 import { Button } from '@/components/ui/Button';
+import { useDialogDismiss } from '@/components/files/useDialogDismiss';
 
 interface ConfirmPurgeFileDialogProps {
   errorMessage: string | null;
@@ -19,12 +20,15 @@ export const ConfirmPurgeFileDialog = ({
   onClose,
   onSubmit
 }: ConfirmPurgeFileDialogProps) => {
-  if (!isOpen || !fullPath) {
+  const isDialogOpen = isOpen && Boolean(fullPath);
+  const { onBackdropMouseDown } = useDialogDismiss({ isOpen: isDialogOpen, onClose });
+
+  if (!isDialogOpen || !fullPath) {
     return null;
   }
 
   return (
-    <div className="dockspace-dialog-backdrop">
+    <div className="dockspace-dialog-backdrop" onMouseDown={onBackdropMouseDown}>
       <dialog
         className="dockspace-dialog"
         open

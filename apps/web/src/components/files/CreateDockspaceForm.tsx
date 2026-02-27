@@ -3,6 +3,7 @@ import { Plus } from 'lucide-react';
 import { Alert } from '@/components/ui/Alert';
 import { Button } from '@/components/ui/Button';
 import { InputField } from '@/components/ui/InputField';
+import { useDialogDismiss } from '@/components/files/useDialogDismiss';
 import { useCreateDockspace } from '@/hooks/useDockspaces';
 import type { DockspaceType } from '@/lib/apiTypes';
 
@@ -47,13 +48,11 @@ export const CreateDockspaceForm = ({ disabled = false }: CreateDockspaceFormPro
   };
 
   const closeDialog = () => {
-    if (createDockspace.isPending) {
-      return;
-    }
-
     setName('');
     setSelectedType(null);
   };
+  const isDialogOpen = selectedType !== null;
+  const { onBackdropMouseDown } = useDialogDismiss({ isOpen: isDialogOpen, onClose: closeDialog });
 
   const onSubmit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
@@ -99,7 +98,7 @@ export const CreateDockspaceForm = ({ disabled = false }: CreateDockspaceFormPro
       </div>
 
       {selectedType ? (
-        <div className="dockspace-dialog-backdrop">
+        <div className="dockspace-dialog-backdrop" onMouseDown={onBackdropMouseDown}>
           <dialog
             className="dockspace-dialog"
             open

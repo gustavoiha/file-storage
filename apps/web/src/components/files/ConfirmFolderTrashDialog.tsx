@@ -1,6 +1,7 @@
 import type { FormEventHandler } from 'react';
 import { Alert } from '@/components/ui/Alert';
 import { Button } from '@/components/ui/Button';
+import { useDialogDismiss } from '@/components/files/useDialogDismiss';
 
 interface ConfirmFolderTrashDialogProps {
   errorMessage: string | null;
@@ -19,12 +20,15 @@ export const ConfirmFolderTrashDialog = ({
   onClose,
   onSubmit
 }: ConfirmFolderTrashDialogProps) => {
-  if (!isOpen || !folderPath) {
+  const isDialogOpen = isOpen && Boolean(folderPath);
+  const { onBackdropMouseDown } = useDialogDismiss({ isOpen: isDialogOpen, onClose });
+
+  if (!isDialogOpen || !folderPath) {
     return null;
   }
 
   return (
-    <div className="dockspace-dialog-backdrop">
+    <div className="dockspace-dialog-backdrop" onMouseDown={onBackdropMouseDown}>
       <dialog
         className="dockspace-dialog"
         open

@@ -52,7 +52,8 @@ vi.mock('@/components/auth/UnauthorizedNotice', () => ({
 }));
 
 vi.mock('@/components/files/FileViewerDialog', () => ({
-  FileViewerDialog: () => null
+  FileViewerDialog: ({ isOpen, file }: { isOpen: boolean; file: { fullPath?: string } | null }) =>
+    isOpen ? <div>{`FileViewerDialog:${file?.fullPath ?? 'none'}`}</div> : null
 }));
 
 vi.mock('@/components/files/FilePreviewContent', () => ({
@@ -195,7 +196,7 @@ describe('DockspaceMediaPage', () => {
     expect(document.querySelector('.media-grid--virtual.media-grid--large')).not.toBeNull();
   });
 
-  it('shows selected preview section and fullscreen action after selecting an item', () => {
+  it('opens fullscreen preview when clicking an item', () => {
     mockState.mediaData = {
       pages: [
         {
@@ -206,13 +207,12 @@ describe('DockspaceMediaPage', () => {
 
     render(<DockspaceMediaPage dockspaceId="dock-1" dockspaceName="Camera Roll" />);
 
-    fireEvent.click(screen.getByRole('button', { name: 'Select item-0001.jpg' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Open item-0001.jpg' }));
 
-    expect(screen.getByText('FilePreviewContent')).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: 'Open fullscreen' })).toBeInTheDocument();
+    expect(screen.getByText('FileViewerDialog:/photos/item-0001.jpg')).toBeInTheDocument();
   });
 
-  it('switches to album dropdown mode while keeping the same side panel visible', () => {
+  it('switches to an album from the sidebar list', () => {
     mockState.mediaData = {
       pages: [
         {
@@ -224,13 +224,10 @@ describe('DockspaceMediaPage', () => {
 
     render(<DockspaceMediaPage dockspaceId="dock-1" dockspaceName="Camera Roll" />);
 
-    expect(screen.getByRole('button', { name: 'Find duplicates' })).toBeInTheDocument();
-    fireEvent.change(screen.getByRole('combobox', { name: 'Select album' }), {
-      target: { value: 'album-1' }
-    });
+    expect(screen.getByText('Albums')).toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: /Travel/ }));
 
-    expect(screen.queryByRole('button', { name: 'Find duplicates' })).not.toBeInTheDocument();
-    expect(screen.getByText('Selected Media')).toBeInTheDocument();
+    expect(screen.getByText('Album: Travel')).toBeInTheDocument();
   });
 
   it('replaces default actions with multi-selection actions and can trash selected media', async () => {
@@ -246,13 +243,14 @@ describe('DockspaceMediaPage', () => {
     render(<DockspaceMediaPage dockspaceId="dock-1" dockspaceName="Camera Roll" />);
 
     fireEvent.click(screen.getByRole('button', { name: 'Select multiple' }));
-    expect(screen.queryByRole('button', { name: 'Upload media' })).not.toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Upload media' })).toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'Trash selected' })).toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'Add to album' })).toBeInTheDocument();
 
     fireEvent.click(screen.getByRole('button', { name: 'Select item-0001.jpg' }));
     fireEvent.click(screen.getByRole('button', { name: 'Select item-0002.jpg' }));
     fireEvent.click(screen.getByRole('button', { name: 'Trash selected' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Move to trash' }));
 
     await waitFor(() => {
       expect(mockState.trashFilesBatch).toHaveBeenCalledWith([
@@ -279,6 +277,7 @@ describe('DockspaceMediaPage', () => {
       shiftKey: true
     });
     fireEvent.click(screen.getByRole('button', { name: 'Trash selected' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Move to trash' }));
 
     await waitFor(() => {
       expect(mockState.trashFilesBatch).toHaveBeenCalledWith([
@@ -303,10 +302,11 @@ describe('DockspaceMediaPage', () => {
 
     fireEvent.click(screen.getByRole('button', { name: 'Select multiple' }));
     fireEvent.click(screen.getByRole('button', { name: 'Select item-0001.jpg' }));
-    fireEvent.change(screen.getByRole('combobox', { name: 'Bulk add to album' }), {
+    fireEvent.click(screen.getByRole('button', { name: 'Add to album' }));
+    fireEvent.change(screen.getByRole('combobox', { name: 'Album' }), {
       target: { value: 'album-1' }
     });
-    fireEvent.click(screen.getByRole('button', { name: 'Add to album' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Add selected items' }));
 
     await waitFor(() => {
       expect(mockState.assignAlbumMedia).toHaveBeenCalledWith({

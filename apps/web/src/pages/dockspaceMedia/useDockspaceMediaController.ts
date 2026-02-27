@@ -1,5 +1,6 @@
 import { type ChangeEvent, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { ApiError } from '@/lib/apiClient';
+import type { MediaFileRecord } from '@/lib/apiTypes';
 import { isLikelyMediaFile } from '@/lib/fileContentType';
 import { useMoveToTrash, useTrashFilesBatch, useUploadFile } from '@/hooks/useFiles';
 import { useDockspaceUploadDialog } from '@/hooks/useDockspaceUploadDialog';
@@ -18,7 +19,6 @@ export const useDockspaceMediaController = ({ dockspaceId }: UseDockspaceMediaCo
   const [mediaGridSize, setMediaGridSize] = useState<MediaGridSize>('medium');
   const [duplicatesVisible, setDuplicatesVisible] = useState(false);
   const [isMultiSelectMode, setIsMultiSelectMode] = useState(false);
-  const [bulkAlbumId, setBulkAlbumId] = useState('');
   const [selectedAlbumId, setSelectedAlbumId] = useState<string | null>(null);
   const [selectedMediaId, setSelectedMediaId] = useState<string | null>(null);
   const [localError, setLocalError] = useState<string | null>(null);
@@ -91,7 +91,6 @@ export const useDockspaceMediaController = ({ dockspaceId }: UseDockspaceMediaCo
   const resetMultiSelectionState = useCallback(() => {
     setIsMultiSelectMode(false);
     selectionState.clearSelection();
-    setBulkAlbumId('');
   }, [selectionState]);
 
   const onLoadMoreMedia = useCallback(() => {
@@ -142,9 +141,9 @@ export const useDockspaceMediaController = ({ dockspaceId }: UseDockspaceMediaCo
     resetMultiSelectionState();
   }, [resetMultiSelectionState]);
 
-  const onSelectAlbum = useCallback(
-    (event: ChangeEvent<HTMLSelectElement>) => {
-      const value = event.target.value.trim();
+  const onSelectAlbumById = useCallback(
+    (albumId: string | null) => {
+      const value = albumId?.trim() ?? '';
       setSelectedAlbumId(value || null);
       setDuplicateActionMessage(null);
       setBulkActionMessage(null);
@@ -154,12 +153,18 @@ export const useDockspaceMediaController = ({ dockspaceId }: UseDockspaceMediaCo
     [resetMultiSelectionState]
   );
 
+  const onSelectAlbum = useCallback(
+    (event: ChangeEvent<HTMLSelectElement>) => {
+      onSelectAlbumById(event.target.value);
+    },
+    [onSelectAlbumById]
+  );
+
   const onToggleMultiSelectMode = useCallback(() => {
     setIsMultiSelectMode((previous) => {
       const next = !previous;
       if (!next) {
         selectionState.clearSelection();
-        setBulkAlbumId('');
       } else {
         setSelectedMediaId(null);
         setDuplicatesVisible(false);
@@ -265,15 +270,16 @@ export const useDockspaceMediaController = ({ dockspaceId }: UseDockspaceMediaCo
     }
   }, [resetMultiSelectionState, selectedMediaPaths, trashFilesBatchMutation]);
 
-  const onAddBulkSelectionToAlbum = useCallback(async () => {
-    if (!bulkAlbumId || !selectedMediaFileNodeIds.length || assignAlbumMediaMutation.isPending) {
+  const onAddBulkSelectionToAlbum = useCallback(async (albumId: string) => {
+    const trimmedAlbumId = albumId.trim();
+    if (!trimmedAlbumId || !selectedMediaFileNodeIds.length || assignAlbumMediaMutation.isPending) {
       return;
     }
 
     try {
       setBulkActionMessage(null);
       await assignAlbumMediaMutation.mutateAsync({
-        albumId: bulkAlbumId,
+        albumId: trimmedAlbumId,
         fileNodeIds: selectedMediaFileNodeIds
       });
       setBulkActionMessage(
@@ -283,7 +289,7 @@ export const useDockspaceMediaController = ({ dockspaceId }: UseDockspaceMediaCo
     } catch (error) {
       setBulkActionMessage(error instanceof Error ? error.message : 'Failed to add selected media to album.');
     }
-  }, [assignAlbumMediaMutation, bulkAlbumId, resetMultiSelectionState, selectedMediaFileNodeIds]);
+  }, [assignAlbumMediaMutation, resetMultiSelectionState, selectedMediaFileNodeIds]);
 
   const onTrashSelectedDuplicates = useCallback(async () => {
     if (!duplicateSelectionState.selectedDuplicatePaths.length || trashFilesBatchMutation.isPending) {
@@ -314,6 +320,14 @@ export const useDockspaceMediaController = ({ dockspaceId }: UseDockspaceMediaCo
     void mediaData.mediaDuplicatesQuery.fetchNextPage();
   }, [mediaData.mediaDuplicatesQuery.fetchNextPage, mediaData.mediaDuplicatesQuery.hasNextPage, mediaData.mediaDuplicatesQuery.isFetchingNextPage]);
 
+  const onOpenPreview = useCallback(
+    (item: MediaFileRecord) => {
+      setSelectedMediaId(item.fileNodeId);
+      previewState.openPreview(item, mediaData.mediaItems);
+    },
+    [mediaData.mediaItems, previewState]
+  );
+
   return {
     mediaGridSize,
     setMediaGridSize,
@@ -321,8 +335,6 @@ export const useDockspaceMediaController = ({ dockspaceId }: UseDockspaceMediaCo
     isMultiSelectMode,
     selectedMediaIds: selectionState.selectedMediaIds,
     selectedMediaIdSet: selectionState.selectedMediaIdSet,
-    bulkAlbumId,
-    setBulkAlbumId,
     selectedAlbumId,
     selectedMediaId,
     setSelectedMediaId,
@@ -332,6 +344,8 @@ export const useDockspaceMediaController = ({ dockspaceId }: UseDockspaceMediaCo
     duplicateSelections: duplicateSelectionState.duplicateSelections,
     viewerFile: previewState.viewerFile,
     viewerThumbnailUrl: previewState.viewerThumbnailUrl,
+    canPreviewPrevious: previewState.canPreviewPrevious,
+    canPreviewNext: previewState.canPreviewNext,
     fileInputRef,
     uploadDialog,
     albums: mediaData.albums,
@@ -364,6 +378,7 @@ export const useDockspaceMediaController = ({ dockspaceId }: UseDockspaceMediaCo
     onToggleDuplicates,
     onSelectAllMedia,
     onSelectAlbum,
+    onSelectAlbumById,
     onToggleMultiSelectMode,
     onToggleMediaSelection: selectionState.onToggleMediaSelection,
     onMediaFileInputChange,
@@ -374,7 +389,9 @@ export const useDockspaceMediaController = ({ dockspaceId }: UseDockspaceMediaCo
     onSelectDuplicateKeeper: duplicateSelectionState.onSelectDuplicateKeeper,
     onToggleDuplicateSelection: duplicateSelectionState.onToggleDuplicateSelection,
     onTrashSelectedDuplicates,
-    openPreview: previewState.openPreview,
+    openPreview: onOpenPreview,
+    openPreviousPreview: previewState.openPreviousPreview,
+    openNextPreview: previewState.openNextPreview,
     closePreview: previewState.closePreview
   };
 };

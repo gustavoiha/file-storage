@@ -17,11 +17,13 @@ vi.mock('@tanstack/react-router', () => ({
 }));
 
 describe('TopNav', () => {
-  it('shows links and logout', () => {
+  it('shows account dropdown actions and logout', () => {
     render(<TopNav />);
 
-    expect(screen.getByText('Dockspaces')).toBeInTheDocument();
-    fireEvent.click(screen.getByRole('button', { name: 'Logout' }));
+    expect(screen.getByText('Dockspace')).toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: 'Account actions' }));
+    expect(screen.getByText('Change Password')).toBeInTheDocument();
+    fireEvent.click(screen.getByRole('menuitem', { name: 'Logout' }));
     expect(logout).toHaveBeenCalledTimes(1);
   });
 });

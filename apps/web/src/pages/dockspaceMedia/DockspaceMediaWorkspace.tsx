@@ -374,13 +374,6 @@ export const DockspaceMediaWorkspace = ({ dockspaceId, controller }: DockspaceMe
                 </Link>
                 <Link
                   className="dockspace-sidebar__action-link"
-                  to="/dockspaces/$dockspaceId/purged"
-                  params={{ dockspaceId }}
-                >
-                  Purged
-                </Link>
-                <Link
-                  className="dockspace-sidebar__action-link"
                   to="/dockspaces/$dockspaceId/usage"
                   params={{ dockspaceId }}
                 >

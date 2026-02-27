@@ -29,7 +29,6 @@ const DockspaceWorkspacePage = lazyRouteComponent(
   'DockspaceWorkspacePage'
 );
 const TrashPage = lazyRouteComponent(() => import('@/pages/TrashPage'), 'TrashPage');
-const PurgedPage = lazyRouteComponent(() => import('@/pages/PurgedPage'), 'PurgedPage');
 const DockspaceUsagePage = lazyRouteComponent(
   () => import('@/pages/DockspaceUsagePage'),
   'DockspaceUsagePage'
@@ -131,12 +130,6 @@ const trashRoute = createRoute({
   component: TrashPage
 });
 
-const purgedRoute = createRoute({
-  getParentRoute: () => dockspacesLayoutRoute,
-  path: '/$dockspaceId/purged',
-  component: PurgedPage
-});
-
 const dockspaceUsageRoute = createRoute({
   getParentRoute: () => dockspacesLayoutRoute,
   path: '/$dockspaceId/usage',
@@ -158,7 +151,6 @@ const dockspacesLayoutRouteWithChildren = dockspacesLayoutRoute.addChildren([
   dockspacesRoute,
   dockspaceFilesRoute,
   trashRoute,
-  purgedRoute,
   dockspaceUsageRoute
 ]);
 

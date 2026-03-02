@@ -2,6 +2,7 @@ import { CognitoIdentityProviderClient } from '@aws-sdk/client-cognito-identity-
 import { DynamoDBClient } from '@aws-sdk/client-dynamodb';
 import { DynamoDBDocumentClient } from '@aws-sdk/lib-dynamodb';
 import { S3Client } from '@aws-sdk/client-s3';
+import { SNSClient } from '@aws-sdk/client-sns';
 import { SQSClient } from '@aws-sdk/client-sqs';
 import { SSMClient } from '@aws-sdk/client-ssm';
 
@@ -19,6 +20,7 @@ export const s3Client = new S3Client({
   // Avoid optional checksum-mode query params on presigned GET URLs.
   responseChecksumValidation: 'WHEN_REQUIRED'
 });
+export const snsClient = new SNSClient({});
 export const sqsClient = new SQSClient({});
 export const ssmClient = new SSMClient({});
 export const cognitoIdentityProviderClient = new CognitoIdentityProviderClient({});

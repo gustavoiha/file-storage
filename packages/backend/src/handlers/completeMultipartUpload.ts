@@ -19,8 +19,8 @@ import {
 } from '../lib/repository.js';
 import {
   buildThumbnailJob,
-  enqueueThumbnailJobIfConfigured
 } from '../lib/thumbnailQueue.js';
+import { publishMediaProcessingJobIfConfigured } from '../lib/mediaProcessingTopic.js';
 import { dockspaceTypeFromItem, isMediaContentType, isMediaDockspaceType } from '../types/models.js';
 
 const bodySchema = z.object({
@@ -159,7 +159,7 @@ export const handler = async (event: APIGatewayProxyEventV2) => {
       nowIso: now
     });
     try {
-      await enqueueThumbnailJobIfConfigured(
+      await publishMediaProcessingJobIfConfigured(
         buildThumbnailJob({
           userId,
           dockspaceId,
@@ -170,7 +170,7 @@ export const handler = async (event: APIGatewayProxyEventV2) => {
         })
       );
     } catch (error) {
-      console.warn('thumbnail-job-enqueue-failed', {
+      console.warn('media-processing-job-publish-failed', {
         dockspaceId,
         fileNodeId: upserted.fileNodeId,
         error: error instanceof Error ? error.message : String(error)

@@ -47,6 +47,8 @@ export const buildMediaAlbumLinkSk = (fileNodeId: string, albumId: string): stri
 export const buildMediaAlbumLinkPrefix = (fileNodeId: string): string => `MA#${fileNodeId}#A#`;
 export const buildThumbnailMetadataSk = (fileNodeId: string): string => `T#L#${fileNodeId}`;
 export const buildThumbnailMetadataPrefix = (): string => 'T#L#';
+export const buildImageAnalysisMetadataSk = (fileNodeId: string): string => `I#L#${fileNodeId}`;
+export const buildImageAnalysisMetadataPrefix = (): string => 'I#L#';
 export const buildMediaHashIndexSk = (contentHash: string, fileNodeId: string): string =>
   `H#${contentHash}#L#${fileNodeId}`;
 export const buildMediaHashIndexPrefix = (contentHash?: string): string =>

@@ -27,6 +27,7 @@ import {
   buildMediaAlbumLinkSk,
   buildThumbnailMetadataPrefix,
   buildThumbnailMetadataSk,
+  buildImageAnalysisMetadataSk,
   buildPurgeDueGsi1Sk,
   PURGE_DUE_GSI1_PK,
   ROOT_FOLDER_NODE_ID,
@@ -51,6 +52,7 @@ import type {
   AlbumMembershipItem,
   MediaAlbumLinkItem,
   MediaHashIndexItem,
+  ImageAnalysisMetadataItem,
   ThumbnailMetadataItem,
   ThumbnailStatus
 } from '../types/models.js';
@@ -502,6 +504,69 @@ export const upsertThumbnailMetadata = async (params: {
     ...(typeof params.size === 'number' ? { size: params.size } : {}),
     ...(params.generatedAt ? { generatedAt: params.generatedAt } : {}),
     ...(params.lastError ? { lastError: params.lastError } : {})
+  };
+
+  await dynamoDoc.send(
+    new PutCommand({
+      TableName: env.tableName,
+      Item: item
+    })
+  );
+};
+
+export interface ImageAnalysisMetadataRecord {
+  fileNodeId: string;
+  sourceS3Key: string;
+  sourceEtag: string;
+  sourceContentType: string;
+  analysisText: string;
+  analyzedAt: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export const getImageAnalysisMetadata = async (
+  userId: string,
+  dockspaceId: string,
+  fileNodeId: string
+): Promise<ImageAnalysisMetadataItem | null> => {
+  const response = await dynamoDoc.send(
+    new GetCommand({
+      TableName: env.tableName,
+      Key: {
+        PK: buildFilePk(userId, dockspaceId),
+        SK: buildImageAnalysisMetadataSk(fileNodeId)
+      }
+    })
+  );
+
+  return (response.Item as ImageAnalysisMetadataItem | undefined) ?? null;
+};
+
+export const upsertImageAnalysisMetadata = async (params: {
+  userId: string;
+  dockspaceId: string;
+  fileNodeId: string;
+  sourceS3Key: string;
+  sourceEtag: string;
+  sourceContentType: string;
+  analysisText: string;
+  analyzedAt: string;
+  nowIso: string;
+}): Promise<void> => {
+  const existing = await getImageAnalysisMetadata(params.userId, params.dockspaceId, params.fileNodeId);
+  const item: ImageAnalysisMetadataItem = {
+    PK: buildFilePk(params.userId, params.dockspaceId),
+    SK: buildImageAnalysisMetadataSk(params.fileNodeId),
+    type: 'IMAGE_ANALYSIS_METADATA',
+    fileNodeId: params.fileNodeId,
+    sourceS3Key: params.sourceS3Key,
+    sourceEtag: params.sourceEtag,
+    sourceContentType: params.sourceContentType,
+    analysisText: params.analysisText,
+    analyzedAt: params.analyzedAt,
+    createdAt: existing?.createdAt ?? params.nowIso,
+    updatedAt: params.nowIso
   };
 
   await dynamoDoc.send(

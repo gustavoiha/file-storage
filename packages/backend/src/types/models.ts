@@ -129,6 +129,20 @@ export interface ThumbnailMetadataItem {
   updatedAt: string;
 }
 
+export interface ImageAnalysisMetadataItem {
+  PK: string;
+  SK: string;
+  type: 'IMAGE_ANALYSIS_METADATA';
+  fileNodeId: string;
+  sourceS3Key: string;
+  sourceEtag: string;
+  sourceContentType: string;
+  analysisText: string;
+  analyzedAt: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
 export interface FileStateIndexItem {
   PK: string;
   SK: string;
@@ -179,4 +193,5 @@ export type TableItem =
   | AlbumMembershipItem
   | MediaAlbumLinkItem
   | MediaHashIndexItem
-  | ThumbnailMetadataItem;
+  | ThumbnailMetadataItem
+  | ImageAnalysisMetadataItem;

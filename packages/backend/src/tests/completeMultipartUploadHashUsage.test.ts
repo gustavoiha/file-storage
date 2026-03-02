@@ -14,7 +14,7 @@ const {
   computeObjectSha256HexMock,
   deleteObjectIfExistsMock,
   buildThumbnailJobMock,
-  enqueueThumbnailJobIfConfiguredMock
+  publishMediaProcessingJobIfConfiguredMock
 } = vi.hoisted(() => ({
   requireEntitledUserMock: vi.fn(),
   getDockspaceByIdMock: vi.fn(),
@@ -28,7 +28,7 @@ const {
   computeObjectSha256HexMock: vi.fn(),
   deleteObjectIfExistsMock: vi.fn(),
   buildThumbnailJobMock: vi.fn(),
-  enqueueThumbnailJobIfConfiguredMock: vi.fn()
+  publishMediaProcessingJobIfConfiguredMock: vi.fn()
 }));
 
 vi.mock('../lib/auth.js', () => ({
@@ -52,8 +52,11 @@ vi.mock('../lib/s3.js', () => ({
 }));
 
 vi.mock('../lib/thumbnailQueue.js', () => ({
-  buildThumbnailJob: buildThumbnailJobMock,
-  enqueueThumbnailJobIfConfigured: enqueueThumbnailJobIfConfiguredMock
+  buildThumbnailJob: buildThumbnailJobMock
+}));
+
+vi.mock('../lib/mediaProcessingTopic.js', () => ({
+  publishMediaProcessingJobIfConfigured: publishMediaProcessingJobIfConfiguredMock
 }));
 
 const baseEvent = (body: Record<string, unknown>): APIGatewayProxyEventV2 =>
@@ -104,7 +107,7 @@ beforeEach(() => {
   computeObjectSha256HexMock.mockReset();
   deleteObjectIfExistsMock.mockReset();
   buildThumbnailJobMock.mockReset();
-  enqueueThumbnailJobIfConfiguredMock.mockReset();
+  publishMediaProcessingJobIfConfiguredMock.mockReset();
 
   requireEntitledUserMock.mockReturnValue({ userId: 'user-1' });
   getDockspaceByIdMock.mockResolvedValue({ dockspaceId: 'dock-1', dockspaceType: 'PHOTOS_VIDEOS' });
@@ -116,7 +119,7 @@ beforeEach(() => {
   computeObjectSha256HexMock.mockResolvedValue('abc123');
   upsertActiveFileByPathMock.mockResolvedValue({ fileNodeId: 'new-file', fullPath: '/video.mp4' });
   buildThumbnailJobMock.mockImplementation((payload) => ({ ...payload, version: 1 }));
-  enqueueThumbnailJobIfConfiguredMock.mockResolvedValue(true);
+  publishMediaProcessingJobIfConfiguredMock.mockResolvedValue(true);
 
   vi.resetModules();
 });
@@ -143,7 +146,7 @@ describe('complete multipart upload hash usage', () => {
         contentHash: 'aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa'
       })
     );
-    expect(enqueueThumbnailJobIfConfiguredMock).toHaveBeenCalledWith(
+    expect(publishMediaProcessingJobIfConfiguredMock).toHaveBeenCalledWith(
       expect.objectContaining({
         fileNodeId: 'new-file',
         s3Key: 'dock-1/new-file',

@@ -130,6 +130,11 @@ export class BackendStack extends Stack {
       completeMultipartUpload: createHandler('completeMultipartUpload'),
       abortMultipartUpload: createHandler('abortMultipartUpload'),
       createDownloadSession: createHandler('createDownloadSession'),
+      createFolderDownloadSession: createHandler('createFolderDownloadSession', {
+        timeout: Duration.seconds(120),
+        memorySize: 1024,
+        ephemeralStorageSize: Size.mebibytes(512)
+      }),
       confirmUpload: createHandler('confirmUpload'),
       listFolderChildren: createHandler('listFolderChildren'),
       renameFile: createHandler('renameFile'),
@@ -194,6 +199,7 @@ export class BackendStack extends Stack {
     props.table.grantReadWriteData(handlers.startMultipartUpload);
     props.table.grantReadWriteData(handlers.completeMultipartUpload);
     props.table.grantReadData(handlers.createDownloadSession);
+    props.table.grantReadData(handlers.createFolderDownloadSession);
     props.table.grantReadWriteData(handlers.confirmUpload);
     props.table.grantReadWriteData(handlers.listFolderChildren);
     props.table.grantReadWriteData(handlers.renameFile);
@@ -223,6 +229,7 @@ export class BackendStack extends Stack {
     props.bucket.grantReadWrite(handlers.completeMultipartUpload);
     props.bucket.grantReadWrite(handlers.abortMultipartUpload);
     props.bucket.grantRead(handlers.createDownloadSession);
+    props.bucket.grantReadWrite(handlers.createFolderDownloadSession);
     props.bucket.grantReadWrite(handlers.confirmUpload);
     props.bucket.grantRead(handlers.listMedia);
     props.bucket.grantRead(handlers.listAlbumMedia);
@@ -249,6 +256,7 @@ export class BackendStack extends Stack {
       );
     };
     grantReadSsmParameter(handlers.createDownloadSession, props.fileReadPrivateKeyParameterName);
+    grantReadSsmParameter(handlers.createFolderDownloadSession, props.fileReadPrivateKeyParameterName);
     grantReadSsmParameter(handlers.listMedia, props.fileReadPrivateKeyParameterName);
     grantReadSsmParameter(handlers.listAlbumMedia, props.fileReadPrivateKeyParameterName);
     grantReadSsmParameter(analyzeImage, props.openAiImageAnalysisApiKeyParameterName);
@@ -391,6 +399,16 @@ export class BackendStack extends Stack {
       integration: new HttpLambdaIntegration(
         'CreateDownloadSessionIntegration',
         handlers.createDownloadSession
+      ),
+      authorizer
+    });
+
+    this.api.addRoutes({
+      path: '/dockspaces/{dockspaceId}/folders/download-session',
+      methods: [HttpMethod.POST],
+      integration: new HttpLambdaIntegration(
+        'CreateFolderDownloadSessionIntegration',
+        handlers.createFolderDownloadSession
       ),
       authorizer
     });

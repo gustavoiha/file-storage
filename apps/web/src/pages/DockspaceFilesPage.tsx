@@ -40,7 +40,7 @@ import { useDockspaceUploadDialog } from '@/hooks/useDockspaceUploadDialog';
 import { useDockspaces } from '@/hooks/useDockspaces';
 import { ApiError } from '@/lib/apiClient';
 import type { DirectoryChildRecord, FileRecord } from '@/lib/apiTypes';
-import { createFileDownloadSession } from '@/lib/dockspaceApi';
+import { createFileDownloadSession, createFolderDownloadSession } from '@/lib/dockspaceApi';
 
 interface FolderTrailEntry {
   folderNodeId: string;
@@ -855,6 +855,28 @@ export const DockspaceFilesPage = () => {
     [dockspaceId]
   );
 
+  const onDownloadFolder = useCallback(
+    (folderPath: string) => {
+      void (async () => {
+        try {
+          const session = await createFolderDownloadSession(dockspaceId, folderPath);
+          if (!session.downloadUrl) {
+            return;
+          }
+
+          const link = document.createElement('a');
+          link.href = session.downloadUrl;
+          document.body.appendChild(link);
+          link.click();
+          link.remove();
+        } catch {
+          // Errors are intentionally silent in this action-only flow.
+        }
+      })();
+    },
+    [dockspaceId]
+  );
+
   const openRenameFileDialog = useCallback((fullPath: string) => {
     setRenameFileDialogFullPath(fullPath);
     setRenameFileDialogFileName(fileNameFromPath(fullPath));
@@ -1101,6 +1123,7 @@ export const DockspaceFilesPage = () => {
                     statusMessage={moveFilesSummary}
                     actionLabel="Move to Trash"
                     downloadActionLabel="Download"
+                    folderDownloadActionLabel="Download"
                     renameActionLabel="Rename"
                     folderMoveActionLabel="Move"
                     folderRenameActionLabel="Rename"
@@ -1137,6 +1160,7 @@ export const DockspaceFilesPage = () => {
                     onMoveFolder={openMoveFolderDialog}
                     onOpenFile={openFileViewer}
                     onDownload={onDownloadFile}
+                    onDownloadFolder={onDownloadFolder}
                     onOpenFolder={onOpenFolder}
                     onToggleFileSelection={toggleFileSelection}
                     onActionFolder={openTrashFolderDialog}

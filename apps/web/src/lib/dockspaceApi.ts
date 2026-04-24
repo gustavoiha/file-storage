@@ -617,6 +617,23 @@ export const createFileDownloadSession = async (
   return apiRequest(`/dockspaces/${dockspaceId}/files/${encodeURIComponent(fileNodeId)}/download-session${query}`);
 };
 
+export interface FolderDownloadSessionResponse {
+  folderName: string;
+  fileCount: number;
+  totalSize: number;
+  downloadUrl: string | null;
+  expiresInSeconds?: number;
+}
+
+export const createFolderDownloadSession = async (
+  dockspaceId: string,
+  folderPath: string
+): Promise<FolderDownloadSessionResponse> =>
+  apiRequest<FolderDownloadSessionResponse>(`/dockspaces/${dockspaceId}/folders/download-session`, {
+    method: 'POST',
+    body: JSON.stringify({ folderPath })
+  });
+
 export const renameFile = async (
   dockspaceId: string,
   fullPath: string,

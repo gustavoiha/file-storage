@@ -22,6 +22,7 @@
     "@aws-sdk/client-sqs": "^3.882.0",
     "@aws-sdk/client-ssm": "^3.882.0",
     "@aws-sdk/lib-dynamodb": "^3.882.0",
+    "@aws-sdk/lib-storage": "^3.1035.0",
     "@aws-sdk/s3-request-presigner": "^3.882.0",
     "ffmpeg-static": "^5.2.0",
     "heic-convert": "^2.1.0",

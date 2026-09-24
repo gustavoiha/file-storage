@@ -44,6 +44,12 @@ export const errorResponse = (error: unknown): HttpResponse => {
     });
   }
 
+  console.error('unhandled-handler-error', {
+    name: error instanceof Error ? error.name : typeof error,
+    message: error instanceof Error ? error.message : String(error),
+    cancellationReasons: (error as { CancellationReasons?: unknown } | null)?.CancellationReasons
+  });
+
   return jsonResponse(500, {
     error: error instanceof Error ? error.message : 'Unknown error'
   });

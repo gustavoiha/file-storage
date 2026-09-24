@@ -100,6 +100,114 @@ describe('useDockspaceUploadDialog', () => {
     );
   });
 
+  it('creates leaf folders sequentially before starting any upload of a folder selection', async () => {
+    const folderCompletions: Array<() => void> = [];
+    const createFolder = vi.fn(
+      async () =>
+        await new Promise<void>((resolve) => {
+          folderCompletions.push(resolve);
+        })
+    );
+    const uploadFile = vi.fn(async () => {});
+    const { result } = renderHook(() =>
+      useDockspaceUploadDialog({
+        currentFolderPath: '/target',
+        uploadFile,
+        createFolder
+      })
+    );
+
+    const withRelativePath = (name: string, relativePath: string): File => {
+      const file = new File(['x'], name, { type: 'text/plain' });
+      Object.defineProperty(file, 'webkitRelativePath', { value: relativePath });
+      return file;
+    };
+
+    act(() => {
+      result.current.stageFolderFiles([
+        withRelativePath('root.pdf', 'test/root.pdf'),
+        withRelativePath('a1.pdf', 'test/test-a/a1.pdf'),
+        withRelativePath('a2.pdf', 'test/test-a/a2.pdf'),
+        withRelativePath('c1.pdf', 'test/test-b/test-c/c1.pdf'),
+        withRelativePath('c2.pdf', 'test/test-b/test-c/c2.pdf')
+      ]);
+    });
+
+    // Only the deepest folders are requested (ancestors are created server-side), one at a time.
+    await waitFor(() => expect(createFolder).toHaveBeenCalledTimes(1));
+    expect(createFolder).toHaveBeenCalledWith('/target/test/test-a');
+    expect(result.current.isPreparingFolders).toBe(true);
+    expect(result.current.isUploading).toBe(true);
+    expect(uploadFile).not.toHaveBeenCalled();
+    expect(result.current.activeUploads).toHaveLength(0);
+
+    act(() => {
+      folderCompletions[0]?.();
+    });
+
+    await waitFor(() => expect(createFolder).toHaveBeenCalledTimes(2));
+    expect(createFolder).toHaveBeenLastCalledWith('/target/test/test-b/test-c');
+    expect(uploadFile).not.toHaveBeenCalled();
+
+    act(() => {
+      folderCompletions[1]?.();
+    });
+
+    await waitFor(() => expect(uploadFile).toHaveBeenCalledTimes(5));
+    expect(createFolder).toHaveBeenCalledTimes(2);
+    await waitFor(() => expect(result.current.activeUploads).toHaveLength(0));
+    expect(result.current.isPreparingFolders).toBe(false);
+    expect(result.current.validationError).toBeNull();
+  });
+
+  it('does not request folder creation when the selection only has files in the current folder', async () => {
+    const createFolder = vi.fn(async () => {});
+    const uploadFile = vi.fn(async () => {});
+    const { result } = renderHook(() =>
+      useDockspaceUploadDialog({
+        currentFolderPath: '/docs',
+        uploadFile,
+        createFolder
+      })
+    );
+
+    act(() => {
+      result.current.stageFiles([new File(['one'], 'first.txt', { type: 'text/plain' })]);
+    });
+
+    await waitFor(() => expect(uploadFile).toHaveBeenCalledTimes(1));
+    expect(createFolder).not.toHaveBeenCalled();
+  });
+
+  it('reports an error and uploads nothing when a folder cannot be created', async () => {
+    const createFolder = vi.fn(async () => {
+      throw new Error('boom');
+    });
+    const uploadFile = vi.fn(async () => {});
+    const { result } = renderHook(() =>
+      useDockspaceUploadDialog({
+        currentFolderPath: '/target',
+        uploadFile,
+        createFolder
+      })
+    );
+
+    const file = new File(['x'], 'a.txt', { type: 'text/plain' });
+    Object.defineProperty(file, 'webkitRelativePath', { value: 'project/a.txt' });
+
+    act(() => {
+      result.current.stageFolderFiles([file]);
+    });
+
+    await waitFor(() =>
+      expect(result.current.validationError).toBe('Could not create the folders for this upload: boom')
+    );
+    expect(createFolder).toHaveBeenCalledWith('/target/project');
+    expect(uploadFile).not.toHaveBeenCalled();
+    expect(result.current.activeUploads).toHaveLength(0);
+    expect(result.current.isUploading).toBe(false);
+  });
+
   it('keeps failed uploads in queue and retries them on demand', async () => {
     const uploadFile = vi
       .fn()

@@ -2,6 +2,7 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import {
   buildPathInFolder,
   isValidUploadPath,
+  leafFolderPathsForUploads,
   normalizeUploadPath
 } from '@/components/files/pathHelpers';
 import { ApiError } from '@/lib/apiClient';
@@ -33,15 +34,24 @@ interface UseDockspaceUploadDialogParams {
     file: File;
     onProgress?: (progress: number) => void;
   }) => Promise<unknown>;
+  /**
+   * When provided, a folder upload first creates every folder of the selection (one request
+   * per leaf folder, run sequentially; ancestors are created server-side) and only then
+   * starts the parallel file uploads. This way no two uploads ever race to create the same
+   * folder. Without it, folders are created on the fly by each upload.
+   */
+  createFolder?: (folderPath: string) => Promise<unknown>;
 }
 
 export const useDockspaceUploadDialog = ({
   currentFolderPath,
-  uploadFile
+  uploadFile,
+  createFolder
 }: UseDockspaceUploadDialogParams) => {
   const [activeUploads, setActiveUploads] = useState<ActiveUploadFile[]>([]);
   const [skippedUploads, setSkippedUploads] = useState<SkippedUploadFile[]>([]);
   const [validationError, setValidationError] = useState<string | null>(null);
+  const [isPreparingFolders, setIsPreparingFolders] = useState(false);
   const nextUploadIdRef = useRef(1);
   const runningUploadIdsRef = useRef<Set<number>>(new Set());
 
@@ -121,8 +131,34 @@ export const useDockspaceUploadDialog = ({
       setValidationError(`${skippedCount} file${suffix} had invalid upload paths and were skipped.`);
     }
 
-    enqueueUploads(nextUploads);
-  }, [currentFolderPath, enqueueUploads]);
+    const folderPaths = createFolder
+      ? leafFolderPathsForUploads(
+          nextUploads.map((upload) => upload.fullPath),
+          currentFolderPath
+        )
+      : [];
+
+    if (!folderPaths.length) {
+      enqueueUploads(nextUploads);
+      return;
+    }
+
+    setIsPreparingFolders(true);
+    void (async () => {
+      try {
+        for (const folderPath of folderPaths) {
+          await createFolder!(folderPath);
+        }
+
+        enqueueUploads(nextUploads);
+      } catch (error) {
+        const detail = error instanceof Error ? error.message : 'Unknown error';
+        setValidationError(`Could not create the folders for this upload: ${detail}`);
+      } finally {
+        setIsPreparingFolders(false);
+      }
+    })();
+  }, [createFolder, currentFolderPath, enqueueUploads]);
 
   useEffect(() => {
     const availableSlots = MAX_PARALLEL_UPLOADS - runningUploadIdsRef.current.size;
@@ -242,9 +278,10 @@ export const useDockspaceUploadDialog = ({
     activeUploads,
     clearValidationError,
     clearSkippedUploads,
-    isUploading: activeUploads.some(
-      (item) => item.status === 'pending' || item.status === 'uploading'
-    ),
+    isPreparingFolders,
+    isUploading:
+      isPreparingFolders ||
+      activeUploads.some((item) => item.status === 'pending' || item.status === 'uploading'),
     retryUpload,
     skippedUploads,
     stageFolderFiles,

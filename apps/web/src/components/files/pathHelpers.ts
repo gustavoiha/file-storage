@@ -39,3 +39,35 @@ export const isValidUploadPath = (path: string): boolean => {
 
 export const normalizeNodeName = (name: string): string =>
   name.trim().normalize('NFKC').replace(/\s+/g, '-').toLocaleLowerCase();
+
+const FOLDER_SEPARATOR = '/';
+
+const normalizeFolderForComparison = (folder: string): string => {
+  const trimmed = folder.trim().replace(EDGE_SLASH_RE, '').replace(MULTI_SLASH_RE, '/');
+  return trimmed ? `/${trimmed}` : '/';
+};
+
+/**
+ * Given the full destination paths of a folder upload, returns the folders that must exist
+ * before any file is uploaded, reduced to the deepest ("leaf") folders only. Creating a leaf
+ * folder creates all of its ancestors server-side, so this is the minimal set of sequential
+ * create-folder requests. The current folder itself (and the root) is excluded because it
+ * already exists. Result is sorted shallowest first for deterministic behaviour.
+ */
+export const leafFolderPathsForUploads = (fullPaths: string[], currentFolderPath: string): string[] => {
+  const current = normalizeFolderForComparison(currentFolderPath);
+  const folders = new Set<string>();
+
+  for (const fullPath of fullPaths) {
+    const separatorIndex = fullPath.lastIndexOf(FOLDER_SEPARATOR);
+    const folder = separatorIndex > 0 ? fullPath.slice(0, separatorIndex) : '/';
+    if (folder !== '/' && folder !== current) {
+      folders.add(folder);
+    }
+  }
+
+  const all = [...folders];
+  return all
+    .filter((folder) => !all.some((other) => other !== folder && other.startsWith(`${folder}/`)))
+    .sort((a, b) => a.split('/').length - b.split('/').length || a.localeCompare(b));
+};

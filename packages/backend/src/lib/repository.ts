@@ -68,6 +68,128 @@ const isConditionalFailure = (error: unknown): boolean =>
 
 const getFileNodeIdFromSk = (sk: string): string => sk.replace(/^L#/, '');
 
+const FOLDER_WRITE_MAX_ATTEMPTS = 6;
+const TRANSACT_CONFLICT_MAX_ATTEMPTS = 5;
+
+const sleep = (ms: number): Promise<void> => new Promise((resolve) => setTimeout(resolve, ms));
+
+const backoffMs = (attempt: number): number =>
+  20 * 2 ** (attempt - 1) + Math.floor(Math.random() * 20);
+
+const RETRYABLE_CANCELLATION_CODES = new Set([
+  'None',
+  'TransactionConflict',
+  'ThrottlingError',
+  'ProvisionedThroughputExceeded'
+]);
+
+/**
+ * True when a transaction was cancelled only because another transaction touched one of
+ * the same items at the same time (or throttling), i.e. no condition actually failed.
+ * Parallel uploads into one dockspace all update the shared DOCKSPACE_METRICS item, so
+ * this is expected under load and safe to retry: a cancelled transaction wrote nothing.
+ */
+const isTransactionConflict = (error: unknown): boolean => {
+  if (!(error instanceof Error)) {
+    return false;
+  }
+
+  if (
+    error.name === 'TransactionConflictException' ||
+    error.name === 'TransactionInProgressException'
+  ) {
+    return true;
+  }
+
+  if (error.name !== 'TransactionCanceledException') {
+    return false;
+  }
+
+  const reasons = (error as { CancellationReasons?: Array<{ Code?: string }> })
+    .CancellationReasons;
+  if (!reasons?.length) {
+    return false;
+  }
+
+  return (
+    reasons.some((reason) => reason.Code !== 'None') &&
+    reasons.every((reason) => RETRYABLE_CANCELLATION_CODES.has(reason.Code ?? 'None'))
+  );
+};
+
+const sendTransactWriteWithConflictRetry = async (
+  buildCommand: () => TransactWriteCommand
+): Promise<void> => {
+  for (let attempt = 1; ; attempt += 1) {
+    try {
+      await dynamoDoc.send(buildCommand());
+      return;
+    } catch (error) {
+      if (!isTransactionConflict(error) || attempt >= TRANSACT_CONFLICT_MAX_ATTEMPTS) {
+        throw error;
+      }
+
+      await sleep(backoffMs(attempt));
+    }
+  }
+};
+
+/**
+ * Optimistic-concurrency guard for adding a named child folder under a parent.
+ *
+ * Directory SKs include the child's id (`D#<parent>#F#<name>#<childId>`), so two
+ * concurrent creators of the same name never collide on a key and a plain conditional
+ * put cannot detect the duplicate. Instead every write that introduces a folder name
+ * under a parent bumps `childrenVersion` on the parent FOLDER_NODE, conditioned on the
+ * version the writer observed before its (strongly consistent) name lookup. Two writers
+ * that both observed "name is free" therefore cannot both commit: the second one is
+ * cancelled and re-reads the winner's entry.
+ */
+const buildFolderChildrenVersionGuard = (
+  filePk: string,
+  parentFolderNodeId: string,
+  expectedVersion: number | undefined
+) => ({
+  Update: {
+    TableName: env.tableName,
+    Key: {
+      PK: filePk,
+      SK: buildFolderNodeSk(parentFolderNodeId)
+    },
+    ConditionExpression:
+      expectedVersion === undefined
+        ? 'attribute_exists(PK) AND attribute_not_exists(childrenVersion)'
+        : 'attribute_exists(PK) AND childrenVersion = :expectedVersion',
+    UpdateExpression: 'SET childrenVersion = :nextVersion',
+    ExpressionAttributeValues: {
+      ':nextVersion': (expectedVersion ?? 0) + 1,
+      ...(expectedVersion === undefined ? {} : { ':expectedVersion': expectedVersion })
+    }
+  }
+});
+
+/**
+ * True when a transaction was cancelled only because the children-version guard (always
+ * the first TransactItem) failed, i.e. a sibling folder name was added concurrently and
+ * the operation should simply be retried against the parent's new state.
+ */
+const isOnlyVersionGuardFailure = (error: unknown): boolean => {
+  if (!(error instanceof Error) || error.name !== 'TransactionCanceledException') {
+    return false;
+  }
+
+  const reasons = (error as { CancellationReasons?: Array<{ Code?: string }> })
+    .CancellationReasons;
+  if (!reasons?.length) {
+    return false;
+  }
+
+  return (
+    reasons[0]?.Code === 'ConditionalCheckFailed' &&
+    reasons.slice(1).every((reason) => reason.Code === 'None')
+  );
+};
+
 const buildTrashFileStateIndexSk = (
   flaggedForDeleteAt: string,
   fileNodeId: string
@@ -222,6 +344,25 @@ const getFolderNodeById = async (
   return (response.Item as FolderNodeItem | undefined) ?? null;
 };
 
+const getFolderNodeByIdConsistent = async (
+  userId: string,
+  dockspaceId: string,
+  folderNodeId: string
+): Promise<FolderNodeItem | null> => {
+  const response = await dynamoDoc.send(
+    new GetCommand({
+      TableName: env.tableName,
+      Key: {
+        PK: buildFilePk(userId, dockspaceId),
+        SK: buildFolderNodeSk(folderNodeId)
+      },
+      ConsistentRead: true
+    })
+  );
+
+  return (response.Item as FolderNodeItem | undefined) ?? null;
+};
+
 const putRootFolderNodeIfMissing = async (
   userId: string,
   dockspaceId: string,
@@ -254,14 +395,17 @@ const putFolderNodeWithDirectory = async (
   dockspaceId: string,
   parentFolderNodeId: string,
   folderName: string,
-  nowIso: string
+  nowIso: string,
+  expectedParentVersion: number | undefined
 ): Promise<string> => {
   const folderNodeId = randomUUID();
   const normalizedName = normalizeNodeName(folderName);
+  const filePk = buildFilePk(userId, dockspaceId);
 
   await dynamoDoc.send(
     new TransactWriteCommand({
       TransactItems: [
+        buildFolderChildrenVersionGuard(filePk, parentFolderNodeId, expectedParentVersion),
         {
           Put: {
             TableName: env.tableName,
@@ -1217,6 +1361,30 @@ const findDirectoryEntryByNameInternal = async (
   return ((response.Items ?? [])[0] as DirectoryItem | undefined) ?? null;
 };
 
+const findDirectoryEntryByNameConsistent = async (
+  userId: string,
+  dockspaceId: string,
+  parentFolderNodeId: string,
+  kind: DirectoryKind,
+  name: string
+): Promise<DirectoryItem | null> => {
+  const normalizedName = normalizeNodeName(name);
+  const response = await dynamoDoc.send(
+    new QueryCommand({
+      TableName: env.tableName,
+      KeyConditionExpression: 'PK = :pk AND begins_with(SK, :skPrefix)',
+      ExpressionAttributeValues: {
+        ':pk': buildFilePk(userId, dockspaceId),
+        ':skPrefix': buildDirectoryNamePrefix(parentFolderNodeId, kind, normalizedName)
+      },
+      ConsistentRead: true,
+      Limit: 1
+    })
+  );
+
+  return ((response.Items ?? [])[0] as DirectoryItem | undefined) ?? null;
+};
+
 export const findDirectoryFileByName = async (
   userId: string,
   dockspaceId: string,
@@ -1273,6 +1441,77 @@ const resolveFolderNodeId = async (
   return currentFolderNodeId;
 };
 
+/**
+ * Returns the id of the child folder `folderName` under `parentFolderNodeId`, creating it
+ * when missing. Safe under concurrency: parallel callers (e.g. the 4 simultaneous
+ * confirm-upload requests of a folder upload) always converge on a single folder node.
+ */
+const ensureChildFolderNodeId = async (
+  userId: string,
+  dockspaceId: string,
+  parentFolderNodeId: string,
+  folderName: string,
+  nowIso: string
+): Promise<string> => {
+  const existing = await findDirectoryEntryByNameInternal(
+    userId,
+    dockspaceId,
+    parentFolderNodeId,
+    'F',
+    folderName
+  );
+
+  if (existing) {
+    return existing.childId;
+  }
+
+  for (let attempt = 1; attempt <= FOLDER_WRITE_MAX_ATTEMPTS; attempt += 1) {
+    // Read the parent's version BEFORE the consistent name lookup: any folder committed
+    // under this parent after this point bumps the version and cancels our write below.
+    const parentFolderNode = await getFolderNodeByIdConsistent(
+      userId,
+      dockspaceId,
+      parentFolderNodeId
+    );
+    if (!parentFolderNode) {
+      throw new Error(`Parent folder ${parentFolderNodeId} not found`);
+    }
+
+    const committed = await findDirectoryEntryByNameConsistent(
+      userId,
+      dockspaceId,
+      parentFolderNodeId,
+      'F',
+      folderName
+    );
+    if (committed) {
+      return committed.childId;
+    }
+
+    try {
+      return await putFolderNodeWithDirectory(
+        userId,
+        dockspaceId,
+        parentFolderNodeId,
+        folderName,
+        nowIso,
+        parentFolderNode.childrenVersion
+      );
+    } catch (error) {
+      if (!isConditionalFailure(error)) {
+        throw error;
+      }
+
+      // Another writer changed this parent's children concurrently; re-read and retry.
+      await sleep(backoffMs(attempt));
+    }
+  }
+
+  throw new Error(
+    `Could not create folder "${folderName}" after ${FOLDER_WRITE_MAX_ATTEMPTS} attempts`
+  );
+};
+
 const ensureFolderNodeId = async (
   userId: string,
   dockspaceId: string,
@@ -1284,46 +1523,13 @@ const ensureFolderNodeId = async (
   let currentFolderNodeId = ROOT_FOLDER_NODE_ID;
 
   for (const segment of folderSegments) {
-    const existing = await findDirectoryEntryByNameInternal(
+    currentFolderNodeId = await ensureChildFolderNodeId(
       userId,
       dockspaceId,
       currentFolderNodeId,
-      'F',
-      segment
+      segment,
+      nowIso
     );
-
-    if (existing) {
-      currentFolderNodeId = existing.childId;
-      continue;
-    }
-
-    try {
-      currentFolderNodeId = await putFolderNodeWithDirectory(
-        userId,
-        dockspaceId,
-        currentFolderNodeId,
-        segment,
-        nowIso
-      );
-    } catch (error) {
-      if (!isConditionalFailure(error)) {
-        throw error;
-      }
-
-      const concurrent = await findDirectoryEntryByNameInternal(
-        userId,
-        dockspaceId,
-        currentFolderNodeId,
-        'F',
-        segment
-      );
-
-      if (!concurrent) {
-        throw error;
-      }
-
-      currentFolderNodeId = concurrent.childId;
-    }
   }
 
   return currentFolderNodeId;
@@ -1459,7 +1665,7 @@ export const upsertActiveFileByPath = async (params: {
       });
     }
 
-    await dynamoDoc.send(
+    await sendTransactWriteWithConflictRetry(() =>
       new TransactWriteCommand({
         TransactItems: [
           {
@@ -1534,7 +1740,7 @@ export const upsertActiveFileByPath = async (params: {
     ? normalizedContentHashOrNull(params.contentHash)
     : null;
 
-  await dynamoDoc.send(
+  await sendTransactWriteWithConflictRetry(() =>
     new TransactWriteCommand({
       TransactItems: [
         {
@@ -2228,88 +2434,113 @@ export const moveFolderByPath = async (params: {
     cursorFolderNodeId = cursorFolderNode.parentFolderNodeId ?? ROOT_FOLDER_NODE_ID;
   }
 
-  const conflictingFolder = await findDirectoryEntryByNameInternal(
-    params.userId,
-    params.dockspaceId,
-    targetFolderNodeId,
-    'F',
-    sourceFolderName
-  );
-  if (conflictingFolder && conflictingFolder.childId !== sourceFolderNodeId) {
-    return { status: 'CONFLICT' };
-  }
-
+  const filePk = buildFilePk(params.userId, params.dockspaceId);
   const oldDirectorySk = resolvedSourceFolder.directory.SK;
+  const normalizedSourceName = normalizeNodeName(sourceFolderName);
   const newDirectorySk = buildDirectorySk(
     targetFolderNodeId,
     'F',
-    normalizeNodeName(sourceFolderName),
+    normalizedSourceName,
     sourceFolderNodeId
   );
 
-  try {
-    await dynamoDoc.send(
-      new TransactWriteCommand({
-        TransactItems: [
-          {
-            Update: {
-              TableName: env.tableName,
-              Key: {
-                PK: buildFilePk(params.userId, params.dockspaceId),
-                SK: sourceFolderNode.SK
-              },
-              ConditionExpression: 'attribute_exists(PK) AND attribute_exists(SK)',
-              UpdateExpression: 'SET parentFolderNodeId = :parentFolderNodeId, updatedAt = :updatedAt',
-              ExpressionAttributeValues: {
-                ':parentFolderNodeId': targetFolderNodeId,
-                ':updatedAt': params.nowIso
-              }
-            }
-          },
-          {
-            Delete: {
-              TableName: env.tableName,
-              Key: {
-                PK: buildFilePk(params.userId, params.dockspaceId),
-                SK: oldDirectorySk
-              },
-              ConditionExpression: 'attribute_exists(PK) AND attribute_exists(SK)'
-            }
-          },
-          {
-            Put: {
-              TableName: env.tableName,
-              Item: {
-                PK: buildFilePk(params.userId, params.dockspaceId),
-                SK: newDirectorySk,
-                type: 'DIRECTORY',
-                name: sourceFolderName,
-                normalizedName: normalizeNodeName(sourceFolderName),
-                childId: sourceFolderNodeId,
-                childType: 'folder',
-                parentFolderNodeId: targetFolderNodeId,
-                createdAt: resolvedSourceFolder.directory.createdAt,
-                updatedAt: params.nowIso
-              } as DirectoryItem,
-              ConditionExpression: 'attribute_not_exists(PK) AND attribute_not_exists(SK)'
-            }
-          }
-        ]
-      })
+  for (let attempt = 1; attempt <= FOLDER_WRITE_MAX_ATTEMPTS; attempt += 1) {
+    const targetFolderNode = await getFolderNodeByIdConsistent(
+      params.userId,
+      params.dockspaceId,
+      targetFolderNodeId
     );
-  } catch (error) {
-    if (isConditionalFailure(error)) {
+    if (!targetFolderNode) {
+      return { status: 'NOT_FOUND' };
+    }
+
+    const conflictingFolder = await findDirectoryEntryByNameConsistent(
+      params.userId,
+      params.dockspaceId,
+      targetFolderNodeId,
+      'F',
+      sourceFolderName
+    );
+    if (conflictingFolder && conflictingFolder.childId !== sourceFolderNodeId) {
       return { status: 'CONFLICT' };
     }
 
-    throw error;
+    try {
+      await dynamoDoc.send(
+        new TransactWriteCommand({
+          TransactItems: [
+            buildFolderChildrenVersionGuard(
+              filePk,
+              targetFolderNodeId,
+              targetFolderNode.childrenVersion
+            ),
+            {
+              Update: {
+                TableName: env.tableName,
+                Key: {
+                  PK: filePk,
+                  SK: sourceFolderNode.SK
+                },
+                ConditionExpression: 'attribute_exists(PK) AND attribute_exists(SK)',
+                UpdateExpression:
+                  'SET parentFolderNodeId = :parentFolderNodeId, updatedAt = :updatedAt',
+                ExpressionAttributeValues: {
+                  ':parentFolderNodeId': targetFolderNodeId,
+                  ':updatedAt': params.nowIso
+                }
+              }
+            },
+            {
+              Delete: {
+                TableName: env.tableName,
+                Key: {
+                  PK: filePk,
+                  SK: oldDirectorySk
+                },
+                ConditionExpression: 'attribute_exists(PK) AND attribute_exists(SK)'
+              }
+            },
+            {
+              Put: {
+                TableName: env.tableName,
+                Item: {
+                  PK: filePk,
+                  SK: newDirectorySk,
+                  type: 'DIRECTORY',
+                  name: sourceFolderName,
+                  normalizedName: normalizedSourceName,
+                  childId: sourceFolderNodeId,
+                  childType: 'folder',
+                  parentFolderNodeId: targetFolderNodeId,
+                  createdAt: resolvedSourceFolder.directory.createdAt,
+                  updatedAt: params.nowIso
+                } as DirectoryItem,
+                ConditionExpression: 'attribute_not_exists(PK) AND attribute_not_exists(SK)'
+              }
+            }
+          ]
+        })
+      );
+
+      return {
+        status: 'MOVED',
+        from: sourceFolderPath,
+        to: buildFullPath(targetFolderPath, sourceFolderName)
+      };
+    } catch (error) {
+      if (!isConditionalFailure(error)) {
+        throw error;
+      }
+
+      if (!isTransactionConflict(error) && !isOnlyVersionGuardFailure(error)) {
+        return { status: 'CONFLICT' };
+      }
+
+      await sleep(backoffMs(attempt));
+    }
   }
 
-  return {
-    status: 'MOVED',
-    from: sourceFolderPath,
-    to: buildFullPath(targetFolderPath, sourceFolderName)
-  };
+  return { status: 'CONFLICT' };
 };
 
 export const renameFolderByPath = async (params: {
@@ -2364,18 +2595,6 @@ export const renameFolderByPath = async (params: {
       status: 'UNCHANGED',
       folderPath: normalizedFolderPath
     };
-  }
-
-  const conflictingFolder = await findDirectoryEntryByNameInternal(
-    params.userId,
-    params.dockspaceId,
-    parentFolderNodeId,
-    'F',
-    nextName
-  );
-
-  if (conflictingFolder && conflictingFolder.childId !== folderNodeId) {
-    return { status: 'CONFLICT' };
   }
 
   const oldDirectorySk = buildDirectorySk(
@@ -2444,71 +2663,106 @@ export const renameFolderByPath = async (params: {
     };
   }
 
-  try {
-    await dynamoDoc.send(
-      new TransactWriteCommand({
-        TransactItems: [
-          {
-            Update: {
-              TableName: env.tableName,
-              Key: {
-                PK: buildFilePk(params.userId, params.dockspaceId),
-                SK: folderNode.SK
-              },
-              ConditionExpression: 'attribute_exists(PK) AND attribute_exists(SK)',
-              UpdateExpression: 'SET #name = :name, updatedAt = :updatedAt',
-              ExpressionAttributeNames: {
-                '#name': 'name'
-              },
-              ExpressionAttributeValues: {
-                ':name': nextName,
-                ':updatedAt': params.nowIso
-              }
-            }
-          },
-          {
-            Delete: {
-              TableName: env.tableName,
-              Key: {
-                PK: buildFilePk(params.userId, params.dockspaceId),
-                SK: oldDirectorySk
-              },
-              ConditionExpression: 'attribute_exists(PK) AND attribute_exists(SK)'
-            }
-          },
-          {
-            Put: {
-              TableName: env.tableName,
-              Item: {
-                PK: buildFilePk(params.userId, params.dockspaceId),
-                SK: newDirectorySk,
-                type: 'DIRECTORY',
-                name: nextName,
-                normalizedName: newNormalizedName,
-                childId: folderNodeId,
-                childType: 'folder',
-                parentFolderNodeId,
-                createdAt: existingDirectory.createdAt,
-                updatedAt: params.nowIso
-              } as DirectoryItem,
-              ConditionExpression: 'attribute_not_exists(PK) AND attribute_not_exists(SK)'
-            }
-          }
-        ]
-      })
+  const filePk = buildFilePk(params.userId, params.dockspaceId);
+
+  for (let attempt = 1; attempt <= FOLDER_WRITE_MAX_ATTEMPTS; attempt += 1) {
+    const parentFolderNode = await getFolderNodeByIdConsistent(
+      params.userId,
+      params.dockspaceId,
+      parentFolderNodeId
     );
-  } catch (error) {
-    if (isConditionalFailure(error)) {
+    if (!parentFolderNode) {
+      return { status: 'NOT_FOUND' };
+    }
+
+    const conflictingFolder = await findDirectoryEntryByNameConsistent(
+      params.userId,
+      params.dockspaceId,
+      parentFolderNodeId,
+      'F',
+      nextName
+    );
+    if (conflictingFolder && conflictingFolder.childId !== folderNodeId) {
       return { status: 'CONFLICT' };
     }
 
-    throw error;
+    try {
+      await dynamoDoc.send(
+        new TransactWriteCommand({
+          TransactItems: [
+            buildFolderChildrenVersionGuard(
+              filePk,
+              parentFolderNodeId,
+              parentFolderNode.childrenVersion
+            ),
+            {
+              Update: {
+                TableName: env.tableName,
+                Key: {
+                  PK: filePk,
+                  SK: folderNode.SK
+                },
+                ConditionExpression: 'attribute_exists(PK) AND attribute_exists(SK)',
+                UpdateExpression: 'SET #name = :name, updatedAt = :updatedAt',
+                ExpressionAttributeNames: {
+                  '#name': 'name'
+                },
+                ExpressionAttributeValues: {
+                  ':name': nextName,
+                  ':updatedAt': params.nowIso
+                }
+              }
+            },
+            {
+              Delete: {
+                TableName: env.tableName,
+                Key: {
+                  PK: filePk,
+                  SK: oldDirectorySk
+                },
+                ConditionExpression: 'attribute_exists(PK) AND attribute_exists(SK)'
+              }
+            },
+            {
+              Put: {
+                TableName: env.tableName,
+                Item: {
+                  PK: filePk,
+                  SK: newDirectorySk,
+                  type: 'DIRECTORY',
+                  name: nextName,
+                  normalizedName: newNormalizedName,
+                  childId: folderNodeId,
+                  childType: 'folder',
+                  parentFolderNodeId,
+                  createdAt: existingDirectory.createdAt,
+                  updatedAt: params.nowIso
+                } as DirectoryItem,
+                ConditionExpression: 'attribute_not_exists(PK) AND attribute_not_exists(SK)'
+              }
+            }
+          ]
+        })
+      );
+
+      return {
+        status: 'RENAMED',
+        folderPath: buildFullPath(parentFolderPath, nextName)
+      };
+    } catch (error) {
+      if (!isConditionalFailure(error)) {
+        throw error;
+      }
+
+      if (!isTransactionConflict(error) && !isOnlyVersionGuardFailure(error)) {
+        return { status: 'CONFLICT' };
+      }
+
+      await sleep(backoffMs(attempt));
+    }
   }
 
-  return {
-    status: 'RENAMED',
-    folderPath: buildFullPath(parentFolderPath, nextName)
-  };
+  return { status: 'CONFLICT' };
 };
 
 export const restoreFileNodeFromTrash = async (params: {

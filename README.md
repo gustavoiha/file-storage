@@ -584,3 +584,43 @@ Optional controls:
 
 * `BACKFILL_PAGE_SIZE` (default `100`)
 * `BACKFILL_MAX_PAGES` (unset by default; process all pages)
+
+---
+
+## 24. One-Time Migration For Duplicate Folders
+
+Before folder creation was guarded with `childrenVersion` on the parent `FOLDER_NODE`, parallel
+confirm-upload requests from the "upload a folder" feature could each create their own copy of
+the same folder (same parent, same normalized name), splitting the uploaded files across them.
+This migration merges such duplicates into a single canonical folder (the entry with the lowest
+directory SK, which is the one path lookups have always resolved to). Files whose name is already
+taken in the canonical folder are moved with a ` (n)` suffix; a duplicate folder is deleted only
+once it is verified empty, and every move is one DynamoDB transaction.
+
+By default the script iterates every dockspace of every user (one Query per dockspace
+partition) and reports per-dockspace results plus totals. Dry run first (default; reads only
+and prints the planned actions):
+
+```bash
+TABLE_NAME=<your-table-name> \
+BACKFILL_DRY_RUN=true \
+npm run --workspace @dockspace/backend migrate:duplicate-folders
+```
+
+Then execute the write run:
+
+```bash
+TABLE_NAME=<your-table-name> \
+BACKFILL_DRY_RUN=false \
+npm run --workspace @dockspace/backend migrate:duplicate-folders
+```
+
+Optional controls:
+
+* `MIGRATE_USER_ID` + `MIGRATE_DOCKSPACE_ID` (restrict the run to a single dockspace partition)
+* `BACKFILL_PAGE_SIZE` (default `100`)
+* `BACKFILL_MAX_PAGES` (unset by default; process all pages)
+
+The script exits non-zero when any group could not be merged; nothing is deleted in that case for
+the affected group, so it is safe to fix the cause and re-run. A failure in one dockspace does not
+stop the remaining dockspaces from being processed.

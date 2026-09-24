@@ -31,6 +31,11 @@ export interface FolderNodeItem {
   type: 'FOLDER_NODE';
   parentFolderNodeId?: string;
   name: string;
+  /**
+   * Optimistic-concurrency counter bumped whenever a child folder name is added under this
+   * folder (create, rename, move-in). Absent on folders created before this field existed.
+   */
+  childrenVersion?: number;
   createdAt: string;
   updatedAt: string;
 }

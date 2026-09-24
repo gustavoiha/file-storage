@@ -1,6 +1,6 @@
 import { useRef, type ChangeEvent } from 'react';
 import { Alert } from '@/components/ui/Alert';
-import { useUploadFile } from '@/hooks/useFiles';
+import { useCreateFolder, useUploadFile } from '@/hooks/useFiles';
 import { useDockspaceUploadDialog } from '@/hooks/useDockspaceUploadDialog';
 import { UploadStagingList } from '@/components/files/UploadStagingList';
 import { ApiError } from '@/lib/apiClient';
@@ -12,9 +12,11 @@ interface UploadFormProps {
 
 export const UploadForm = ({ dockspaceId, folder }: UploadFormProps) => {
   const uploadMutation = useUploadFile(dockspaceId, folder);
+  const createFolderMutation = useCreateFolder(dockspaceId);
   const uploadDialog = useDockspaceUploadDialog({
     currentFolderPath: folder,
-    uploadFile: uploadMutation.mutateAsync
+    uploadFile: uploadMutation.mutateAsync,
+    createFolder: createFolderMutation.mutateAsync
   });
   const inputRef = useRef<HTMLInputElement>(null);
   const folderInputRef = useRef<HTMLInputElement>(null);
@@ -73,6 +75,7 @@ export const UploadForm = ({ dockspaceId, folder }: UploadFormProps) => {
           disabled={uploadDialog.isUploading}
         />
       </label>
+      {uploadDialog.isPreparingFolders ? <p className="auth-note">Creating folders...</p> : null}
       <UploadStagingList stagedFiles={uploadDialog.activeUploads} onRetryUpload={uploadDialog.retryUpload} />
       {errorMessage ? <Alert message={errorMessage} /> : null}
     </form>

@@ -11,6 +11,7 @@
     "backfill:media-hash-index": "npm run build && node dist/scripts/backfillMediaHashIndex.js",
     "backfill:media-thumbnails": "npm run build && node dist/scripts/backfillMediaThumbnailJobs.js",
     "backfill:dockspace-metrics": "npm run build && node dist/scripts/backfillDockspaceMetrics.js",
+    "migrate:duplicate-folders": "npm run build && node dist/scripts/migrateDuplicateFolders.js",
     "typecheck": "tsc -p tsconfig.json --noEmit",
     "test": "vitest run"
   },

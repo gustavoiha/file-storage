@@ -402,7 +402,8 @@ export const DockspaceFilesPage = () => {
 
   const uploadDialog = useDockspaceUploadDialog({
     currentFolderPath: currentFolder.fullPath,
-    uploadFile: uploadFile.mutateAsync
+    uploadFile: uploadFile.mutateAsync,
+    createFolder: createFolder.mutateAsync
   });
 
   const openFilePicker = useCallback(() => {
@@ -1172,6 +1173,7 @@ export const DockspaceFilesPage = () => {
                 folderTree={sidebarFolderTree}
                 activeUploads={uploadDialog.activeUploads}
                 skippedUploads={uploadDialog.skippedUploads}
+                isPreparingFolders={uploadDialog.isPreparingFolders}
                 uploadErrorMessage={uploadErrorMessage}
                 onAddFolder={addFolderDialog.openDialog}
                 onDismissSkippedUploads={uploadDialog.clearSkippedUploads}

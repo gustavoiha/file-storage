@@ -8,6 +8,7 @@ interface DockspaceSidebarProps {
   folderTree: SidebarFolderTreeNode[];
   activeUploads: ActiveUploadFile[];
   skippedUploads: SkippedUploadFile[];
+  isPreparingFolders?: boolean;
   uploadErrorMessage: string | null;
   onAddFolder: () => void;
   onDismissSkippedUploads: () => void;
@@ -136,6 +137,7 @@ export const DockspaceSidebar = ({
   folderTree,
   activeUploads,
   skippedUploads,
+  isPreparingFolders = false,
   uploadErrorMessage,
   onAddFolder,
   onDismissSkippedUploads,
@@ -189,13 +191,16 @@ export const DockspaceSidebar = ({
         <h2 className="dockspace-sidebar__title">Uploads</h2>
         <span className="dockspace-sidebar__uploads-count">{activeUploads.length}</span>
       </div>
+      {isPreparingFolders ? (
+        <p className="dockspace-sidebar__uploads-empty">Creating folders...</p>
+      ) : null}
       {activeUploads.length ? (
         <ul className="dockspace-sidebar__upload-list">
           {activeUploads.map((upload) => (
             <UploadQueueRow key={upload.id} upload={upload} onRetryUpload={onRetryUpload} />
           ))}
         </ul>
-      ) : (
+      ) : isPreparingFolders ? null : (
         <p className="dockspace-sidebar__uploads-empty">No active uploads.</p>
       )}
       {uploadErrorMessage ? <p className="dockspace-sidebar__uploads-error">{uploadErrorMessage}</p> : null}

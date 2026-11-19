@@ -18,4 +18,4 @@ Dockspace: a self-hosted, single-tenant cloud file storage app on AWS (minimal G
 ## Task index
 | Task | Issue | Title | Status | Owner |
 |------|-------|-------|--------|-------|
-| T-0001 | #5 | File navigability: single folder view, parent context, side preview | design | Design |
+| T-0001 | #5 | File navigability: single folder view, parent context, side preview | engineering | Design |

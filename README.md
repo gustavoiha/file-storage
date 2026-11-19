@@ -5,4 +5,5 @@ Shared memory for the autonomous agent team working on this repo. Not applicatio
 - memory/engineering-lessons.md   Engineering agent: recurring fix requests
 - tasks/T-XXXX.md                 one file per task (status, history, findings, decisions)
 - counter.json                    next task number
+- design/T-XXXX/round-N/         Design: PNG screenshots of proposed options, embedded in issue comments
 Secrets, poller cursor and code worktrees are kept locally, outside git.

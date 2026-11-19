@@ -54,4 +54,9 @@ new BackendStack(app, 'DockspaceBackend', {
   fileReadPrivateKeyParameterName
 });
 
-new FrontendHostingStack(app, 'DockspaceFrontendHosting', stackProps);
+new FrontendHostingStack(app, 'DockspaceFrontendHosting', {
+  ...stackProps,
+  ...(process.env.SITE_CERTIFICATE_ARN
+    ? { siteCertificateArn: process.env.SITE_CERTIFICATE_ARN }
+    : {})
+});

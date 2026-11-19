@@ -19,9 +19,6 @@ const requiredEnv = (key: string): string => {
 const deploymentEnvironment = requiredEnv('ENVIRONMENT');
 const fileReadPublicKeyPem = requiredEnv('FILE_READ_PUBLIC_KEY_PEM');
 const fileReadPrivateKeyParameterName = requiredEnv('FILE_READ_PRIVATE_KEY_PARAMETER_NAME');
-const openAiImageAnalysisApiKeyParameterName = requiredEnv(
-  'OPENAI_IMAGE_ANALYSIS_API_KEY_PARAMETER_NAME'
-);
 
 interface BaseStackProps extends StackProps {
   deploymentEnvironment: string;
@@ -54,8 +51,7 @@ new BackendStack(app, 'DockspaceBackend', {
   bucket: storage.fileBucket,
   fileReadDomainName: storage.fileReadDistributionDomainName,
   fileReadKeyPairId: storage.fileReadKeyPairId,
-  fileReadPrivateKeyParameterName,
-  openAiImageAnalysisApiKeyParameterName
+  fileReadPrivateKeyParameterName
 });
 
 new FrontendHostingStack(app, 'DockspaceFrontendHosting', stackProps);

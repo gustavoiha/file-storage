@@ -39,7 +39,6 @@ interface BackendStackProps extends StackProps {
   fileReadDomainName: string;
   fileReadKeyPairId: string;
   fileReadPrivateKeyParameterName: string;
-  openAiImageAnalysisApiKeyParameterName: string;
 }
 
 export class BackendStack extends Stack {
@@ -68,26 +67,8 @@ export class BackendStack extends Stack {
         maxReceiveCount: 3
       }
     });
-    const imageAnalysisJobsDlq = new Queue(this, 'ImageAnalysisJobsDlq', {
-      retentionPeriod: Duration.days(14)
-    });
-    const imageAnalysisJobsQueue = new Queue(this, 'ImageAnalysisJobsQueue', {
-      visibilityTimeout: Duration.seconds(360),
-      retentionPeriod: Duration.days(4),
-      receiveMessageWaitTime: Duration.seconds(20),
-      deadLetterQueue: {
-        queue: imageAnalysisJobsDlq,
-        maxReceiveCount: 3
-      }
-    });
-
     mediaProcessingTopic.addSubscription(
       new SqsSubscription(thumbnailJobsQueue, {
-        rawMessageDelivery: true
-      })
-    );
-    mediaProcessingTopic.addSubscription(
-      new SqsSubscription(imageAnalysisJobsQueue, {
         rawMessageDelivery: true
       })
     );
@@ -175,19 +156,6 @@ export class BackendStack extends Stack {
         THUMBNAIL_MAX_ATTEMPTS: '8'
       }
     });
-    const analyzeImage = createHandler('analyzeImage', {
-      architecture: Architecture.X86_64,
-      timeout: Duration.seconds(60),
-      memorySize: 1024,
-      bundling: {
-        forceDockerBundling: true,
-        nodeModules: ['sharp', 'heic-convert']
-      },
-      environment: {
-        OPENAI_IMAGE_ANALYSIS_API_KEY_PARAMETER_NAME:
-          props.openAiImageAnalysisApiKeyParameterName
-      }
-    });
     const purgeReconciliation = createHandler('purgeReconciliation');
 
     props.table.grantReadWriteData(handlers.createDockspace);
@@ -220,7 +188,6 @@ export class BackendStack extends Stack {
     props.table.grantReadWriteData(handlers.listAlbumMedia);
     props.table.grantReadWriteData(handlers.listMediaAlbums);
     props.table.grantReadWriteData(generateThumbnail);
-    props.table.grantReadWriteData(analyzeImage);
     props.table.grantReadWriteData(purgeReconciliation);
 
     props.bucket.grantReadWrite(handlers.createUploadSession);
@@ -237,7 +204,6 @@ export class BackendStack extends Stack {
     props.bucket.grantReadWrite(handlers.restoreFile);
     props.bucket.grantReadWrite(handlers.purgeFileNow);
     props.bucket.grantReadWrite(generateThumbnail);
-    props.bucket.grantRead(analyzeImage);
     props.bucket.grantReadWrite(purgeReconciliation);
 
     const parameterArn = (parameterName: string): string =>
@@ -259,7 +225,6 @@ export class BackendStack extends Stack {
     grantReadSsmParameter(handlers.createFolderDownloadSession, props.fileReadPrivateKeyParameterName);
     grantReadSsmParameter(handlers.listMedia, props.fileReadPrivateKeyParameterName);
     grantReadSsmParameter(handlers.listAlbumMedia, props.fileReadPrivateKeyParameterName);
-    grantReadSsmParameter(analyzeImage, props.openAiImageAnalysisApiKeyParameterName);
 
     mediaProcessingTopic.grantPublish(handlers.confirmUpload);
     mediaProcessingTopic.grantPublish(handlers.completeMultipartUpload);
@@ -268,13 +233,6 @@ export class BackendStack extends Stack {
     generateThumbnail.addEventSource(
       new SqsEventSource(thumbnailJobsQueue, {
         batchSize: 5,
-        reportBatchItemFailures: true
-      })
-    );
-    analyzeImage.addEventSource(
-      new SqsEventSource(imageAnalysisJobsQueue, {
-        batchSize: 5,
-        maxBatchingWindow: Duration.seconds(20),
         reportBatchItemFailures: true
       })
     );

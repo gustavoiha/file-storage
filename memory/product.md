@@ -1,11 +1,21 @@
 # Product state & roadmap (owned by Product Manager agent)
 
 ## Current product
-Dockspace: single-tenant cloud file storage (see repo README.md, TODO.md, plans/).
+Dockspace: a self-hosted, single-tenant cloud file storage app on AWS (minimal Google Drive). See repo README.md, TODO.md, plans/.
+- Stack: React + TypeScript SPA (S3 + CloudFront), Cognito auth, API Gateway + Lambda, DynamoDB single table (one GSI), one versioned private S3 bucket per environment.
+- Shipped: multiple dockspaces per user with featured metrics (file count, size, last upload); folder-based organization; sidebar folder tree with per-folder file counts; folder upload (nested) and S3 multipart for large files; move files (multi-select); rename and trash folders recursively; download file or folder; trash with a 30-day retention, "Purge now", and verified purge reconciliation through the GSI; S3 versioning; CORS limited to environment domains; media dockspace page (album-oriented).
+- Environments: dev (dockspace-dev.officiarte.it), prod (dockspace.officiarte.it).
 
 ## Roadmap
-(PM fills this in from TODO.md and incoming issues.)
+### In progress / next
+- T-0001 (#4) File navigability in generic dockspaces: one folder navigation surface, parent folder visible when nested, file preview in a right-hand pane instead of a modal. Stage: design.
+
+### Backlog (from TODO.md, no tasks yet)
+- Dockspace types (Photos/Videos and Generic Files) with type-specific upload rules and UI; media dockspaces are folderless and use albums. Plan: plans/dockspace-types-and-media-album-plan.md (partly in place: the media page exists).
+- Duplicate-upload handling: let the user skip files already stored.
+- S3 bucket replication (CRR/SRR) for disaster recovery.
 
 ## Task index
 | Task | Issue | Title | Status | Owner |
 |------|-------|-------|--------|-------|
+| T-0001 | #4 | File navigability: single folder nav, parent-folder context, side preview pane | new | Design |

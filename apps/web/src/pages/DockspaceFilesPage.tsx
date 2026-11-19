@@ -869,12 +869,32 @@ export const DockspaceFilesPage = () => {
     };
   }, [closePreview, visiblePreviewFile]);
 
+  const hasSidePreview = !isPhone && Boolean(visiblePreviewFile);
+
+  // Keep the current (last) column fully visible: when the trail changes, when the side preview
+  // opens or closes, and whenever the strip itself is resized (window resize, preview width).
   useEffect(() => {
     const strip = columnsRef.current;
-    if (strip) {
-      strip.scrollLeft = strip.scrollWidth;
+    if (!strip) {
+      return;
     }
-  }, [folderTrail]);
+
+    const scrollCurrentColumnIntoView = () => {
+      strip.scrollLeft = strip.scrollWidth;
+    };
+
+    scrollCurrentColumnIntoView();
+
+    if (typeof ResizeObserver === 'undefined') {
+      return;
+    }
+
+    const observer = new ResizeObserver(scrollCurrentColumnIntoView);
+    observer.observe(strip);
+    return () => {
+      observer.disconnect();
+    };
+  }, [folderTrail, hasSidePreview, isPhone]);
 
   const onDownloadFile = useCallback(
     (file: FileRecord) => {

@@ -709,12 +709,16 @@ const FolderModeList = ({
               {pluralize(folders.length, 'folder')}, {pluralize(directFiles.length, 'file')}
             </span>
           </h2>
-          <span className="dockspace-column__col-label dockspace-column__col-label--size" aria-hidden="true">
-            Size
-          </span>
-          <span className="dockspace-column__col-label dockspace-column__col-label--date" aria-hidden="true">
-            Modified
-          </span>
+          {hasEntries ? (
+            <>
+              <span className="dockspace-column__col-label dockspace-column__col-label--size" aria-hidden="true">
+                Size
+              </span>
+              <span className="dockspace-column__col-label dockspace-column__col-label--date" aria-hidden="true">
+                Modified
+              </span>
+            </>
+          ) : null}
         </header>
       ) : null}
       {selectionActions || statusMessage ? (

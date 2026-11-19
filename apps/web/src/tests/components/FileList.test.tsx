@@ -429,5 +429,25 @@ describe('FileList', () => {
     expect(document.querySelector('[data-file-path="/trip/IMG_1.jpg"]')).toHaveAttribute('aria-current', 'true');
     expect(document.querySelector('[data-file-path="/trip/notes.txt"]')).not.toHaveAttribute('aria-current');
     expect(screen.queryByRole('navigation')).not.toBeInTheDocument();
+    expect(screen.getByText('Modified')).toBeInTheDocument();
+  });
+
+  it('hides the Size and Modified column labels above the empty state', () => {
+    render(
+      <FileList
+        files={[]}
+        folders={[]}
+        currentFolder="/trip"
+        columnTitle="trip"
+        actionLabel="Trash"
+        emptyState={<p>Upload your first files</p>}
+        onOpenFolder={vi.fn()}
+        onAction={vi.fn()}
+      />
+    );
+
+    expect(screen.getByText('Upload your first files')).toBeInTheDocument();
+    expect(screen.queryByText('Modified')).not.toBeInTheDocument();
+    expect(screen.queryByText('Size')).not.toBeInTheDocument();
   });
 });

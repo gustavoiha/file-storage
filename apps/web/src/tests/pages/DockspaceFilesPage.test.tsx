@@ -289,6 +289,50 @@ describe('DockspaceFilesPage', () => {
     expect(screen.queryByRole('complementary', { name: 'File preview' })).not.toBeInTheDocument();
   });
 
+  it('scrolls the current column into view when the side preview opens or closes', () => {
+    const observers: Array<{ callback: () => void; target: Element | null }> = [];
+    const originalResizeObserver = globalThis.ResizeObserver;
+    globalThis.ResizeObserver = class {
+      private readonly entry: { callback: () => void; target: Element | null };
+      constructor(callback: () => void) {
+        this.entry = { callback, target: null };
+        observers.push(this.entry);
+      }
+      observe(target: Element) {
+        this.entry.target = target;
+      }
+      unobserve() {}
+      disconnect() {
+        this.entry.target = null;
+      }
+    } as unknown as typeof ResizeObserver;
+
+    try {
+      renderPage();
+      openFolderInCurrentColumn('Travel');
+      openFolderInCurrentColumn('Lisbon 2025');
+
+      const strip = screen.getByRole('group', { name: 'Folder columns' });
+      Object.defineProperty(strip, 'scrollWidth', { configurable: true, value: 1100 });
+      strip.scrollLeft = 0;
+
+      fireEvent.click(fileRow('/Travel/Lisbon 2025/IMG_4821.jpg'));
+      expect(strip.scrollLeft).toBe(1100);
+
+      strip.scrollLeft = 0;
+      const activeObserver = observers.find((observer) => observer.target === strip);
+      expect(activeObserver).toBeDefined();
+      activeObserver?.callback();
+      expect(strip.scrollLeft).toBe(1100);
+
+      strip.scrollLeft = 0;
+      fireEvent.click(screen.getByRole('button', { name: 'Close preview' }));
+      expect(strip.scrollLeft).toBe(1100);
+    } finally {
+      globalThis.ResizeObserver = originalResizeObserver;
+    }
+  });
+
   it('closes the preview with the close button', () => {
     renderPage();
 

@@ -8,7 +8,7 @@ Dockspace: a self-hosted, single-tenant cloud file storage app on AWS (minimal G
 
 ## Roadmap
 ### In progress / next
-- T-0001 File navigability (issue #5): single folder view, parent-folder context, side preview panel. In design.
+- T-0001 File navigability (issue #5): single folder view, parent-folder context, side preview panel. Human chose Option 1 (Miller columns); design writing final spec.
 
 ### Backlog (from TODO.md, no tasks yet)
 - Dockspace types (Photos/Videos and Generic Files) with type-specific upload rules and UI; media dockspaces are folderless and use albums. Plan: plans/dockspace-types-and-media-album-plan.md (partly in place: the media page exists).
@@ -18,4 +18,4 @@ Dockspace: a self-hosted, single-tenant cloud file storage app on AWS (minimal G
 ## Task index
 | Task | Issue | Title | Status | Owner |
 |------|-------|-------|--------|-------|
-| T-0001 | #5 | File navigability: single folder view, parent context, side preview | awaiting-human | Design |
+| T-0001 | #5 | File navigability: single folder view, parent context, side preview | design | Design |

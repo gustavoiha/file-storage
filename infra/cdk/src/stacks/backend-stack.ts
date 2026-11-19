@@ -10,13 +10,7 @@ import { HttpUserPoolAuthorizer } from 'aws-cdk-lib/aws-apigatewayv2-authorizers
 import { HttpLambdaIntegration } from 'aws-cdk-lib/aws-apigatewayv2-integrations';
 import { Rule, Schedule } from 'aws-cdk-lib/aws-events';
 import { LambdaFunction } from 'aws-cdk-lib/aws-events-targets';
-import { Platform } from 'aws-cdk-lib/aws-ecr-assets';
-import {
-  Architecture,
-  DockerImageCode,
-  DockerImageFunction,
-  Runtime
-} from 'aws-cdk-lib/aws-lambda';
+import { Architecture, Runtime } from 'aws-cdk-lib/aws-lambda';
 import { SqsEventSource } from 'aws-cdk-lib/aws-lambda-event-sources';
 import { PolicyStatement } from 'aws-cdk-lib/aws-iam';
 import { NodejsFunction, type NodejsFunctionProps } from 'aws-cdk-lib/aws-lambda-nodejs';
@@ -51,7 +45,6 @@ export class BackendStack extends Stack {
     const currentFilePath = fileURLToPath(import.meta.url);
     const currentDir = path.dirname(currentFilePath);
     const backendRoot = path.resolve(currentDir, '../../../../packages/backend/src/handlers');
-    const workspaceRoot = path.resolve(currentDir, '../../../../');
 
     const mediaProcessingTopic = new Topic(this, 'MediaProcessingTopic');
 
@@ -136,23 +129,25 @@ export class BackendStack extends Stack {
       listAlbumMedia: createHandler('listAlbumMedia'),
       listMediaAlbums: createHandler('listMediaAlbums')
     };
-    const generateThumbnail = new DockerImageFunction(this, 'generateThumbnailFn', {
-      code: DockerImageCode.fromImageAsset(workspaceRoot, {
-        file: 'packages/backend/Dockerfile.generate-thumbnail',
-        platform: Platform.LINUX_AMD64,
-        exclude: [
-          'infra/cdk/cdk.out',
-          'infra/cdk/cdk.out/**',
-          '**/cdk.out',
-          '**/cdk.out/**'
-        ]
-      }),
+    // Native binaries (sharp/libvips, ffmpeg) are installed for the Lambda platform
+    // via npm's cross-platform config, so bundling runs locally without Docker.
+    const lambdaNpmPlatformEnvironment = {
+      npm_config_os: 'linux',
+      npm_config_cpu: 'x64',
+      npm_config_libc: 'glibc',
+      npm_config_platform: 'linux',
+      npm_config_arch: 'x64'
+    };
+    const generateThumbnail = createHandler('generateThumbnail', {
       architecture: Architecture.X86_64,
       timeout: Duration.seconds(60),
       memorySize: 2048,
       ephemeralStorageSize: Size.gibibytes(4),
+      bundling: {
+        nodeModules: ['sharp', 'heic-convert', 'ffmpeg-static'],
+        environment: lambdaNpmPlatformEnvironment
+      },
       environment: {
-        ...baseHandlerEnvironment,
         THUMBNAIL_MAX_ATTEMPTS: '8'
       }
     });

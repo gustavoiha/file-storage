@@ -82,3 +82,8 @@
   border-color: var(--accent-soft);
   background: rgba(77, 168, 255, 0.2);
 }
+
+.ui-button--sm {
+  padding: 0.4rem 0.7rem;
+  font-size: 0.84rem;
+}

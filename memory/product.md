@@ -12,12 +12,12 @@ Dockspace: a self-hosted, single-tenant cloud file storage app on AWS (minimal G
 
 ## Roadmap
 ### In progress / next
-All open tasks have their own issues (#11-#16, sub-issues of request #5) since 2026-11-20. 2026-11-20 sweep: the permission and infra-hold blockers are resolved by the setup change (pre-approved prod-deploy.sh, gh pr merge for deployment, drift rules). T-0001, T-0002 and T-0006 are dispatched to deploying. T-0003 and T-0004 ship with T-0001's deploy of main. Only T-0005 waits on the human (design pick).
+All open tasks have their own issues (#11-#16, sub-issues of request #5) since 2026-11-20. 2026-11-20 sweep: the permission and infra-hold blockers are resolved by the setup change (pre-approved prod-deploy.sh, gh pr merge for deployment, drift rules). T-0001, T-0002 and T-0006 have shipped. T-0003 and T-0004 ship with T-0001's deploy of main. Only T-0005 waits on the human (design pick).
 
 - T-0005 Make multi-select reachable on touch phones (issue #15, follow-up from T-0003). Human decided 2026-11-20: on mobile, "Select items" in the Folder options menu enters selection mode; the row `⋯` button is removed and press-and-hold opens the item menu. Design writing the final spec.
-- T-0006 Visible keyboard focus ring on dockspace cards (issue #16, follow-up from T-0004). PR #10 ready; re-dispatched to deploying 2026-11-20 with the merge run as a standalone command (last denial came from a compound shell call).
 
 ### Shipped
+- 2026-11-20 (prod at f52c859): T-0006 Visible keyboard focus ring on dockspace cards (#16, PR #10): 2px accent outline with offset on `:focus-visible` for workspace and create cards.
 - 2026-11-20 (prod at 5569c71): T-0002 Show file sizes in folder listings (#12, PR #8): folder-children API returns file sizes, shown in current/ancestor columns, phone rows and the preview.
 - 2026-11-20 (prod at 66c72ab): T-0001 File navigability (#11, PR #6), T-0003 Accessibility fixes on the files page (#13, PR #7), T-0004 Remaining axe findings (#14, PR #9). Also shipped the PR #1-#3 infra drift (image analysis removed, thumbnail Lambda without Docker, DistributionId output).
 
@@ -34,4 +34,4 @@ All open tasks have their own issues (#11-#16, sub-issues of request #5) since 2
 | T-0003 | #13 | #5 | Accessibility fixes on the dockspace files page | done | Deployment |
 | T-0004 | #14 | #5 | Remaining axe findings: phone preview h1, dockspace list role | done | Deployment |
 | T-0005 | #15 | #5 | Make multi-select reachable on touch phones | design | Design |
-| T-0006 | #16 | #5 | Visible keyboard focus ring on dockspace cards | deploying | Deployment |
+| T-0006 | #16 | #5 | Visible keyboard focus ring on dockspace cards | done | Deployment |

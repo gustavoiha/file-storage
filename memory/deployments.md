@@ -35,3 +35,13 @@ Recorded 2026-11-20 by the setup session from a `cdk diff` of origin/main 5678ad
 - After the deploy, `prod-deploy.sh diff` shows 0 stacks with differences. Smoke check: the CloudFront domain serves `index-COV3TJUL.js`, `/login` renders the sign-in form, and the console shows no errors.
 - Logs: /Users/gustavoiha/Personal/file-storage/.agent-local/logs/prod-deploy-infra-20261120T123614Z.log, prod-deploy-web-20261120T123719Z.log.
 - Prod is now at origin/main `5569c71` for both infra and web.
+
+### 2026-11-20 — T-0006 — web
+- origin/main commit: `f52c859` (PR #10 squash-merged). Run as `dockspace-prod-agent-deployer` via `prod-deploy.sh`.
+- Pre-deploy: main was `5569c71`, the commit prod already ran, with 0 stacks with differences, so there was no drift to ship.
+- Infra: not run. PR #10 is web-only (CSS and a test), and `prod-deploy.sh diff` at `f52c859` shows 0 stacks with differences.
+- Web (`prod-deploy.sh web`): built and synced to `dockspace-site-278820798556-eu-central-1-prod`; invalidated `/*` on E2H7JMCJNME3JF (IBLEQ8OMX4TAKB2H3A43N19ROY). Entry bundle `index-BJE4P2pX.js`, CSS `index-qpEa1GPr.css`, which contains the `.dockspace-card:focus-visible` outline rule.
+- Shipped: #10 `f52c859` (T-0006).
+- Smoke check: the CloudFront domain serves the new build, `/login` renders the sign-in form, and the console shows no errors.
+- Logs: /Users/gustavoiha/Personal/file-storage/.agent-local/logs/prod-deploy-web-20261120T125228Z.log, prod-deploy-diff-20261120T125239Z.log.
+- Prod is now at origin/main `f52c859` for both infra and web.

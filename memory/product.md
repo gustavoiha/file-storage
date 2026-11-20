@@ -39,5 +39,5 @@ All open tasks have their own issues (#11-#16, sub-issues of request #5) since 2
 | T-0005 | #15 | #5 | Make multi-select reachable on touch phones | done | Engineering |
 | T-0006 | #16 | #5 | Visible keyboard focus ring on dockspace cards | done | Deployment |
 | T-0007 | #18 | #5 | Arrow-key navigation in dropdown menus | done | Engineering |
-| T-0008 | #20 | #5 | Desktop right-click menu takes keyboard focus | engineering | Engineering |
+| T-0008 | #20 | #5 | Desktop right-click menu takes keyboard focus | review | Engineering |
 | T-0009 | #21 | #5 | Return focus after closing file and folder dialogs | engineering | Engineering |

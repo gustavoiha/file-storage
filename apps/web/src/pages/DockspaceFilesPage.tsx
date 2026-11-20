@@ -208,6 +208,12 @@ export const DockspaceFilesPage = () => {
   const selectionMode = isPhone
     ? isSelectionModeOn || selectedFilePaths.length > 0
     : selectedFilePaths.length > 0;
+  // The explicit (empty) selection mode belongs to the phone layout: drop it when the layout goes desktop.
+  useEffect(() => {
+    if (!isPhone) {
+      setIsSelectionModeOn(false);
+    }
+  }, [isPhone]);
   const currentFolder = folderTrail[folderTrail.length - 1] ?? ROOT_FOLDER;
   const parentFolder = folderTrail.length > 1 ? folderTrail[folderTrail.length - 2] ?? null : null;
 

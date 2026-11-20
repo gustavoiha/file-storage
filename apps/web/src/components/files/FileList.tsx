@@ -263,6 +263,7 @@ interface RowMenu {
   onOpenChange: (nextOpen: boolean) => void;
   onContextMenu: (event: MouseEvent<HTMLLIElement>) => void;
   onButtonKeyDown: ((event: KeyboardEvent<HTMLButtonElement>) => void) | undefined;
+  onButtonFocus: (() => void) | undefined;
   clearAnchor: () => void;
 }
 
@@ -380,6 +381,16 @@ const useRowMenu = ({ isPhoneLayout, canOpenMenu, suppressNativeContextMenu }: U
     [canOpenMenu, openAt]
   );
 
+  // If the release after a press and hold still moves focus to the row (behind the open menu),
+  // put it back on the first menu item so keyboard and switch users stay in the menu.
+  const onButtonFocus = useCallback(() => {
+    if (!isMenuOpen || !longPress.wasLongPressed()) {
+      return;
+    }
+
+    itemRef.current?.querySelector<HTMLElement>('[role="menuitem"]')?.focus();
+  }, [isMenuOpen, longPress]);
+
   const menuStyle: CSSProperties | undefined = menuAnchor
     ? {
         position: 'fixed',
@@ -399,6 +410,7 @@ const useRowMenu = ({ isPhoneLayout, canOpenMenu, suppressNativeContextMenu }: U
     onOpenChange,
     onContextMenu,
     onButtonKeyDown: isPhoneLayout ? onButtonKeyDown : undefined,
+    onButtonFocus: isPhoneLayout ? onButtonFocus : undefined,
     clearAnchor: () => {
       setMenuAnchor(null);
       setMenuPosition(null);
@@ -467,6 +479,7 @@ const FolderRow = ({
           aria-describedby={isPhoneLayout && canOpenMenu ? actionsHintId : undefined}
           data-pressed={rowMenu.isPressed ? 'true' : undefined}
           onKeyDown={rowMenu.onButtonKeyDown}
+          onFocus={rowMenu.onButtonFocus}
           {...rowMenu.longPressHandlers}
           onClick={() => {
             if (isInertForSelection) {
@@ -622,6 +635,7 @@ const FileRow = ({
           aria-describedby={isPhoneLayout && canOpenMenu ? actionsHintId : undefined}
           data-pressed={rowMenu.isPressed ? 'true' : undefined}
           onKeyDown={rowMenu.onButtonKeyDown}
+          onFocus={rowMenu.onButtonFocus}
           {...rowMenu.longPressHandlers}
           onClick={() => {
             if (selectionMode && onToggleSelection) {

@@ -622,6 +622,54 @@ describe('DockspaceFilesPage', () => {
       expect(screen.getAllByRole('menu', { name: 'Actions for README.md' })).toHaveLength(1);
     });
 
+    it('keeps focus in the press-and-hold menu when the finger lifts', () => {
+      renderPage();
+      vi.useFakeTimers();
+      const row = fileRow('/README.md');
+
+      touchPress(row);
+      act(() => {
+        vi.advanceTimersByTime(500);
+      });
+      const menu = screen.getByRole('menu', { name: 'Actions for README.md' });
+      const rename = within(menu).getByRole('menuitem', { name: 'Rename' });
+      expect(rename).toHaveFocus();
+
+      // The release must not act like a tap: no compatibility mouse events, no focus move to the row.
+      fireEvent.pointerUp(row, { pointerType: 'touch', pointerId: 1 });
+      expect(fireEvent.touchEnd(row)).toBe(false);
+      expect(fireEvent.mouseDown(row)).toBe(false);
+
+      // If a browser still focuses the row, focus goes back to the first menu item.
+      act(() => {
+        row.focus();
+      });
+      expect(rename).toHaveFocus();
+      expect(screen.getByRole('menu', { name: 'Actions for README.md' })).toBeInTheDocument();
+
+      // Escape closes the menu and focus returns to the row, where it stays.
+      fireEvent.keyDown(rename, { key: 'Escape' });
+      act(() => {
+        vi.runOnlyPendingTimers();
+      });
+      expect(screen.queryByRole('menu', { name: 'Actions for README.md' })).not.toBeInTheDocument();
+      expect(row).toHaveFocus();
+    });
+
+    it('does not cancel the touch release or mousedown of a normal tap', () => {
+      renderPage();
+      vi.useFakeTimers();
+      const row = fileRow('/README.md');
+
+      touchPress(row);
+      act(() => {
+        vi.advanceTimersByTime(200);
+      });
+      fireEvent.pointerUp(row, { pointerType: 'touch', pointerId: 1 });
+      expect(fireEvent.touchEnd(row)).toBe(true);
+      expect(fireEvent.mouseDown(row)).toBe(true);
+    });
+
     it('opens a folder menu on press and hold without opening the folder', () => {
       renderPage();
       vi.useFakeTimers();

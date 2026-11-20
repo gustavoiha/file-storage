@@ -4,7 +4,8 @@ import {
   useRef,
   useState,
   type MouseEvent,
-  type PointerEvent
+  type PointerEvent,
+  type TouchEvent
 } from 'react';
 
 export interface LongPressPoint {
@@ -34,6 +35,8 @@ export interface LongPressHandlers {
   onPointerCancel: () => void;
   onPointerLeave: () => void;
   onClickCapture: (event: MouseEvent<HTMLElement>) => void;
+  onMouseDown: (event: MouseEvent<HTMLElement>) => void;
+  onTouchEnd: (event: TouchEvent<HTMLElement>) => void;
 }
 
 export interface UseLongPressResult {
@@ -47,6 +50,11 @@ export interface UseLongPressResult {
    * so the caller can open the menu from the event instead (one code path, never two menus).
    */
   claim: () => boolean;
+  /**
+   * True from the moment a long press fires (or `claim` takes over a press) until the next press starts.
+   * Lets the caller keep focus in the menu it opened if the release still moves focus to the row.
+   */
+  wasLongPressed: () => boolean;
 }
 
 const isTouchLike = (pointerType: string | undefined) => pointerType === 'touch' || pointerType === 'pen';
@@ -153,6 +161,24 @@ export const useLongPress = ({
     [cancel, moveTolerancePx]
   );
 
+  // After a long press, the finger lifting must not act like a tap: cancelling `touchend` stops the
+  // compatibility mouse events (mousedown -> focus -> mouseup -> click) the browser would send to the row,
+  // so focus stays in the menu that was just opened.
+  const onTouchEnd = useCallback((event: TouchEvent<HTMLElement>) => {
+    if (firedRef.current && event.cancelable) {
+      event.preventDefault();
+    }
+  }, []);
+
+  // Backup for browsers that still send a compatibility mousedown: do not let it move focus to the row.
+  const onMouseDown = useCallback((event: MouseEvent<HTMLElement>) => {
+    if (firedRef.current && swallowClickRef.current) {
+      event.preventDefault();
+    }
+  }, []);
+
+  const wasLongPressed = useCallback(() => firedRef.current, []);
+
   const onClickCapture = useCallback((event: MouseEvent<HTMLElement>) => {
     if (!swallowClickRef.current) {
       return;
@@ -185,8 +211,11 @@ export const useLongPress = ({
       onPointerUp: cancel,
       onPointerCancel: cancel,
       onPointerLeave: cancel,
-      onClickCapture
+      onClickCapture,
+      onMouseDown,
+      onTouchEnd
     },
-    claim
+    claim,
+    wasLongPressed
   };
 };

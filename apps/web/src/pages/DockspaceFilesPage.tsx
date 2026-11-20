@@ -1284,6 +1284,8 @@ export const DockspaceFilesPage = () => {
 
   const desktopLayout = (
     <div className="dockspace-files">
+      {/* The page's one h1; the breadcrumb and column headers already show the folder name visibly. */}
+      <h1 className="visually-hidden">{currentFolderLabel}</h1>
       <div className="dockspace-folder-bar">
         <FolderBreadcrumb crumbs={crumbs} onSelectCrumb={onSelectCrumb} />
         <DockspaceFilesHeaderActions

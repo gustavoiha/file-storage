@@ -51,7 +51,7 @@
 }
 
 .ui-button--primary {
-  background: var(--accent);
+  background: var(--accent-strong);
   color: #fff;
 }
 
@@ -86,4 +86,16 @@
 .ui-button--sm {
   padding: 0.4rem 0.7rem;
   font-size: 0.84rem;
+}
+
+.visually-hidden {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  margin: -1px;
+  padding: 0;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
 }

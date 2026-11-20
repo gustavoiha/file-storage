@@ -196,6 +196,22 @@ describe('DockspaceFilesPage', () => {
     expect(screen.getByRole('menuitem', { name: 'Upload folder' })).toBeInTheDocument();
   });
 
+  it('has exactly one h1 on desktop, naming the open folder, also with the preview open', () => {
+    renderPage();
+
+    expect(screen.getAllByRole('heading', { level: 1 })).toHaveLength(1);
+    expect(screen.getByRole('heading', { level: 1, name: 'My Dockspace' })).toBeInTheDocument();
+
+    openFolderInCurrentColumn('Travel');
+    openFolderInCurrentColumn('Japan 2024');
+    expect(screen.getAllByRole('heading', { level: 1 })).toHaveLength(1);
+    expect(screen.getByRole('heading', { level: 1, name: 'Japan 2024' })).toBeInTheDocument();
+
+    fireEvent.click(fileRow('/Travel/Japan 2024/tokyo.jpg'));
+    expect(screen.getByRole('complementary', { name: 'File preview' })).toBeInTheDocument();
+    expect(screen.getAllByRole('heading', { level: 1 })).toHaveLength(1);
+  });
+
   it('opens the add folder dialog from the folder bar', () => {
     renderPage();
 

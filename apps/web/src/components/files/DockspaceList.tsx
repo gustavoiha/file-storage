@@ -15,9 +15,10 @@ export const DockspaceList = ({ dockspaces }: DockspaceListProps) => {
   }
 
   return (
-    <div className="dockspace-grid__list" role="list" aria-label="Your dockspaces">
+    // role="list" is kept on the <ul> because display: contents (layout.css) drops list semantics in Safari.
+    <ul className="dockspace-grid__list" role="list" aria-label="Your dockspaces">
       {dockspaces.map((dockspace) => (
-        <article key={dockspace.dockspaceId} className="dockspace-grid__item" role="listitem">
+        <li key={dockspace.dockspaceId} className="dockspace-grid__item">
           <Link
             to="/dockspaces/$dockspaceId"
             params={{ dockspaceId: dockspace.dockspaceId }}
@@ -31,8 +32,8 @@ export const DockspaceList = ({ dockspaces }: DockspaceListProps) => {
             <span className="dockspace-card__title">{dockspace.name}</span>
             <span className="dockspace-card__type">{formatDockspaceType(dockspace.dockspaceType)}</span>
           </Link>
-        </article>
+        </li>
       ))}
-    </div>
+    </ul>
   );
 };

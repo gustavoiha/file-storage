@@ -279,7 +279,7 @@ describe('DockspaceFilesPage', () => {
 
     const preview = screen.getByRole('complementary', { name: 'File preview' });
     expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
-    expect(within(preview).getByRole('heading', { name: 'IMG_4821.jpg' })).toBeInTheDocument();
+    expect(within(preview).getByRole('heading', { level: 2, name: 'IMG_4821.jpg' })).toBeInTheDocument();
     expect(within(preview).getByRole('button', { name: 'Download' })).toBeInTheDocument();
     expect(within(preview).getByRole('button', { name: 'Close preview' })).toBeInTheDocument();
     expect(within(preview).getByText('My Dockspace / Travel / Lisbon 2025')).toBeInTheDocument();
@@ -420,7 +420,8 @@ describe('DockspaceFilesPage', () => {
     const preview = screen.getByRole('complementary', { name: 'File preview' });
     expect(within(preview).getByRole('button', { name: 'Back to Japan 2024' })).toBeInTheDocument();
     expect(within(preview).queryByRole('button', { name: 'Close preview' })).not.toBeInTheDocument();
-    expect(screen.queryByRole('heading', { level: 1 })).not.toBeInTheDocument();
+    expect(screen.getAllByRole('heading', { level: 1 })).toHaveLength(1);
+    expect(within(preview).getByRole('heading', { level: 1, name: 'tokyo.jpg' })).toBeInTheDocument();
     expect(screen.queryByRole('button', { name: 'Upload' })).not.toBeInTheDocument();
 
     fireEvent.click(within(preview).getByRole('button', { name: 'Back to Japan 2024' }));

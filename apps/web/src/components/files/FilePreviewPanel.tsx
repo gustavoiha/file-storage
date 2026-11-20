@@ -44,6 +44,7 @@ export const FilePreviewPanel = ({
     enabled: Boolean(dockspaceId && fileNodeId)
   });
 
+  const TitleTag = variant === 'page' ? 'h1' : 'h2';
   const size = formatFileSize(file.size ?? sessionQuery.data?.size);
   const type = describeFileType(file.contentType ?? sessionQuery.data?.contentType, fileName);
   const modified = formatModifiedDate(file.updatedAt);
@@ -62,9 +63,10 @@ export const FilePreviewPanel = ({
           </button>
         ) : null}
         <FileIcon className="dockspace-preview__icon" size={16} strokeWidth={1.5} aria-hidden="true" />
-        <h2 className="dockspace-preview__title" title={fileName}>
+        {/* The page variant replaces the phone listing and its h1, so the file name becomes the page's h1. */}
+        <TitleTag className="dockspace-preview__title" title={fileName}>
           {fileName}
-        </h2>
+        </TitleTag>
         <Button type="button" variant="secondary" size="sm" onClick={() => onDownload(file)}>
           <Download size={14} aria-hidden="true" />
           Download

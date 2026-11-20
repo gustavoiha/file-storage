@@ -809,6 +809,140 @@ describe('DockspaceFilesPage', () => {
     expect(screen.queryByRole('menuitem', { name: 'Select items' })).not.toBeInTheDocument();
   });
 
+  describe('focus after closing a file or folder dialog', () => {
+    // Keyboard activation: the menu item holds focus when the dialog opens.
+    const activateMenuItem = (menuName: string, itemName: string) => {
+      const menu = screen.getByRole('menu', { name: menuName });
+      const item = within(menu).getByRole('menuitem', { name: itemName });
+      item.focus();
+      fireEvent.click(item);
+    };
+
+    const openRenameFileFromTrigger = () => {
+      const trigger = screen.getByRole('button', { name: 'Actions for README.md' });
+      trigger.focus();
+      fireEvent.click(trigger);
+      activateMenuItem('Actions for README.md', 'Rename');
+      expect(screen.getByRole('dialog', { name: 'Rename file' })).toBeInTheDocument();
+      expect(screen.getByLabelText('File name')).toHaveFocus();
+      return trigger;
+    };
+
+    it('returns focus to the row menu trigger after Escape', async () => {
+      renderPage();
+      const trigger = openRenameFileFromTrigger();
+
+      fireEvent.keyDown(document, { key: 'Escape' });
+
+      expect(screen.queryByRole('dialog', { name: 'Rename file' })).not.toBeInTheDocument();
+      await waitFor(() => expect(trigger).toHaveFocus());
+    });
+
+    it('returns focus to the row menu trigger after Cancel', async () => {
+      renderPage();
+      const trigger = openRenameFileFromTrigger();
+
+      fireEvent.click(screen.getByRole('button', { name: 'Cancel' }));
+
+      expect(screen.queryByRole('dialog', { name: 'Rename file' })).not.toBeInTheDocument();
+      await waitFor(() => expect(trigger).toHaveFocus());
+    });
+
+    it('returns focus to the row menu trigger after a backdrop click', async () => {
+      renderPage();
+      const trigger = openRenameFileFromTrigger();
+
+      const backdrop = screen.getByRole('dialog', { name: 'Rename file' }).parentElement as HTMLElement;
+      fireEvent.mouseDown(backdrop);
+
+      expect(screen.queryByRole('dialog', { name: 'Rename file' })).not.toBeInTheDocument();
+      await waitFor(() => expect(trigger).toHaveFocus());
+    });
+
+    it('returns focus to the row when the menu was opened from the row', async () => {
+      renderPage();
+      const row = screen.getByRole('button', { name: /^Travel/ });
+      row.focus();
+      fireEvent.contextMenu(row, { clientX: 40, clientY: 120 });
+      activateMenuItem('Actions for Travel', 'Rename');
+      expect(screen.getByRole('dialog', { name: 'Rename folder' })).toBeInTheDocument();
+
+      fireEvent.keyDown(document, { key: 'Escape' });
+
+      expect(screen.queryByRole('dialog', { name: 'Rename folder' })).not.toBeInTheDocument();
+      await waitFor(() => expect(row).toHaveFocus());
+    });
+
+    it('returns focus to the Move folder opener after Cancel', async () => {
+      renderPage();
+      const trigger = screen.getByRole('button', { name: 'Actions for Travel' });
+      trigger.focus();
+      fireEvent.click(trigger);
+      activateMenuItem('Actions for Travel', 'Move');
+      expect(screen.getByRole('dialog', { name: 'Move folder' })).toBeInTheDocument();
+
+      fireEvent.click(screen.getByRole('button', { name: 'Cancel' }));
+
+      await waitFor(() => expect(trigger).toHaveFocus());
+    });
+
+    it('returns focus to the New folder button after Escape on Add folder', async () => {
+      renderPage();
+      const newFolder = screen.getByRole('button', { name: 'New folder' });
+      newFolder.focus();
+      fireEvent.click(newFolder);
+      expect(screen.getByRole('dialog', { name: 'Add folder' })).toBeInTheDocument();
+
+      fireEvent.keyDown(document, { key: 'Escape' });
+
+      await waitFor(() => expect(newFolder).toHaveFocus());
+    });
+
+    it('focuses the renamed file row after a successful rename', async () => {
+      mockState.renameFile = vi.fn(async () => {
+        mockState.tree = {
+          ...DEFAULT_TREE,
+          root: [folder('d_docs', 'Documents'), folder('d_travel', 'Travel'), file('f_readme', 'NOTES.md')]
+        };
+        mockState.resultCache.clear();
+      });
+
+      renderPage();
+      openRenameFileFromTrigger();
+      fireEvent.change(screen.getByLabelText('File name'), { target: { value: 'NOTES.md' } });
+      fireEvent.click(screen.getByRole('button', { name: 'Rename' }));
+
+      await waitFor(() => expect(mockState.renameFile).toHaveBeenCalledTimes(1));
+      await waitFor(() => expect(fileRow('/NOTES.md')).toHaveFocus());
+    });
+
+    it('focuses the list when a moved folder leaves the current folder', async () => {
+      mockState.moveFolder = vi.fn(async () => {
+        mockState.tree = {
+          ...DEFAULT_TREE,
+          root: [folder('d_docs', 'Documents'), file('f_readme', 'README.md')],
+          d_docs: [folder('d_travel', 'Travel', 'd_docs')]
+        };
+        mockState.resultCache.clear();
+        return { status: 'MOVED', from: '/Travel', to: '/Documents/Travel', moved: true };
+      });
+
+      renderPage();
+      const trigger = screen.getByRole('button', { name: 'Actions for Travel' });
+      trigger.focus();
+      fireEvent.click(trigger);
+      activateMenuItem('Actions for Travel', 'Move');
+      const dialog = screen.getByRole('dialog', { name: 'Move folder' });
+      fireEvent.change(within(dialog).getByRole('combobox'), { target: { value: '/Documents' } });
+      fireEvent.click(within(dialog).getByRole('button', { name: 'Move' }));
+
+      await waitFor(() => expect(mockState.moveFolder).toHaveBeenCalledTimes(1));
+      await waitFor(() => expect(screen.queryByRole('dialog', { name: 'Move folder' })).not.toBeInTheDocument());
+      await waitFor(() => expect(document.activeElement).not.toBe(document.body));
+      expect(document.activeElement).toHaveAttribute('data-dialog-focus-fallback');
+    });
+  });
+
   it('renders unauthorized notice for 403', () => {
     mockState.filesError = new ApiError('Not authorized for this account', 403);
 

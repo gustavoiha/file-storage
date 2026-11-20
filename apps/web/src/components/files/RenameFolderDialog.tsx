@@ -8,6 +8,7 @@ interface RenameFolderDialogProps {
   folderName: string;
   isOpen: boolean;
   isSubmitting: boolean;
+  getReturnFocusTarget?: (() => HTMLElement | null | undefined) | undefined;
   onClose: () => void;
   onFolderNameChange: (nextValue: string) => void;
   onSubmit: FormEventHandler<HTMLFormElement>;
@@ -18,11 +19,12 @@ export const RenameFolderDialog = ({
   folderName,
   isOpen,
   isSubmitting,
+  getReturnFocusTarget,
   onClose,
   onFolderNameChange,
   onSubmit
 }: RenameFolderDialogProps) => {
-  const { onBackdropMouseDown } = useDialogDismiss({ isOpen, onClose });
+  const { onBackdropMouseDown } = useDialogDismiss({ isOpen, onClose, getReturnFocusTarget });
 
   if (!isOpen) {
     return null;

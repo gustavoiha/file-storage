@@ -8,6 +8,7 @@ interface RenameFileDialogProps {
   fileName: string;
   isOpen: boolean;
   isSubmitting: boolean;
+  getReturnFocusTarget?: (() => HTMLElement | null | undefined) | undefined;
   onClose: () => void;
   onFileNameChange: (nextValue: string) => void;
   onSubmit: FormEventHandler<HTMLFormElement>;
@@ -18,11 +19,12 @@ export const RenameFileDialog = ({
   fileName,
   isOpen,
   isSubmitting,
+  getReturnFocusTarget,
   onClose,
   onFileNameChange,
   onSubmit
 }: RenameFileDialogProps) => {
-  const { onBackdropMouseDown } = useDialogDismiss({ isOpen, onClose });
+  const { onBackdropMouseDown } = useDialogDismiss({ isOpen, onClose, getReturnFocusTarget });
 
   if (!isOpen) {
     return null;

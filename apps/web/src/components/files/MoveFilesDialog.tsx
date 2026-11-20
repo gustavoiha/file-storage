@@ -15,6 +15,7 @@ interface MoveFilesDialogProps {
   isOpen: boolean;
   isSubmitting: boolean;
   selectedFileCount: number;
+  getReturnFocusTarget?: (() => HTMLElement | null | undefined) | undefined;
   onClose: () => void;
   onDestinationFolderPathChange: (nextValue: string) => void;
   onSubmit: FormEventHandler<HTMLFormElement>;
@@ -27,11 +28,12 @@ export const MoveFilesDialog = ({
   isOpen,
   isSubmitting,
   selectedFileCount,
+  getReturnFocusTarget,
   onClose,
   onDestinationFolderPathChange,
   onSubmit
 }: MoveFilesDialogProps) => {
-  const { onBackdropMouseDown } = useDialogDismiss({ isOpen, onClose });
+  const { onBackdropMouseDown } = useDialogDismiss({ isOpen, onClose, getReturnFocusTarget });
 
   if (!isOpen) {
     return null;

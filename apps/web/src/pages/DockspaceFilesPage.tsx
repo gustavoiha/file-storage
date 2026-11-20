@@ -7,22 +7,33 @@ import {
   type ChangeEvent,
   type FormEvent
 } from 'react';
+import { ArrowLeft } from 'lucide-react';
 import { useParams } from '@tanstack/react-router';
 import { RequireAuth } from '@/components/auth/RequireAuth';
 import { UnauthorizedNotice } from '@/components/auth/UnauthorizedNotice';
 import { AddFolderDialog } from '@/components/files/AddFolderDialog';
 import { ConfirmFolderTrashDialog } from '@/components/files/ConfirmFolderTrashDialog';
-import { DockspaceSidebar, type SidebarFolderTreeNode } from '@/components/files/DockspaceSidebar';
 import { FileList } from '@/components/files/FileList';
-import { FileViewerDialog } from '@/components/files/FileViewerDialog';
+import { FilePreviewPanel } from '@/components/files/FilePreviewPanel';
+import {
+  AncestorColumn,
+  FolderBreadcrumb,
+  ParentFolderChips,
+  type FolderTrailEntry
+} from '@/components/files/FolderNavigation';
 import { MoveFilesDialog } from '@/components/files/MoveFilesDialog';
 import { MoveFolderDialog } from '@/components/files/MoveFolderDialog';
 import { RenameFileDialog } from '@/components/files/RenameFileDialog';
 import { RenameFolderDialog } from '@/components/files/RenameFolderDialog';
-import { DockspaceFilesHeaderActions } from '@/components/files/DockspaceFilesHeaderActions';
+import {
+  DockspaceFilesHeaderActions,
+  DockspaceOptionsMenu,
+  UploadMenu
+} from '@/components/files/DockspaceFilesHeaderActions';
+import { UploadsCard } from '@/components/files/UploadsCard';
+import { Alert } from '@/components/ui/Alert';
 import { Button } from '@/components/ui/Button';
 import { buildPathInFolder, normalizeNodeName } from '@/components/files/pathHelpers';
-import { Card } from '@/components/ui/Card';
 import { Page } from '@/components/ui/Page';
 import { useAddFolderDialog } from '@/hooks/useAddFolderDialog';
 import {
@@ -38,15 +49,10 @@ import {
 } from '@/hooks/useFiles';
 import { useDockspaceUploadDialog } from '@/hooks/useDockspaceUploadDialog';
 import { useDockspaces } from '@/hooks/useDockspaces';
+import { PHONE_LAYOUT_QUERY, useMediaQuery } from '@/hooks/useMediaQuery';
 import { ApiError } from '@/lib/apiClient';
 import type { DirectoryChildRecord, FileRecord } from '@/lib/apiTypes';
 import { createFileDownloadSession, createFolderDownloadSession } from '@/lib/dockspaceApi';
-
-interface FolderTrailEntry {
-  folderNodeId: string;
-  fullPath: string;
-  name: string;
-}
 
 const ROOT_FOLDER: FolderTrailEntry = {
   folderNodeId: 'root',
@@ -117,60 +123,6 @@ const mergeDiscoveredFolderItems = (
   return next;
 };
 
-const buildSidebarFolderTreeNode = (
-  folderNodeId: string,
-  discoveredFoldersByNodeId: Map<string, FolderDiscoveryNode>,
-  expandedFolderNodeIds: Set<string>,
-  loadingFolderNodeIds: Set<string>,
-  currentFolderNodeId: string
-): SidebarFolderTreeNode | null => {
-  const node = discoveredFoldersByNodeId.get(folderNodeId);
-  if (!node) {
-    return null;
-  }
-
-  const childIds = node.childFolderNodeIds ?? [];
-  const children = childIds.flatMap((childId) => {
-    const childNode = buildSidebarFolderTreeNode(
-      childId,
-      discoveredFoldersByNodeId,
-      expandedFolderNodeIds,
-      loadingFolderNodeIds,
-      currentFolderNodeId
-    );
-
-    return childNode ? [childNode] : [];
-  });
-
-  return {
-    folderNodeId: node.folderNodeId,
-    name: node.name,
-    fullPath: node.fullPath,
-    directFileCount: node.directFileCount,
-    isCurrent: currentFolderNodeId === node.folderNodeId,
-    isExpanded: expandedFolderNodeIds.has(node.folderNodeId),
-    isLoading: loadingFolderNodeIds.has(node.folderNodeId),
-    canExpand: node.childFolderNodeIds === null || node.childFolderNodeIds.length > 0,
-    children
-  };
-};
-
-const collectUndiscoveredSidebarNodeIds = (nodes: SidebarFolderTreeNode[]): string[] => {
-  const nodeIds: string[] = [];
-
-  for (const node of nodes) {
-    if (node.directFileCount === null) {
-      nodeIds.push(node.folderNodeId);
-    }
-
-    if (node.isExpanded && node.children.length) {
-      nodeIds.push(...collectUndiscoveredSidebarNodeIds(node.children));
-    }
-  }
-
-  return nodeIds;
-};
-
 const folderNameFromPath = (folderPath: string): string => {
   const segments = folderPath.split('/').filter(Boolean);
   return segments[segments.length - 1] ?? folderPath;
@@ -213,7 +165,6 @@ const FOLDER_RENAME_CONFLICT_MESSAGE = 'A sibling folder with this name already 
 export const DockspaceFilesPage = () => {
   const { dockspaceId } = useParams({ from: '/dockspaces/$dockspaceId' });
   const [folderTrail, setFolderTrail] = useState<FolderTrailEntry[]>([ROOT_FOLDER]);
-  const [isDockspaceMenuOpen, setIsDockspaceMenuOpen] = useState(false);
   const [renameFileDialogFullPath, setRenameFileDialogFullPath] = useState<string | null>(null);
   const [renameFileDialogFileName, setRenameFileDialogFileName] = useState('');
   const [renameFileDialogValidationError, setRenameFileDialogValidationError] = useState<
@@ -237,19 +188,21 @@ export const DockspaceFilesPage = () => {
   const [moveFilesSummary, setMoveFilesSummary] = useState<string | null>(null);
   const [selectedFilePaths, setSelectedFilePaths] = useState<string[]>([]);
   const [pendingFolderTrashPaths, setPendingFolderTrashPaths] = useState<string[]>([]);
-  const [viewerFile, setViewerFile] = useState<FileRecord | null>(null);
+  const [previewFile, setPreviewFile] = useState<FileRecord | null>(null);
   const [discoveredFoldersByNodeId, setDiscoveredFoldersByNodeId] = useState<
     Map<string, FolderDiscoveryNode>
   >(() => new Map([[ROOT_FOLDER.folderNodeId, createRootDiscoveryNode(ROOT_FOLDER.name)]]));
-  const [expandedFolderNodeIds, setExpandedFolderNodeIds] = useState<Set<string>>(
-    () => new Set([ROOT_FOLDER.folderNodeId])
-  );
   const [loadingFolderNodeIds, setLoadingFolderNodeIds] = useState<Set<string>>(
     () => new Set()
   );
   const fileInputRef = useRef<HTMLInputElement>(null);
   const folderInputRef = useRef<HTMLInputElement>(null);
+  const columnsRef = useRef<HTMLDivElement>(null);
+  const focusFileRowAfterCloseRef = useRef<string | null>(null);
+  const phoneListScrollYRef = useRef(0);
+  const isPhone = useMediaQuery(PHONE_LAYOUT_QUERY);
   const currentFolder = folderTrail[folderTrail.length - 1] ?? ROOT_FOLDER;
+  const parentFolder = folderTrail.length > 1 ? folderTrail[folderTrail.length - 2] ?? null : null;
 
   const dockspacesQuery = useDockspaces();
   const filesQuery = useFiles(dockspaceId, currentFolder.folderNodeId);
@@ -286,10 +239,13 @@ export const DockspaceFilesPage = () => {
     () =>
       (filesQuery.data?.items ?? [])
         .filter((item) => item.childType === 'file')
-        .map((item) => ({
-          fileNodeId: item.childId,
-          fullPath: buildPathInFolder(currentFolder.fullPath, item.name)
-        })),
+        .map(
+          (item): FileRecord => ({
+            fileNodeId: item.childId,
+            fullPath: buildPathInFolder(currentFolder.fullPath, item.name),
+            updatedAt: item.updatedAt
+          })
+        ),
     [currentFolder.fullPath, filesQuery.data?.items]
   );
 
@@ -331,18 +287,6 @@ export const DockspaceFilesPage = () => {
     dockspaceName,
     filesQuery.data?.items
   ]);
-
-  useEffect(() => {
-    setExpandedFolderNodeIds((previous) => {
-      if (previous.has(currentFolder.folderNodeId)) {
-        return previous;
-      }
-
-      const next = new Set(previous);
-      next.add(currentFolder.folderNodeId);
-      return next;
-    });
-  }, [currentFolder.folderNodeId]);
 
   useEffect(() => {
     setSelectedFilePaths([]);
@@ -481,26 +425,22 @@ export const DockspaceFilesPage = () => {
     [discoverFolder, discoveredFoldersByNodeId, loadingFolderNodeIds]
   );
 
-  const onToggleSidebarFolder = useCallback(
-    (folderNodeId: string) => {
-      const isExpanded = expandedFolderNodeIds.has(folderNodeId);
-      setExpandedFolderNodeIds((previous) => {
-        const next = new Set(previous);
-        if (next.has(folderNodeId)) {
-          next.delete(folderNodeId);
-        } else {
-          next.add(folderNodeId);
-        }
-        return next;
-      });
+  const folderLabel = useCallback(
+    (entry: FolderTrailEntry) =>
+      entry.folderNodeId === ROOT_FOLDER.folderNodeId ? dockspaceName : entry.name,
+    [dockspaceName]
+  );
 
-      if (isExpanded) {
-        return;
-      }
-
-      void discoverFolderChildren(folderNodeId);
+  /**
+   * Every change of the open folder goes through here. Navigating closes the preview, except when
+   * a file in an ancestor column was clicked: then that folder opens and the file is previewed.
+   */
+  const changeFolderTrail = useCallback(
+    (nextTrail: FolderTrailEntry[], nextPreviewFile: FileRecord | null = null) => {
+      setFolderTrail(nextTrail.length ? nextTrail : [ROOT_FOLDER]);
+      setPreviewFile(nextPreviewFile);
     },
-    [discoverFolderChildren, expandedFolderNodeIds]
+    []
   );
 
   const onOpenFolder = useCallback(
@@ -510,52 +450,57 @@ export const DockspaceFilesPage = () => {
         return;
       }
 
-      setFolderTrail((previous) => {
-        const existingIndex = previous.findIndex(
-          (trailEntry) => trailEntry.fullPath === nextFolderPath
-        );
-        const nextTrail =
-          existingIndex >= 0
-            ? previous.slice(0, existingIndex + 1)
-            : [
-                ...previous,
-                {
-                  folderNodeId: nextFolderNodeId,
-                  fullPath: nextFolderPath,
-                  name: folderNameByPath.get(nextFolderPath) ?? folderNameFromPath(nextFolderPath)
-                }
-              ];
-
-        setExpandedFolderNodeIds((expanded) => {
-          const nextExpanded = new Set(expanded);
-          for (const trailEntry of nextTrail) {
-            nextExpanded.add(trailEntry.folderNodeId);
-          }
-          return nextExpanded;
-        });
-
-        return nextTrail;
-      });
+      const existingIndex = folderTrail.findIndex(
+        (trailEntry) => trailEntry.fullPath === nextFolderPath
+      );
+      changeFolderTrail(
+        existingIndex >= 0
+          ? folderTrail.slice(0, existingIndex + 1)
+          : [
+              ...folderTrail,
+              {
+                folderNodeId: nextFolderNodeId,
+                fullPath: nextFolderPath,
+                name: folderNameByPath.get(nextFolderPath) ?? folderNameFromPath(nextFolderPath)
+              }
+            ]
+      );
     },
-    [folderNameByPath, folderNodeIdByPath]
+    [changeFolderTrail, folderNameByPath, folderNodeIdByPath, folderTrail]
   );
 
-  const sidebarFolderTree = useMemo(() => {
-    const rootNode = buildSidebarFolderTreeNode(
-      ROOT_FOLDER.folderNodeId,
-      discoveredFoldersByNodeId,
-      expandedFolderNodeIds,
-      loadingFolderNodeIds,
-      currentFolder.folderNodeId
-    );
+  const openFolderAtLevel = useCallback(
+    (levelIndex: number, folder: { folderNodeId: string; name: string }) => {
+      const levelEntry = folderTrail[levelIndex];
+      if (!levelEntry) {
+        return;
+      }
 
-    return rootNode ? [rootNode] : [];
-  }, [
-    currentFolder.folderNodeId,
-    discoveredFoldersByNodeId,
-    expandedFolderNodeIds,
-    loadingFolderNodeIds
-  ]);
+      changeFolderTrail([
+        ...folderTrail.slice(0, levelIndex + 1),
+        {
+          folderNodeId: folder.folderNodeId,
+          fullPath: buildPathInFolder(levelEntry.fullPath, folder.name),
+          name: folder.name
+        }
+      ]);
+    },
+    [changeFolderTrail, folderTrail]
+  );
+
+  const openAncestorFile = useCallback(
+    (levelIndex: number, file: FileRecord) => {
+      changeFolderTrail(folderTrail.slice(0, levelIndex + 1), file);
+    },
+    [changeFolderTrail, folderTrail]
+  );
+
+  const onSelectCrumb = useCallback(
+    (index: number) => {
+      changeFolderTrail(folderTrail.slice(0, index + 1));
+    },
+    [changeFolderTrail, folderTrail]
+  );
 
   const moveFilesDestinationOptions = useMemo(
     () =>
@@ -584,16 +529,35 @@ export const DockspaceFilesPage = () => {
       }));
   }, [discoveredFoldersByNodeId, dockspaceName, moveFolderDialogSourcePath]);
 
+  // Discover the open trail and the current folder's subfolders, so the Move dialogs can offer
+  // them as destinations and folder rows can show their file counts.
   useEffect(() => {
-    const undiscoveredNodeIds = collectUndiscoveredSidebarNodeIds(sidebarFolderTree);
-    for (const folderNodeId of undiscoveredNodeIds) {
-      if (loadingFolderNodeIds.has(folderNodeId)) {
+    const candidateNodeIds = folderTrail
+      .map((entry) => entry.folderNodeId)
+      .concat(folders.map((folder) => folder.folderNodeId));
+
+    for (const folderNodeId of candidateNodeIds) {
+      const node = discoveredFoldersByNodeId.get(folderNodeId);
+      if (!node || loadingFolderNodeIds.has(folderNodeId)) {
         continue;
       }
 
-      void discoverFolderChildren(folderNodeId);
+      if (node.childFolderNodeIds === null || node.directFileCount === null) {
+        void discoverFolderChildren(folderNodeId);
+      }
     }
-  }, [discoverFolderChildren, loadingFolderNodeIds, sidebarFolderTree]);
+  }, [discoverFolderChildren, discoveredFoldersByNodeId, folderTrail, folders, loadingFolderNodeIds]);
+
+  const folderFileCounts = useMemo(() => {
+    const counts = new Map<string, number>();
+    for (const node of discoveredFoldersByNodeId.values()) {
+      if (node.directFileCount !== null) {
+        counts.set(node.fullPath, node.directFileCount);
+      }
+    }
+
+    return counts;
+  }, [discoveredFoldersByNodeId]);
 
   const onMoveToTrash = useCallback(
     (fullPath: string) => {
@@ -827,9 +791,110 @@ export const DockspaceFilesPage = () => {
     [moveToTrash, trashFolderDialogPath]
   );
 
-  const openFileViewer = useCallback((file: FileRecord) => {
-    setViewerFile(file);
-  }, []);
+  // The preview only ever shows a file of the open folder. When the file is renamed, moved or
+  // trashed (or the folder's data no longer has it), the preview closes.
+  const visiblePreviewFile = useMemo(
+    () =>
+      previewFile
+        ? (files.find((file) => file.fullPath === previewFile.fullPath) ?? null)
+        : null,
+    [files, previewFile]
+  );
+
+  useEffect(() => {
+    if (previewFile && filesQuery.data && !visiblePreviewFile) {
+      setPreviewFile(null);
+    }
+  }, [filesQuery.data, previewFile, visiblePreviewFile]);
+
+  const openFilePreview = useCallback(
+    (file: FileRecord) => {
+      if (isPhone && !previewFile) {
+        phoneListScrollYRef.current = window.scrollY;
+      }
+
+      setPreviewFile(file);
+    },
+    [isPhone, previewFile]
+  );
+
+  const closePreview = useCallback(() => {
+    focusFileRowAfterCloseRef.current = previewFile?.fullPath ?? null;
+    setPreviewFile(null);
+  }, [previewFile]);
+
+  useEffect(() => {
+    if (previewFile) {
+      return;
+    }
+
+    const fullPath = focusFileRowAfterCloseRef.current;
+    focusFileRowAfterCloseRef.current = null;
+    if (!fullPath) {
+      return;
+    }
+
+    if (isPhone) {
+      window.scrollTo(0, phoneListScrollYRef.current);
+    }
+
+    const row = Array.from(document.querySelectorAll<HTMLElement>('[data-file-path]')).find(
+      (element) => element.dataset.filePath === fullPath
+    );
+    row?.focus({ preventScroll: isPhone });
+  }, [isPhone, previewFile]);
+
+  useEffect(() => {
+    if (!visiblePreviewFile) {
+      return;
+    }
+
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key !== 'Escape' || event.defaultPrevented) {
+        return;
+      }
+
+      // Open dialogs and dropdown menus consume Escape first.
+      if (document.querySelector('dialog[open], [role="menu"]')) {
+        return;
+      }
+
+      event.preventDefault();
+      closePreview();
+    };
+
+    document.addEventListener('keydown', onKeyDown);
+    return () => {
+      document.removeEventListener('keydown', onKeyDown);
+    };
+  }, [closePreview, visiblePreviewFile]);
+
+  const hasSidePreview = !isPhone && Boolean(visiblePreviewFile);
+
+  // Keep the current (last) column fully visible: when the trail changes, when the side preview
+  // opens or closes, and whenever the strip itself is resized (window resize, preview width).
+  useEffect(() => {
+    const strip = columnsRef.current;
+    if (!strip) {
+      return;
+    }
+
+    const scrollCurrentColumnIntoView = () => {
+      strip.scrollLeft = strip.scrollWidth;
+    };
+
+    scrollCurrentColumnIntoView();
+
+    if (typeof ResizeObserver === 'undefined') {
+      return;
+    }
+
+    const observer = new ResizeObserver(scrollCurrentColumnIntoView);
+    observer.observe(strip);
+    return () => {
+      observer.disconnect();
+    };
+  }, [folderTrail, hasSidePreview, isPhone]);
 
   const onDownloadFile = useCallback(
     (file: FileRecord) => {
@@ -1101,6 +1166,167 @@ export const DockspaceFilesPage = () => {
     </div>
   );
 
+  const filesErrorAlert =
+    filesQuery.error && !unauthorized ? (
+      <Alert
+        message={filesQuery.error instanceof Error ? filesQuery.error.message : 'Unable to load folder.'}
+      />
+    ) : null;
+
+  const fileList = (
+    <FileList
+      files={files}
+      folders={folders}
+      currentFolder={currentFolder.fullPath}
+      columnTitle={isPhone ? undefined : folderLabel(currentFolder)}
+      folderFileCounts={folderFileCounts}
+      previewedFilePath={visiblePreviewFile?.fullPath ?? null}
+      pendingFolderPaths={addFolderDialog.pendingFolderPaths}
+      pendingFolderTrashPaths={pendingFolderTrashPaths}
+      pendingUploadFiles={pendingUploadFiles}
+      pendingUploadFolderPaths={pendingUploadFolderPaths}
+      selectedFilePaths={selectedFilePaths}
+      selectionActions={selectionActions}
+      statusMessage={moveFilesSummary}
+      actionLabel="Move to Trash"
+      downloadActionLabel="Download"
+      folderDownloadActionLabel="Download"
+      renameActionLabel="Rename"
+      folderMoveActionLabel="Move"
+      folderRenameActionLabel="Rename"
+      emptyState={filesQuery.isLoading ? <p>Loading...</p> : emptyDockspaceState}
+      onRename={openRenameFileDialog}
+      onRenameFolder={openRenameFolderDialog}
+      onMoveFolder={openMoveFolderDialog}
+      onOpenFile={openFilePreview}
+      onDownload={onDownloadFile}
+      onDownloadFolder={onDownloadFolder}
+      onOpenFolder={onOpenFolder}
+      onToggleFileSelection={toggleFileSelection}
+      onActionFolder={openTrashFolderDialog}
+      onAction={onMoveToTrash}
+    />
+  );
+
+  const crumbs = folderTrail.map((entry) => ({ key: entry.folderNodeId, label: folderLabel(entry) }));
+  const locationLabel = crumbs.map((crumb) => crumb.label).join(' / ');
+  const currentFolderLabel = folderLabel(currentFolder);
+  const uploadsCard = (
+    <UploadsCard
+      activeUploads={uploadDialog.activeUploads}
+      skippedUploads={uploadDialog.skippedUploads}
+      isPreparingFolders={uploadDialog.isPreparingFolders}
+      uploadErrorMessage={uploadErrorMessage}
+      defaultCollapsed={isPhone}
+      onDismissSkippedUploads={uploadDialog.clearSkippedUploads}
+      onRetryUpload={uploadDialog.retryUpload}
+    />
+  );
+
+  const phoneLayout = (
+    <div className="dockspace-files dockspace-files--phone">
+      {visiblePreviewFile ? (
+        <FilePreviewPanel
+          dockspaceId={dockspaceId}
+          file={visiblePreviewFile}
+          locationLabel={locationLabel}
+          variant="page"
+          backLabel={`Back to ${currentFolderLabel}`}
+          onClose={closePreview}
+          onDownload={onDownloadFile}
+        />
+      ) : (
+        <>
+          {parentFolder ? (
+            <FolderBreadcrumb crumbs={crumbs} variant="compact" onSelectCrumb={onSelectCrumb} />
+          ) : null}
+          <div className="dockspace-phone-header">
+            {parentFolder ? (
+              <button
+                type="button"
+                className="dockspace-icon-button dockspace-icon-button--ghost"
+                aria-label={`Back to ${folderLabel(parentFolder)}`}
+                onClick={() => onSelectCrumb(folderTrail.length - 2)}
+              >
+                <ArrowLeft size={18} aria-hidden="true" />
+              </button>
+            ) : null}
+            <h1 className="dockspace-phone-header__title">{currentFolderLabel}</h1>
+            <DockspaceOptionsMenu
+              dockspaceId={dockspaceId}
+              variant="phone"
+              onAddFolder={addFolderDialog.openDialog}
+              onUploadFiles={openFilePicker}
+              onUploadFolder={openFolderPicker}
+            />
+          </div>
+          {parentFolder ? (
+            <ParentFolderChips
+              dockspaceId={dockspaceId}
+              parentEntry={parentFolder}
+              parentLabel={folderLabel(parentFolder)}
+              currentFolderNodeId={currentFolder.folderNodeId}
+              onOpenFolder={(folder) => openFolderAtLevel(folderTrail.length - 2, folder)}
+            />
+          ) : null}
+          <section className="dockspace-column dockspace-column--current" aria-label={currentFolderLabel}>
+            {filesErrorAlert}
+            {fileList}
+          </section>
+          <div className="dockspace-files__floating">
+            {uploadsCard}
+            <UploadMenu variant="floating" onUploadFiles={openFilePicker} onUploadFolder={openFolderPicker} />
+          </div>
+        </>
+      )}
+    </div>
+  );
+
+  const desktopLayout = (
+    <div className="dockspace-files">
+      <div className="dockspace-folder-bar">
+        <FolderBreadcrumb crumbs={crumbs} onSelectCrumb={onSelectCrumb} />
+        <DockspaceFilesHeaderActions
+          dockspaceId={dockspaceId}
+          onAddFolder={addFolderDialog.openDialog}
+          onUploadFiles={openFilePicker}
+          onUploadFolder={openFolderPicker}
+        />
+      </div>
+      <div className="dockspace-work">
+        <div ref={columnsRef} className="dockspace-columns" role="group" aria-label="Folder columns">
+          {folderTrail.slice(0, -1).map((entry, levelIndex) => (
+            <AncestorColumn
+              key={entry.folderNodeId}
+              dockspaceId={dockspaceId}
+              entry={entry}
+              title={folderLabel(entry)}
+              openChildFolderNodeId={folderTrail[levelIndex + 1]?.folderNodeId ?? null}
+              isOlderAncestor={levelIndex < folderTrail.length - 2}
+              onOpenFolder={(folder) => openFolderAtLevel(levelIndex, folder)}
+              onOpenFile={(file) => openAncestorFile(levelIndex, file)}
+            />
+          ))}
+          <section className="dockspace-column dockspace-column--current" aria-label={currentFolderLabel}>
+            {filesErrorAlert}
+            {fileList}
+          </section>
+        </div>
+        {visiblePreviewFile ? (
+          <FilePreviewPanel
+            dockspaceId={dockspaceId}
+            file={visiblePreviewFile}
+            locationLabel={locationLabel}
+            variant="side"
+            onClose={closePreview}
+            onDownload={onDownloadFile}
+          />
+        ) : null}
+      </div>
+      <div className="dockspace-files__floating">{uploadsCard}</div>
+    </div>
+  );
+
   return (
     <RequireAuth>
       <Page className="page--dockspace">
@@ -1108,82 +1334,21 @@ export const DockspaceFilesPage = () => {
           <UnauthorizedNotice />
         ) : (
           <>
-            <div className="dockspace-page-shell">
-              <div className="dockspace-page-main">
-                <Card>
-                  <FileList
-                    files={files}
-                    folders={folders}
-                    currentFolder={currentFolder.fullPath}
-                    pendingFolderPaths={addFolderDialog.pendingFolderPaths}
-                    pendingFolderTrashPaths={pendingFolderTrashPaths}
-                    pendingUploadFiles={pendingUploadFiles}
-                    pendingUploadFolderPaths={pendingUploadFolderPaths}
-                    selectedFilePaths={selectedFilePaths}
-                    selectionActions={selectionActions}
-                    statusMessage={moveFilesSummary}
-                    actionLabel="Move to Trash"
-                    downloadActionLabel="Download"
-                    folderDownloadActionLabel="Download"
-                    renameActionLabel="Rename"
-                    folderMoveActionLabel="Move"
-                    folderRenameActionLabel="Rename"
-                    emptyState={
-                      filesQuery.isLoading ? (
-                        <p>Loading...</p>
-                      ) : (
-                        emptyDockspaceState
-                      )
-                    }
-                    rootBreadcrumbLabel={dockspaceName}
-                    toolbarActions={
-                      <DockspaceFilesHeaderActions
-                        fileInputRef={fileInputRef}
-                        folderInputRef={folderInputRef}
-                        isMenuOpen={isDockspaceMenuOpen}
-                        onMenuOpenChange={setIsDockspaceMenuOpen}
-                        dockspaceId={dockspaceId}
-                        onAddFolder={() => {
-                          addFolderDialog.openDialog();
-                        }}
-                        onUploadFolder={() => {
-                          openFolderPicker();
-                        }}
-                        onUploadFiles={() => {
-                          openFilePicker();
-                        }}
-                        onUploadFolderSelection={onUploadFolderSelection}
-                        onUploadSelection={onUploadSelection}
-                      />
-                    }
-                    onRename={openRenameFileDialog}
-                    onRenameFolder={openRenameFolderDialog}
-                    onMoveFolder={openMoveFolderDialog}
-                    onOpenFile={openFileViewer}
-                    onDownload={onDownloadFile}
-                    onDownloadFolder={onDownloadFolder}
-                    onOpenFolder={onOpenFolder}
-                    onToggleFileSelection={toggleFileSelection}
-                    onActionFolder={openTrashFolderDialog}
-                    onAction={onMoveToTrash}
-                  />
-                </Card>
-              </div>
-              <DockspaceSidebar
-                folderTree={sidebarFolderTree}
-                activeUploads={uploadDialog.activeUploads}
-                skippedUploads={uploadDialog.skippedUploads}
-                isPreparingFolders={uploadDialog.isPreparingFolders}
-                uploadErrorMessage={uploadErrorMessage}
-                onAddFolder={addFolderDialog.openDialog}
-                onDismissSkippedUploads={uploadDialog.clearSkippedUploads}
-                onOpenFolder={onOpenFolder}
-                onRetryUpload={uploadDialog.retryUpload}
-                onToggleFolder={onToggleSidebarFolder}
-                onUploadFiles={openFilePicker}
-                onUploadFolder={openFolderPicker}
-              />
-            </div>
+            <input
+              ref={fileInputRef}
+              className="dockspace-files__hidden-input"
+              type="file"
+              multiple
+              onChange={onUploadSelection}
+            />
+            <input
+              ref={folderInputRef}
+              className="dockspace-files__hidden-input"
+              type="file"
+              {...({ webkitdirectory: '' } as Record<string, string>)}
+              onChange={onUploadFolderSelection}
+            />
+            {isPhone ? phoneLayout : desktopLayout}
             <AddFolderDialog
               errorMessage={addFolderDialog.errorMessage}
               folderName={addFolderDialog.folderName}
@@ -1261,14 +1426,6 @@ export const DockspaceFilesPage = () => {
               }}
               onSubmit={onMoveFolderSubmit}
             />
-            {viewerFile ? (
-              <FileViewerDialog
-                file={viewerFile}
-                isOpen
-                onClose={() => setViewerFile(null)}
-                dockspaceId={dockspaceId}
-              />
-            ) : null}
           </>
         )}
       </Page>

@@ -616,18 +616,6 @@
   white-space: nowrap;
 }
 
-.dockspace-browser__toolbar {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 0.75rem;
-  flex-wrap: wrap;
-}
-
-.dockspace-browser__toolbar-actions {
-  flex-shrink: 0;
-}
-
 .dockspace-browser__selection-bar {
   border: 1px solid var(--border);
   border-radius: 10px;
@@ -712,48 +700,6 @@
   height: 1px;
   margin: 0.3rem 0.4rem;
   background: var(--border);
-}
-
-.dockspace-browser__breadcrumbs {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 0.3rem;
-  align-items: center;
-  color: var(--text);
-  min-width: 0;
-}
-
-.dockspace-browser__crumb-segment {
-  display: inline-flex;
-  align-items: center;
-  gap: 0.3rem;
-}
-
-.dockspace-browser__crumb-button {
-  border: 0;
-  background: transparent;
-  color: var(--text);
-  padding: 0.28rem 0.62rem;
-  font-size: 0.9rem;
-  font-weight: 500;
-  cursor: pointer;
-  border-radius: 999px;
-  transition: background-color 0.16s ease;
-}
-
-.dockspace-browser__crumb-button:hover,
-.dockspace-browser__crumb-button:focus-visible {
-  background: rgba(77, 168, 255, 0.2);
-}
-
-.dockspace-browser__crumb-button:disabled {
-  color: var(--text);
-  font-weight: 500;
-  cursor: default;
-}
-
-.dockspace-browser__crumb-divider {
-  color: var(--text-muted);
 }
 
 .dockspace-browser__list {
@@ -2328,10 +2274,6 @@ a.dockspace-card:focus-visible {
     gap: 0.55rem;
   }
 
-  .dockspace-browser__toolbar {
-    align-items: flex-start;
-  }
-
   .dockspace-browser-empty {
     min-height: 300px;
   }
@@ -2386,4 +2328,855 @@ a.dockspace-card:focus-visible {
   .dockspaces-empty-state {
     min-height: 300px;
   }
+}
+
+/* ---------------------------------------------------------------------------
+ * Generic dockspace files page: folder bar, Miller columns, preview, uploads.
+ * ------------------------------------------------------------------------- */
+
+.page--dockspace {
+  grid-template-columns: minmax(0, 1fr);
+}
+
+.dockspace-files {
+  display: flex;
+  flex-direction: column;
+  height: calc(100vh - var(--app-top-nav-height));
+  min-height: 0;
+  min-width: 0;
+}
+
+.dockspace-files .ui-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.45rem;
+  white-space: nowrap;
+}
+
+.dockspace-icon-button {
+  width: 2.25rem;
+  height: 2.25rem;
+  border: 1px solid var(--border);
+  background: var(--bg-elevated);
+  color: var(--text);
+  border-radius: 8px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  flex-shrink: 0;
+}
+
+.dockspace-icon-button--ghost {
+  border-color: transparent;
+  background: transparent;
+}
+
+.dockspace-icon-button:hover {
+  background: rgba(77, 168, 255, 0.15);
+}
+
+.dockspace-link-button {
+  border: 0;
+  background: transparent;
+  color: #9bcfff;
+  padding: 0;
+  cursor: pointer;
+  text-decoration: underline;
+  font: inherit;
+}
+
+.dockspace-folder-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  padding: 0.7rem 1rem;
+  border-bottom: 1px solid var(--border);
+  background: rgba(0, 0, 0, 0.35);
+}
+
+.dockspace-folder-bar__actions {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  flex-shrink: 0;
+}
+
+.dockspace-upload-menu {
+  position: relative;
+}
+
+.dockspace-crumbs {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.15rem;
+  min-width: 0;
+}
+
+.dockspace-crumbs__segment {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.15rem;
+  min-width: 0;
+}
+
+.dockspace-crumbs__crumb {
+  border: 0;
+  background: transparent;
+  color: var(--text);
+  padding: 0.28rem 0.55rem;
+  border-radius: 999px;
+  font: inherit;
+  font-size: 0.9rem;
+  font-weight: 500;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  cursor: pointer;
+  overflow-wrap: anywhere;
+}
+
+button.dockspace-crumbs__crumb:hover,
+button.dockspace-crumbs__crumb:focus-visible {
+  background: rgba(77, 168, 255, 0.2);
+}
+
+.dockspace-crumbs__crumb--current {
+  font-weight: 700;
+  cursor: default;
+}
+
+.dockspace-crumbs__divider {
+  color: var(--text-muted);
+}
+
+.dockspace-work {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+}
+
+.dockspace-columns {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  overflow-x: auto;
+}
+
+.dockspace-column {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  border-right: 1px solid var(--border);
+}
+
+.dockspace-column--ancestor {
+  width: 240px;
+  flex-shrink: 0;
+}
+
+.dockspace-column--current {
+  flex: 1;
+  min-width: 380px;
+  overflow-y: auto;
+}
+
+.dockspace-column__head {
+  display: flex;
+  align-items: center;
+  gap: 0.55rem;
+  padding: 0.6rem 0.7rem;
+  border-bottom: 1px solid var(--border);
+  min-height: 2.6rem;
+}
+
+.dockspace-column__label {
+  margin: 0;
+  font-size: 0.74rem;
+  text-transform: uppercase;
+  letter-spacing: 0.07em;
+  color: var(--text-muted);
+  font-weight: 600;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  min-width: 0;
+}
+
+.dockspace-column__label--current {
+  flex: 1;
+  color: var(--text);
+}
+
+.dockspace-column__counts {
+  color: var(--text-muted);
+}
+
+.dockspace-column__col-label {
+  font-size: 0.74rem;
+  text-transform: uppercase;
+  letter-spacing: 0.07em;
+  color: var(--text-muted);
+  font-weight: 600;
+  text-align: right;
+  flex-shrink: 0;
+}
+
+.dockspace-column__col-label--size {
+  width: 4.5rem;
+}
+
+.dockspace-column__col-label--date {
+  width: 6.6rem;
+  /* Leaves room for the row action menu column. */
+  margin-right: 2.35rem;
+}
+
+.dockspace-column__status {
+  margin: 0;
+  padding: 0.6rem 0.7rem;
+  color: var(--text-muted);
+  font-size: 0.85rem;
+}
+
+.dockspace-column__list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  overflow-y: auto;
+  flex: 1;
+}
+
+.dockspace-column__row {
+  display: flex;
+  align-items: center;
+  gap: 0.55rem;
+  width: 100%;
+  padding: 0.42rem 0.6rem;
+  border: 0;
+  border-bottom: 1px solid var(--border);
+  background: transparent;
+  color: var(--text);
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.dockspace-column__row:hover {
+  background: rgba(77, 168, 255, 0.1);
+}
+
+.dockspace-column__row:focus-visible {
+  outline: none;
+  background: rgba(77, 168, 255, 0.15);
+  box-shadow: inset 0 0 0 1px rgba(47, 121, 201, 0.75);
+}
+
+.dockspace-column__row[aria-current] {
+  background: rgba(77, 168, 255, 0.18);
+  box-shadow: inset 3px 0 0 var(--accent);
+}
+
+.dockspace-column__icon,
+.dockspace-column__chevron {
+  color: var(--text-muted);
+  flex-shrink: 0;
+}
+
+.dockspace-column__row[aria-current] .dockspace-column__icon {
+  color: #9bcfff;
+}
+
+.dockspace-column__name {
+  flex: 1;
+  min-width: 0;
+  font-weight: 600;
+  font-size: 0.88rem;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.dockspace-column__row--file .dockspace-column__name {
+  font-weight: 500;
+  color: #cfcfd8;
+}
+
+.dockspace-column__meta {
+  font-size: 0.8rem;
+  color: var(--text-muted);
+  white-space: nowrap;
+}
+
+/* Current column: reuses the FileList rows, laid out as a table-like listing. */
+.dockspace-column--current .dockspace-browser {
+  display: block;
+}
+
+.dockspace-column--current .dockspace-column__head,
+.dockspace-browser__sticky {
+  position: sticky;
+  z-index: 3;
+  background: #08080b;
+}
+
+.dockspace-column--current .dockspace-column__head {
+  top: 0;
+}
+
+.dockspace-browser__sticky {
+  top: 2.6rem;
+  display: grid;
+  gap: 0.4rem;
+  padding: 0.5rem 0.6rem;
+  border-bottom: 1px solid var(--border);
+}
+
+.dockspace-column--current .dockspace-browser__list {
+  border-top: 0;
+}
+
+.dockspace-column--current .dockspace-browser__list .resource-list__item {
+  padding: 0;
+}
+
+.dockspace-column--current .dockspace-browser__folder-row,
+.dockspace-column--current .dockspace-browser__file-row {
+  padding: 0.2rem 0.5rem 0.2rem 0.6rem;
+  min-height: 2.3rem;
+}
+
+.dockspace-column--current .dockspace-browser__folder-item--pending .dockspace-browser__folder-pending {
+  padding: 0.42rem 0.5rem 0.42rem 0.6rem;
+}
+
+.dockspace-browser[data-has-sizes='false'] .dockspace-browser__file-size,
+.dockspace-browser[data-has-sizes='false'] .dockspace-column__col-label--size {
+  display: none;
+}
+
+.dockspace-browser[data-has-sizes='false'] .dockspace-browser__file-open--pending .dockspace-browser__file-size {
+  display: block;
+}
+
+.dockspace-column--current .dockspace-browser__folder-button {
+  gap: 0.55rem;
+}
+
+.dockspace-column--current .dockspace-browser__item-main,
+.dockspace-column--current .dockspace-browser__file-main {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+}
+
+.dockspace-column--current .dockspace-browser__item-name,
+.dockspace-column--current .dockspace-browser__file-name {
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  min-width: 0;
+}
+
+.dockspace-column--current .dockspace-browser__file-summary {
+  display: flex;
+  align-items: center;
+  gap: 0.55rem;
+  width: 100%;
+}
+
+.dockspace-column--current .dockspace-browser__file-size {
+  margin: 0;
+  width: 4.5rem;
+  text-align: right;
+  flex-shrink: 0;
+  white-space: nowrap;
+}
+
+.dockspace-column--current .dockspace-browser__file-open--pending .dockspace-browser__file-size {
+  width: auto;
+}
+
+.dockspace-browser__file-date {
+  width: 6.6rem;
+  text-align: right;
+  color: var(--text-muted);
+  font-size: 0.82rem;
+  flex-shrink: 0;
+  white-space: nowrap;
+}
+
+.dockspace-browser__folder-count {
+  color: var(--text-muted);
+  font-size: 0.82rem;
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+
+.dockspace-browser__folder-chevron {
+  color: var(--text-muted);
+  flex-shrink: 0;
+}
+
+.dockspace-browser__list .dockspace-browser__file-item--previewed,
+.dockspace-browser__list .dockspace-browser__file-item--previewed:hover {
+  background: rgba(77, 168, 255, 0.18);
+  box-shadow: inset 3px 0 0 var(--accent);
+}
+
+.dockspace-browser__file-item--previewed .dockspace-browser__file-icon {
+  color: #9bcfff;
+}
+
+/* Preview column */
+.dockspace-preview {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  min-height: 0;
+  background: linear-gradient(160deg, rgba(26, 26, 31, 0.96), rgba(6, 6, 8, 0.96));
+}
+
+.dockspace-preview--side {
+  width: 420px;
+  flex-shrink: 0;
+  border-left: 1px solid var(--border);
+}
+
+.dockspace-preview__head {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.7rem 0.8rem;
+  border-bottom: 1px solid var(--border);
+}
+
+.dockspace-preview__icon {
+  color: var(--text-muted);
+  flex-shrink: 0;
+}
+
+.dockspace-preview__title {
+  margin: 0;
+  flex: 1;
+  min-width: 0;
+  font-size: 0.95rem;
+  font-weight: 700;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.dockspace-preview__body {
+  flex: 1;
+  min-height: 0;
+  overflow: auto;
+  padding: 0.8rem;
+  display: grid;
+  gap: 0.8rem;
+  align-content: start;
+}
+
+.dockspace-preview__stage {
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: rgba(5, 8, 15, 0.62);
+  padding: 0.5rem;
+  min-width: 0;
+  overflow: hidden;
+}
+
+.dockspace-preview__stage .dockspace-file-viewer__image-wrap,
+.dockspace-preview__stage .dockspace-file-viewer__media-wrap {
+  min-height: 12rem;
+  max-height: none;
+}
+
+.dockspace-preview__stage .dockspace-file-viewer__image {
+  min-height: 0;
+  max-height: min(56vh, 560px);
+}
+
+.dockspace-preview__stage .dockspace-file-viewer__media--video {
+  min-height: 0;
+  max-height: min(56vh, 560px);
+}
+
+.dockspace-preview__stage .dockspace-file-viewer__frame {
+  min-height: min(60vh, 600px);
+}
+
+.dockspace-preview__stage .dockspace-file-viewer__text {
+  min-height: 0;
+  max-height: min(56vh, 560px);
+  overflow: auto;
+}
+
+.dockspace-preview__meta {
+  margin: 0;
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  gap: 0.35rem 0.9rem;
+  font-size: 0.84rem;
+}
+
+.dockspace-preview__meta dt {
+  color: var(--text-muted);
+}
+
+.dockspace-preview__meta dd {
+  margin: 0;
+  overflow-wrap: anywhere;
+}
+
+.dockspace-preview__hint {
+  margin: 0;
+  font-size: 0.76rem;
+  color: var(--text-muted);
+}
+
+.dockspace-preview__hint kbd {
+  font-family: inherit;
+  font-size: 0.72rem;
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  padding: 0 0.3rem;
+  background: var(--bg-soft);
+}
+
+/* Uploads card */
+.dockspace-files__floating {
+  position: fixed;
+  left: 16px;
+  bottom: 16px;
+  width: 320px;
+  z-index: 15;
+}
+
+.dockspace-uploads {
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  background: var(--bg-elevated);
+  box-shadow: 0 10px 24px rgba(0, 0, 0, 0.35);
+  padding: 0.6rem 0.7rem;
+  display: grid;
+  gap: 0.45rem;
+  font-size: 0.82rem;
+  max-height: 50vh;
+  overflow-y: auto;
+}
+
+.dockspace-uploads--collapsed {
+  border: 0;
+  background: transparent;
+  box-shadow: none;
+  padding: 0;
+  overflow: visible;
+}
+
+.dockspace-uploads__pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.45rem;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  background: var(--bg-elevated);
+  box-shadow: 0 10px 24px rgba(0, 0, 0, 0.35);
+  color: var(--text);
+  font: inherit;
+  font-size: 0.82rem;
+  padding: 0.5rem 0.85rem;
+  cursor: pointer;
+}
+
+.dockspace-uploads__dot {
+  width: 0.45rem;
+  height: 0.45rem;
+  border-radius: 999px;
+  background: var(--error);
+}
+
+.dockspace-uploads__head {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.dockspace-uploads__label {
+  margin: 0;
+  flex: 1;
+  font-size: 0.74rem;
+  text-transform: uppercase;
+  letter-spacing: 0.07em;
+  color: var(--text-muted);
+  font-weight: 600;
+}
+
+.dockspace-uploads__count {
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  padding: 0 0.45rem;
+  font-size: 0.74rem;
+  color: var(--text-muted);
+}
+
+.dockspace-uploads__toggle {
+  width: 1.75rem;
+  height: 1.75rem;
+}
+
+.dockspace-uploads__list,
+.dockspace-uploads__skipped-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: 0.45rem;
+}
+
+.dockspace-uploads__row {
+  display: grid;
+  gap: 0.3rem;
+}
+
+.dockspace-uploads__line {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.dockspace-uploads__path {
+  min-width: 0;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.dockspace-uploads__status {
+  color: var(--text-muted);
+  white-space: nowrap;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.45rem;
+}
+
+.dockspace-uploads__status--failed > span {
+  color: var(--error);
+}
+
+.dockspace-uploads__bar {
+  height: 4px;
+  border-radius: 99px;
+  background: rgba(255, 255, 255, 0.12);
+  overflow: hidden;
+}
+
+.dockspace-uploads__bar > span {
+  display: block;
+  height: 100%;
+  background: var(--accent);
+  border-radius: 99px;
+}
+
+.dockspace-uploads__muted {
+  margin: 0;
+  color: var(--text-muted);
+}
+
+.dockspace-uploads__error {
+  margin: 0;
+  color: var(--error);
+}
+
+.dockspace-uploads__skipped {
+  display: grid;
+  gap: 0.35rem;
+  border-top: 1px solid var(--border);
+  padding-top: 0.45rem;
+}
+
+.dockspace-uploads__skipped-list li {
+  color: var(--text-muted);
+  font-size: 0.76rem;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+@media (max-width: 1199px) {
+  .dockspace-column--older {
+    display: none;
+  }
+
+  .dockspace-column--current {
+    min-width: 280px;
+  }
+
+  .dockspace-preview--side {
+    width: 340px;
+  }
+}
+
+/* Phone / narrow layout (markup switches at the same 900px breakpoint). */
+.dockspace-files--phone {
+  height: auto;
+  display: block;
+  padding-bottom: 5.5rem;
+}
+
+.dockspace-files--phone .dockspace-crumbs {
+  padding: 0.6rem 0.75rem 0;
+}
+
+.dockspace-files--phone .dockspace-crumbs__crumb {
+  font-size: 0.8rem;
+  color: #9bcfff;
+  padding: 0.15rem 0.3rem;
+}
+
+.dockspace-phone-header {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  padding: 0.45rem 0.75rem 0.6rem;
+  border-bottom: 1px solid var(--border);
+}
+
+.dockspace-phone-header__title {
+  margin: 0;
+  flex: 1;
+  min-width: 0;
+  font-size: 1.15rem;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.dockspace-chips {
+  padding: 0.6rem 0.75rem;
+  border-bottom: 1px solid var(--border);
+}
+
+.dockspace-chips__label {
+  margin: 0;
+  font-size: 0.72rem;
+  text-transform: uppercase;
+  letter-spacing: 0.07em;
+  color: var(--text-muted);
+  font-weight: 600;
+}
+
+.dockspace-chips__list {
+  list-style: none;
+  margin: 0.45rem 0 0;
+  padding: 0;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem;
+}
+
+.dockspace-chips__list li {
+  max-width: 100%;
+}
+
+.dockspace-chips__chip {
+  max-width: 100%;
+  border: 1px solid var(--border);
+  background: var(--bg-soft);
+  color: var(--text);
+  border-radius: 999px;
+  padding: 0.4rem 0.75rem;
+  font: inherit;
+  font-size: 0.82rem;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  cursor: pointer;
+  overflow-wrap: anywhere;
+  text-align: left;
+}
+
+.dockspace-chips__chip[aria-current] {
+  background: rgba(77, 168, 255, 0.2);
+  border-color: var(--accent);
+  color: #cfe7ff;
+  cursor: default;
+}
+
+.dockspace-chips__chip--more {
+  color: #9bcfff;
+}
+
+.dockspace-files--phone .dockspace-column--current {
+  min-width: 0;
+  border-right: 0;
+  overflow: visible;
+}
+
+.dockspace-files--phone .dockspace-browser__sticky {
+  top: 0;
+}
+
+.dockspace-files--phone .dockspace-browser__file-date {
+  display: none;
+}
+
+.dockspace-files--phone .dockspace-browser__file-actions-trigger {
+  opacity: 1;
+  pointer-events: auto;
+  width: 2.75rem;
+  height: 2.75rem;
+}
+
+.dockspace-files--phone .dockspace-column--current .dockspace-browser__folder-row,
+.dockspace-files--phone .dockspace-column--current .dockspace-browser__file-row {
+  padding: 0 0.15rem 0 0.75rem;
+  min-height: 2.75rem;
+}
+
+.dockspace-files--phone .dockspace-browser__folder-button,
+.dockspace-files--phone .dockspace-browser__file-open {
+  min-height: 2.75rem;
+}
+
+.dockspace-files--phone .dockspace-preview--page {
+  min-height: calc(100vh - var(--app-top-nav-height));
+}
+
+.dockspace-files--phone .dockspace-files__floating {
+  left: 16px;
+  right: 16px;
+  width: auto;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  gap: 0.6rem;
+  pointer-events: none;
+}
+
+.dockspace-files--phone .dockspace-files__floating > * {
+  pointer-events: auto;
+}
+
+.dockspace-files--phone .dockspace-uploads:not(.dockspace-uploads--collapsed) {
+  flex-basis: 100%;
+}
+
+.dockspace-upload-menu--floating {
+  margin-left: auto;
+}
+
+.dockspace-upload-menu--floating .dockspace-upload-menu__trigger {
+  border-radius: 999px;
+  padding: 0.7rem 1.2rem;
+  box-shadow: 0 10px 24px rgba(0, 0, 0, 0.45);
+}
+
+.dockspace-upload-menu--floating .dockspace-page-menu__dropdown {
+  top: auto;
+  bottom: calc(100% + 0.35rem);
 }

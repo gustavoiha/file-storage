@@ -1,9 +1,10 @@
 import { useMemo, useState, type CSSProperties, type ReactNode } from 'react';
-import { Folder } from 'lucide-react';
+import { ChevronRight, Folder } from 'lucide-react';
 import { Button } from '@/components/ui/Button';
 import { DropdownMenu } from '@/components/ui/DropdownMenu';
 import { useFileIconForPath } from '@/hooks/useFileIconForPath';
 import type { FileRecord, FolderRecord } from '@/lib/apiTypes';
+import { formatFileSize, formatModifiedDate, pluralize } from '@/lib/fileFormat';
 
 interface FileListProps {
   files: FileRecord[];
@@ -19,11 +20,15 @@ interface FileListProps {
   folderMoveActionLabel?: string | undefined;
   folderRenameActionLabel?: string | undefined;
   renameActionLabel?: string | undefined;
-  rootBreadcrumbLabel?: string;
+  /** Folder name shown in the column header ("{name} · N folders, M files"). */
+  columnTitle?: string | undefined;
+  /** Direct file counts per folder path, shown on folder rows when known. */
+  folderFileCounts?: ReadonlyMap<string, number> | undefined;
+  /** Full path of the file currently shown in the preview panel. */
+  previewedFilePath?: string | null | undefined;
   selectedFilePaths?: string[];
   selectionActions?: ReactNode;
   statusMessage?: string | null;
-  toolbarActions?: ReactNode;
   actionLabel: string;
   actionLabelWhilePending?: string | undefined;
   pendingActionPath?: string | null;
@@ -51,11 +56,6 @@ interface FolderEntry {
 
 interface FolderListEntry extends FolderEntry {
   pendingState: 'none' | 'creating' | 'uploading' | 'trashing';
-}
-
-interface BreadcrumbItem {
-  label: string;
-  fullPath: string;
 }
 
 interface PendingUploadFileEntry {
@@ -95,23 +95,6 @@ const folderName = (folderPath: string): string => {
 
   const segments = folderPath.split('/').filter(Boolean);
   return segments[segments.length - 1] ?? folderPath;
-};
-
-const breadcrumbItems = (folderPath: string, rootLabel: string): BreadcrumbItem[] => {
-  const normalized = normalizeFolderPath(folderPath);
-  const segments = normalized.split('/').filter(Boolean);
-  const items: BreadcrumbItem[] = [{ label: rootLabel, fullPath: '/' }];
-
-  let runningPath = '';
-  for (const segment of segments) {
-    runningPath += `/${segment}`;
-    items.push({
-      label: segment,
-      fullPath: runningPath
-    });
-  }
-
-  return items;
 };
 
 interface FlatFileListProps {
@@ -179,34 +162,6 @@ const FlatFileList = ({
   );
 };
 
-interface FolderBreadcrumbsProps {
-  crumbs: BreadcrumbItem[];
-  currentFolder: string;
-  onOpenFolder: (folderPath: string) => void;
-}
-
-const FolderBreadcrumbs = ({ crumbs, currentFolder, onOpenFolder }: FolderBreadcrumbsProps) => (
-  <nav className="dockspace-browser__breadcrumbs" aria-label="Folder breadcrumb">
-    {crumbs.map((crumb, index) => {
-      const isCurrent = crumb.fullPath === currentFolder;
-
-      return (
-        <span key={crumb.fullPath} className="dockspace-browser__crumb-segment">
-          <button
-            type="button"
-            className="dockspace-browser__crumb-button"
-            disabled={isCurrent}
-            onClick={() => onOpenFolder(crumb.fullPath)}
-          >
-            {crumb.label}
-          </button>
-          {index < crumbs.length - 1 ? <span className="dockspace-browser__crumb-divider">/</span> : null}
-        </span>
-      );
-    })}
-  </nav>
-);
-
 interface PendingFolderRowProps {
   name: string;
   statusLabel: string;
@@ -267,6 +222,7 @@ const PendingFileRow = ({ filePath, progress, status }: PendingFileRowProps) => 
 interface FolderRowProps {
   actionLabel: string;
   downloadActionLabel?: string | undefined;
+  fileCount?: number | undefined;
   folderEntry: FolderEntry;
   moveActionLabel?: string | undefined;
   onAction?: ((folderPath: string) => void) | undefined;
@@ -281,6 +237,7 @@ interface FolderRowProps {
 const FolderRow = ({
   actionLabel,
   downloadActionLabel,
+  fileCount,
   folderEntry,
   moveActionLabel,
   onAction,
@@ -345,6 +302,10 @@ const FolderRow = ({
             )}
             <span className="dockspace-browser__item-name">{folderEntry.name}</span>
           </span>
+          {typeof fileCount === 'number' ? (
+            <span className="dockspace-browser__folder-count">{pluralize(fileCount, 'file')}</span>
+          ) : null}
+          <ChevronRight className="dockspace-browser__folder-chevron" size={14} aria-hidden="true" />
         </button>
         {hasMenuActions ? (
           <DropdownMenu
@@ -418,6 +379,7 @@ interface FileRowProps {
   actionLabel: string;
   downloadActionLabel?: string | undefined;
   file: FileRecord;
+  isPreviewed: boolean;
   isSelected: boolean;
   selectionMode: boolean;
   onDownload?: ((file: FileRecord) => void) | undefined;
@@ -432,6 +394,7 @@ const FileRow = ({
   actionLabel,
   downloadActionLabel,
   file,
+  isPreviewed,
   isSelected,
   selectionMode,
   onDownload,
@@ -456,7 +419,9 @@ const FileRow = ({
 
   return (
     <li
-      className="resource-list__item dockspace-browser__file-item"
+      className={`resource-list__item dockspace-browser__file-item${
+        isPreviewed ? ' dockspace-browser__file-item--previewed' : ''
+      }`}
       onContextMenu={(event) => {
         if (selectionMode) {
           event.preventDefault();
@@ -472,6 +437,8 @@ const FileRow = ({
         <button
           type="button"
           className="dockspace-browser__file-open"
+          data-file-path={file.fullPath}
+          aria-current={isPreviewed ? 'true' : undefined}
           onClick={() => {
             if (selectionMode && onToggleSelection) {
               onToggleSelection(file.fullPath);
@@ -511,9 +478,8 @@ const FileRow = ({
               </span>
               <span className="dockspace-browser__file-name">{fileName}</span>
             </span>
-            {typeof file.size === 'number' ? (
-              <span className="dockspace-browser__file-size">{file.size} bytes</span>
-            ) : null}
+            <span className="dockspace-browser__file-size">{formatFileSize(file.size) ?? ''}</span>
+            <span className="dockspace-browser__file-date">{formatModifiedDate(file.updatedAt) ?? ''}</span>
           </span>
         </button>
         {!selectionMode ? (
@@ -600,11 +566,12 @@ interface FolderModeListProps {
   pendingUploadFiles: PendingUploadFileEntry[];
   pendingUploadFolderPaths: string[];
   renameActionLabel?: string | undefined;
-  rootBreadcrumbLabel: string;
+  columnTitle?: string | undefined;
+  folderFileCounts?: ReadonlyMap<string, number> | undefined;
+  previewedFilePath?: string | null | undefined;
   selectedFilePaths: string[];
   selectionActions?: ReactNode;
   statusMessage?: string | null;
-  toolbarActions?: ReactNode;
   onToggleFileSelection?: ((fullPath: string) => void) | undefined;
 }
 
@@ -632,12 +599,13 @@ const FolderModeList = ({
   pendingUploadFiles,
   pendingUploadFolderPaths,
   renameActionLabel,
-  rootBreadcrumbLabel,
+  columnTitle,
+  folderFileCounts,
+  previewedFilePath,
   selectedFilePaths,
   selectionActions,
   statusMessage,
-  onToggleFileSelection,
-  toolbarActions
+  onToggleFileSelection
 }: FolderModeListProps) => {
   const normalizedCurrentFolder = normalizeFolderPath(currentFolder);
   const selectedFilePathSet = useMemo(() => new Set(selectedFilePaths), [selectedFilePaths]);
@@ -726,31 +694,43 @@ const FolderModeList = ({
     [directFiles, normalizedCurrentFolder, pendingUploadFiles]
   );
 
-  const crumbs = useMemo(
-    () => breadcrumbItems(normalizedCurrentFolder, rootBreadcrumbLabel),
-    [normalizedCurrentFolder, rootBreadcrumbLabel]
-  );
-
   const hasEntries = folderEntries.length > 0 || directFiles.length > 0 || pendingFileEntries.length > 0;
+  // The folder listing API does not always include sizes; hide the Size column when none is known.
+  const hasSizes = directFiles.some((file) => typeof file.size === 'number');
 
   return (
-    <div className="dockspace-browser">
-      <div className="dockspace-browser__toolbar">
-        <FolderBreadcrumbs
-          crumbs={crumbs}
-          currentFolder={normalizedCurrentFolder}
-          onOpenFolder={onOpenFolder}
-        />
-        {toolbarActions ? (
-          <div className="dockspace-browser__toolbar-actions">{toolbarActions}</div>
-        ) : null}
-      </div>
-      {statusMessage ? (
-        <p className="dockspace-browser__selection-feedback" role="status">
-          {statusMessage}
-        </p>
+    <div className="dockspace-browser" data-has-sizes={hasSizes ? 'true' : 'false'}>
+      {columnTitle ? (
+        <header className="dockspace-column__head dockspace-column__head--current">
+          <h2 className="dockspace-column__label dockspace-column__label--current">
+            {columnTitle}
+            <span className="dockspace-column__counts">
+              {' · '}
+              {pluralize(folders.length, 'folder')}, {pluralize(directFiles.length, 'file')}
+            </span>
+          </h2>
+          {hasEntries ? (
+            <>
+              <span className="dockspace-column__col-label dockspace-column__col-label--size" aria-hidden="true">
+                Size
+              </span>
+              <span className="dockspace-column__col-label dockspace-column__col-label--date" aria-hidden="true">
+                Modified
+              </span>
+            </>
+          ) : null}
+        </header>
       ) : null}
-      {selectionActions ? <div className="dockspace-browser__selection-bar">{selectionActions}</div> : null}
+      {selectionActions || statusMessage ? (
+        <div className="dockspace-browser__sticky">
+          {statusMessage ? (
+            <p className="dockspace-browser__selection-feedback" role="status">
+              {statusMessage}
+            </p>
+          ) : null}
+          {selectionActions ? <div className="dockspace-browser__selection-bar">{selectionActions}</div> : null}
+        </div>
+      ) : null}
 
       <ul className="resource-list dockspace-browser__list">
         {!hasEntries ? (
@@ -777,6 +757,7 @@ const FolderModeList = ({
               key={folderEntry.fullPath}
               actionLabel={actionLabel}
               downloadActionLabel={folderDownloadActionLabel}
+              fileCount={folderFileCounts?.get(folderEntry.fullPath)}
               folderEntry={folderEntry}
               moveActionLabel={folderMoveActionLabel}
               onAction={onActionFolder}
@@ -805,6 +786,7 @@ const FolderModeList = ({
             actionLabel={actionLabel}
             downloadActionLabel={downloadActionLabel}
             file={file}
+            isPreviewed={previewedFilePath === file.fullPath}
             isSelected={selectedFilePathSet.has(file.fullPath)}
             selectionMode={selectionMode}
             onDownload={onDownload}
@@ -848,14 +830,15 @@ export const FileList = ({
   pendingUploadFiles = [],
   pendingUploadFolderPaths = [],
   renameActionLabel,
-  rootBreadcrumbLabel = 'Root',
+  columnTitle,
+  folderFileCounts,
+  previewedFilePath = null,
   secondaryActionLabel,
   secondaryActionLabelWhilePending,
   secondaryActionVariant = 'secondary',
   selectedFilePaths = [],
   selectionActions,
   statusMessage,
-  toolbarActions,
   onSecondaryAction
 }: FileListProps) => {
   if (!onOpenFolder) {
@@ -900,12 +883,13 @@ export const FileList = ({
       pendingUploadFiles={pendingUploadFiles}
       pendingUploadFolderPaths={pendingUploadFolderPaths}
       renameActionLabel={renameActionLabel}
-      rootBreadcrumbLabel={rootBreadcrumbLabel}
+      columnTitle={columnTitle}
+      folderFileCounts={folderFileCounts}
+      previewedFilePath={previewedFilePath}
       selectedFilePaths={selectedFilePaths}
       selectionActions={selectionActions}
       statusMessage={statusMessage ?? null}
       onToggleFileSelection={onToggleFileSelection}
-      toolbarActions={toolbarActions}
     />
   );
 };

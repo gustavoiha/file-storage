@@ -389,23 +389,65 @@ describe('FileList', () => {
     expect(screen.getByText('Trashing...')).toBeInTheDocument();
   });
 
-  it('uses custom root breadcrumb label', () => {
-    const onAction = vi.fn();
-    const onOpenFolder = vi.fn();
+  it('renders the column header, formatted sizes, dates, folder counts and the previewed row', () => {
+    render(
+      <FileList
+        files={[
+          {
+            fileNodeId: 'f_1',
+            fullPath: '/trip/IMG_1.jpg',
+            size: 3_040_870,
+            updatedAt: '2025-09-15T12:00:00.000Z'
+          },
+          { fileNodeId: 'f_2', fullPath: '/trip/notes.txt', size: 3_100 }
+        ]}
+        folders={[
+          {
+            folderNodeId: 'd_1',
+            parentFolderNodeId: 'trip',
+            fullPath: '/trip/Day trips',
+            name: 'Day trips',
+            createdAt: '2025-09-01T00:00:00.000Z',
+            updatedAt: '2025-09-01T00:00:00.000Z'
+          }
+        ]}
+        currentFolder="/trip"
+        columnTitle="trip"
+        folderFileCounts={new Map([['/trip/Day trips', 6]])}
+        previewedFilePath="/trip/IMG_1.jpg"
+        actionLabel="Trash"
+        onOpenFolder={vi.fn()}
+        onAction={vi.fn()}
+      />
+    );
 
+    expect(screen.getByRole('heading', { name: 'trip · 1 folder, 2 files' })).toBeInTheDocument();
+    expect(screen.getByText('6 files')).toBeInTheDocument();
+    expect(screen.getByText('2.9 MB')).toBeInTheDocument();
+    expect(screen.getByText('3 KB')).toBeInTheDocument();
+    expect(screen.getByText('Sep 15, 2025')).toBeInTheDocument();
+    expect(document.querySelector('[data-file-path="/trip/IMG_1.jpg"]')).toHaveAttribute('aria-current', 'true');
+    expect(document.querySelector('[data-file-path="/trip/notes.txt"]')).not.toHaveAttribute('aria-current');
+    expect(screen.queryByRole('navigation')).not.toBeInTheDocument();
+    expect(screen.getByText('Modified')).toBeInTheDocument();
+  });
+
+  it('hides the Size and Modified column labels above the empty state', () => {
     render(
       <FileList
         files={[]}
         folders={[]}
-        currentFolder="/"
-        pendingFolderPaths={[]}
-        rootBreadcrumbLabel="My Dockspace"
+        currentFolder="/trip"
+        columnTitle="trip"
         actionLabel="Trash"
-        onOpenFolder={onOpenFolder}
-        onAction={onAction}
+        emptyState={<p>Upload your first files</p>}
+        onOpenFolder={vi.fn()}
+        onAction={vi.fn()}
       />
     );
 
-    expect(screen.getByRole('button', { name: 'My Dockspace' })).toBeInTheDocument();
+    expect(screen.getByText('Upload your first files')).toBeInTheDocument();
+    expect(screen.queryByText('Modified')).not.toBeInTheDocument();
+    expect(screen.queryByText('Size')).not.toBeInTheDocument();
   });
 });

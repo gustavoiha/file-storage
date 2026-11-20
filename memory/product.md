@@ -12,13 +12,15 @@ Dockspace: a self-hosted, single-tenant cloud file storage app on AWS (minimal G
 
 ## Roadmap
 ### In progress / next
-- T-0001 File navigability (issue #5): single folder view, parent-folder context, side preview panel. Human chose Option 1 (Miller columns); PR #6 merged to main (e031ebc). Deploying: the human allowed the prod deploy with the dedicated profile `file-storage-prod-agent` (2026-11-20).
+All open tasks have their own issues (#11-#16, sub-issues of request #5) since 2026-11-20. All six wait on the human (deploy permissions, infra hold decision, T-0005 design pick).
 
-- T-0002 Show file sizes in folder listings (follow-up from T-0001, needs backend). In engineering.
-- T-0003 Accessibility fixes on the files page (contrast, nested checkbox, h1; follow-up from T-0001). PR #7 merged to main (8a56afc); prod web deploy waiting on a local permission.
-- T-0004 Remaining axe findings: phone preview h1 and dockspace list role (follow-up from T-0003). PR #9 merged to main (66c72ab); prod web deploy waiting on a local permission.
-- T-0005 Make multi-select reachable on touch phones (follow-up from T-0003). In design (3 options for the human).
-- T-0006 Visible keyboard focus ring on dockspace cards (follow-up from T-0004). In engineering.
+- T-0001 File navigability (issue #11, request #5): single folder view, parent-folder context, side preview panel. Human chose Option 1 (Miller columns); PR #6 merged to main (e031ebc). Prod web deploy blocked by the local permission guard; waiting on the human.
+
+- T-0002 Show file sizes in folder listings (issue #12, follow-up from T-0001, needs backend). PR #8 ready; on hold: prod infra deploy would also delete the ImageAnalysis queues from PRs #1-#3, waiting on the human.
+- T-0003 Accessibility fixes on the files page (issue #13; contrast, nested checkbox, h1; follow-up from T-0001). PR #7 merged to main (8a56afc); prod web deploy waiting on a local permission.
+- T-0004 (issue #14) Remaining axe findings: phone preview h1 and dockspace list role (follow-up from T-0003). PR #9 merged to main (66c72ab); prod web deploy waiting on a local permission.
+- T-0005 Make multi-select reachable on touch phones (issue #15, follow-up from T-0003). 3 design options posted; waiting on the human's pick.
+- T-0006 Visible keyboard focus ring on dockspace cards (issue #16, follow-up from T-0004). PR #10 ready; merge blocked by local permissions, waiting on the human.
 
 ### Backlog (from TODO.md, no tasks yet)
 - Dockspace types (Photos/Videos and Generic Files) with type-specific upload rules and UI; media dockspaces are folderless and use albums. Plan: plans/dockspace-types-and-media-album-plan.md (partly in place: the media page exists).
@@ -26,11 +28,11 @@ Dockspace: a self-hosted, single-tenant cloud file storage app on AWS (minimal G
 - S3 bucket replication (CRR/SRR) for disaster recovery.
 
 ## Task index
-| Task | Issue | Title | Status | Owner |
-|------|-------|-------|--------|-------|
-| T-0001 | #5 | File navigability: single folder view, parent context, side preview | awaiting-human | Deployment |
-| T-0002 | #5 | Show file sizes in folder listings (backend size field) | awaiting-human | Engineering |
-| T-0003 | #5 | Accessibility fixes on the dockspace files page | awaiting-human | Engineering |
-| T-0004 | #5 | Remaining axe findings: phone preview h1, dockspace list role | awaiting-human | Engineering |
-| T-0005 | #5 | Make multi-select reachable on touch phones | awaiting-human | Design |
-| T-0006 | #5 | Visible keyboard focus ring on dockspace cards | awaiting-human | Engineering |
+| Task | Issue | Request | Title | Status | Owner |
+|------|-------|---------|-------|--------|-------|
+| T-0001 | #11 | #5 | File navigability: single folder view, parent context, side preview | awaiting-human | Deployment |
+| T-0002 | #12 | #5 | Show file sizes in folder listings (backend size field) | awaiting-human | Engineering |
+| T-0003 | #13 | #5 | Accessibility fixes on the dockspace files page | awaiting-human | Engineering |
+| T-0004 | #14 | #5 | Remaining axe findings: phone preview h1, dockspace list role | awaiting-human | Engineering |
+| T-0005 | #15 | #5 | Make multi-select reachable on touch phones | awaiting-human | Design |
+| T-0006 | #16 | #5 | Visible keyboard focus ring on dockspace cards | awaiting-human | Engineering |

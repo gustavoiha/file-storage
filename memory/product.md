@@ -34,4 +34,4 @@ All open tasks have their own issues (#11-#16, sub-issues of request #5) since 2
 | T-0003 | #13 | #5 | Accessibility fixes on the dockspace files page | done | Deployment |
 | T-0004 | #14 | #5 | Remaining axe findings: phone preview h1, dockspace list role | done | Deployment |
 | T-0005 | #15 | #5 | Make multi-select reachable on touch phones | awaiting-human | Design |
-| T-0006 | #16 | #5 | Visible keyboard focus ring on dockspace cards | deploying | Deployment |
+| T-0006 | #16 | #5 | Visible keyboard focus ring on dockspace cards | awaiting-human | Deployment |

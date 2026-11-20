@@ -3145,11 +3145,60 @@ button.dockspace-crumbs__crumb:focus-visible {
   display: none;
 }
 
-.dockspace-files--phone .dockspace-browser__file-actions-trigger {
-  opacity: 1;
-  pointer-events: auto;
-  width: 2.75rem;
-  height: 2.75rem;
+/* Phone rows have no ⋯ button: press and hold opens the row menu (T-0005).
+   Keep the platform's own long-press callout, text selection and tap flash out of the way. */
+.dockspace-files--phone .dockspace-browser__file-item,
+.dockspace-files--phone .dockspace-browser__folder-item,
+.dockspace-files--phone .dockspace-browser__file-open,
+.dockspace-files--phone .dockspace-browser__folder-button {
+  -webkit-touch-callout: none;
+  -webkit-user-select: none;
+  user-select: none;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.dockspace-files--phone .dockspace-browser__file-open[data-pressed='true'],
+.dockspace-files--phone .dockspace-browser__folder-button[data-pressed='true'] {
+  background: rgba(77, 168, 255, 0.18);
+  transform: scale(0.985);
+  transition: transform 0.12s ease, background-color 0.12s ease;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .dockspace-files--phone .dockspace-browser__file-open[data-pressed='true'],
+  .dockspace-files--phone .dockspace-browser__folder-button[data-pressed='true'] {
+    transform: none;
+  }
+}
+
+/* Selection mode on phone: folders are dimmed and inert. */
+.dockspace-files--phone .dockspace-browser__folder-row[data-selection-mode='true'] {
+  opacity: 0.55;
+}
+
+.dockspace-files--phone .dockspace-browser__folder-button[aria-disabled='true'] {
+  cursor: default;
+}
+
+.dockspace-files--phone .dockspace-browser__selection-meta:focus {
+  outline: none;
+}
+
+.dockspace-files--phone .dockspace-browser__selection-meta:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+
+.dockspace-files--phone .dockspace-browser__selection-actions .ui-button,
+.dockspace-files--phone .dockspace-browser__file-actions-item,
+.dockspace-files--phone .dockspace-page-menu__item {
+  min-height: 2.75rem;
+}
+
+.dockspace-files--phone .dockspace-browser__file-actions-item,
+.dockspace-files--phone .dockspace-page-menu__item {
+  display: flex;
+  align-items: center;
 }
 
 .dockspace-files--phone .dockspace-column--current .dockspace-browser__folder-row,

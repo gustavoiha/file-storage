@@ -1,10 +1,25 @@
-import { useMemo, useState, type CSSProperties, type ReactNode } from 'react';
+import {
+  useCallback,
+  useEffect,
+  useId,
+  useLayoutEffect,
+  useMemo,
+  useRef,
+  useState,
+  type CSSProperties,
+  type KeyboardEvent,
+  type MouseEvent,
+  type ReactNode,
+  type RefObject
+} from 'react';
 import { ChevronRight, Folder } from 'lucide-react';
 import { Button } from '@/components/ui/Button';
 import { DropdownMenu } from '@/components/ui/DropdownMenu';
 import { useFileIconForPath } from '@/hooks/useFileIconForPath';
+import { useLongPress, type LongPressHandlers } from '@/hooks/useLongPress';
 import type { FileRecord, FolderRecord } from '@/lib/apiTypes';
 import { formatFileSize, formatModifiedDate, pluralize } from '@/lib/fileFormat';
+import { positionMenuAtPoint, type MenuPoint } from '@/lib/menuPosition';
 
 interface FileListProps {
   files: FileRecord[];
@@ -28,6 +43,16 @@ interface FileListProps {
   previewedFilePath?: string | null | undefined;
   selectedFilePaths?: string[];
   selectionActions?: ReactNode;
+  /**
+   * Overrides "selection mode = at least one file selected" (the phone layout keeps the mode on
+   * with nothing selected after "Select items").
+   */
+  selectionMode?: boolean | undefined;
+  /**
+   * Phone layout: rows have no `⋯` button; press and hold (or the ContextMenu key / Shift+F10)
+   * opens a row's menu, and folders cannot be opened while in selection mode.
+   */
+  isPhoneLayout?: boolean | undefined;
   statusMessage?: string | null;
   actionLabel: string;
   actionLabelWhilePending?: string | undefined;
@@ -219,11 +244,175 @@ const PendingFileRow = ({ filePath, progress, status }: PendingFileRowProps) => 
   );
 };
 
+interface UseRowMenuOptions {
+  /** Phone layout: long-press and the ContextMenu key / Shift+F10 open the menu; the native menu is always suppressed. */
+  isPhoneLayout: boolean;
+  /** Whether the row currently has a menu to open (false in selection mode on phone, or with no actions). */
+  canOpenMenu: boolean;
+  /** Whether a right-click should be swallowed even when no menu opens (file rows in selection mode). */
+  suppressNativeContextMenu: boolean;
+}
+
+interface RowMenu {
+  isMenuOpen: boolean;
+  menuStyle: CSSProperties | undefined;
+  itemRef: RefObject<HTMLLIElement>;
+  buttonRef: RefObject<HTMLButtonElement>;
+  isPressed: boolean;
+  longPressHandlers: LongPressHandlers | undefined;
+  onOpenChange: (nextOpen: boolean) => void;
+  onContextMenu: (event: MouseEvent<HTMLLIElement>) => void;
+  onButtonKeyDown: ((event: KeyboardEvent<HTMLButtonElement>) => void) | undefined;
+  clearAnchor: () => void;
+}
+
+/** Shared menu state for file and folder rows: anchor point, viewport clamping, long-press and keyboard opening. */
+const useRowMenu = ({ isPhoneLayout, canOpenMenu, suppressNativeContextMenu }: UseRowMenuOptions): RowMenu => {
+  const [isMenuOpen, setIsMenuOpen] = useState(false);
+  const [menuAnchor, setMenuAnchor] = useState<MenuPoint | null>(null);
+  const [menuPosition, setMenuPosition] = useState<MenuPoint | null>(null);
+  const itemRef = useRef<HTMLLIElement>(null);
+  const buttonRef = useRef<HTMLButtonElement>(null);
+  const openedFromRowRef = useRef(false);
+
+  const openAt = useCallback((point: MenuPoint) => {
+    openedFromRowRef.current = true;
+    setMenuAnchor(point);
+    setMenuPosition(null);
+    setIsMenuOpen(true);
+  }, []);
+
+  const longPress = useLongPress({ enabled: isPhoneLayout && canOpenMenu, onLongPress: openAt });
+
+  // Keep a menu opened at a point inside the viewport (8 px margin, flipped up near the bottom).
+  useLayoutEffect(() => {
+    if (!isMenuOpen || !menuAnchor) {
+      return;
+    }
+
+    const menu = itemRef.current?.querySelector<HTMLElement>('[role="menu"]');
+    if (!menu) {
+      return;
+    }
+
+    const rect = menu.getBoundingClientRect();
+    setMenuPosition(
+      positionMenuAtPoint(
+        menuAnchor,
+        { width: rect.width, height: rect.height },
+        { width: window.innerWidth, height: window.innerHeight }
+      )
+    );
+  }, [isMenuOpen, menuAnchor]);
+
+  // On phone, a menu opened from the row (press and hold, ContextMenu key) takes focus.
+  useEffect(() => {
+    if (!isMenuOpen || !isPhoneLayout || !openedFromRowRef.current) {
+      return;
+    }
+
+    itemRef.current?.querySelector<HTMLElement>('[role="menuitem"]')?.focus();
+  }, [isMenuOpen, isPhoneLayout]);
+
+  useEffect(() => {
+    if (!canOpenMenu && isMenuOpen) {
+      setIsMenuOpen(false);
+      setMenuAnchor(null);
+      setMenuPosition(null);
+    }
+  }, [canOpenMenu, isMenuOpen]);
+
+  const onOpenChange = useCallback(
+    (nextOpen: boolean) => {
+      if (!nextOpen) {
+        setMenuAnchor(null);
+        setMenuPosition(null);
+        if (isPhoneLayout && openedFromRowRef.current) {
+          // Return focus to the row when closing left it nowhere (Escape, tap outside),
+          // but not when a menu action moved it on (e.g. into a dialog).
+          setTimeout(() => {
+            const active = document.activeElement;
+            if (!active || active === document.body) {
+              buttonRef.current?.focus();
+            }
+          }, 0);
+        }
+
+        openedFromRowRef.current = false;
+      }
+
+      setIsMenuOpen(nextOpen);
+    },
+    [isPhoneLayout]
+  );
+
+  const onContextMenu = useCallback(
+    (event: MouseEvent<HTMLLIElement>) => {
+      if (!canOpenMenu) {
+        if (isPhoneLayout || suppressNativeContextMenu) {
+          event.preventDefault();
+        }
+
+        return;
+      }
+
+      event.preventDefault();
+      if (isPhoneLayout && (longPress.claim() || isMenuOpen)) {
+        // The long-press (or the keyboard handler) already opened this menu.
+        return;
+      }
+
+      openAt({ x: event.clientX, y: event.clientY });
+    },
+    [canOpenMenu, isMenuOpen, isPhoneLayout, longPress, openAt, suppressNativeContextMenu]
+  );
+
+  const onButtonKeyDown = useCallback(
+    (event: KeyboardEvent<HTMLButtonElement>) => {
+      if (!canOpenMenu || !(event.key === 'ContextMenu' || (event.key === 'F10' && event.shiftKey))) {
+        return;
+      }
+
+      event.preventDefault();
+      const rect = event.currentTarget.getBoundingClientRect();
+      openAt({ x: rect.left, y: rect.bottom });
+    },
+    [canOpenMenu, openAt]
+  );
+
+  const menuStyle: CSSProperties | undefined = menuAnchor
+    ? {
+        position: 'fixed',
+        left: menuPosition?.x ?? menuAnchor.x + 4,
+        top: menuPosition?.y ?? menuAnchor.y + 4,
+        right: 'auto'
+      }
+    : undefined;
+
+  return {
+    isMenuOpen,
+    menuStyle,
+    itemRef,
+    buttonRef,
+    isPressed: longPress.isPressed,
+    longPressHandlers: isPhoneLayout ? longPress.handlers : undefined,
+    onOpenChange,
+    onContextMenu,
+    onButtonKeyDown: isPhoneLayout ? onButtonKeyDown : undefined,
+    clearAnchor: () => {
+      setMenuAnchor(null);
+      setMenuPosition(null);
+    }
+  };
+};
+
 interface FolderRowProps {
   actionLabel: string;
+  actionsHintId?: string | undefined;
   downloadActionLabel?: string | undefined;
   fileCount?: number | undefined;
   folderEntry: FolderEntry;
+  isPhoneLayout: boolean;
   moveActionLabel?: string | undefined;
   onAction?: ((folderPath: string) => void) | undefined;
   onDownload?: ((folderPath: string) => void) | undefined;
@@ -236,9 +425,11 @@ interface FolderRowProps {
 
 const FolderRow = ({
   actionLabel,
+  actionsHintId,
   downloadActionLabel,
   fileCount,
   folderEntry,
+  isPhoneLayout,
   moveActionLabel,
   onAction,
   onDownload,
@@ -248,40 +439,42 @@ const FolderRow = ({
   selectionMode,
   renameActionLabel
 }: FolderRowProps) => {
-  const [isMenuOpen, setIsMenuOpen] = useState(false);
-  const [menuAnchor, setMenuAnchor] = useState<{ x: number; y: number } | null>(null);
   const hasRenameAction = Boolean(onRenameFolder && renameActionLabel);
   const hasDownloadAction = Boolean(onDownload && downloadActionLabel);
   const hasMoveAction = Boolean(onMoveFolder && moveActionLabel);
   const hasTrashAction = Boolean(onAction);
   const hasMenuActions = hasRenameAction || hasDownloadAction || hasMoveAction || hasTrashAction;
-  const menuStyle: CSSProperties | undefined = menuAnchor
-    ? {
-        position: 'fixed',
-        left: menuAnchor.x + 4,
-        top: menuAnchor.y + 4,
-        right: 'auto'
-      }
-    : undefined;
+  // On phone, selection mode is about files: folders can be neither opened nor acted on.
+  const isInertForSelection = isPhoneLayout && selectionMode;
+  const canOpenMenu = hasMenuActions && !isInertForSelection;
+  const rowMenu = useRowMenu({ isPhoneLayout, canOpenMenu, suppressNativeContextMenu: false });
 
   return (
     <li
+      ref={rowMenu.itemRef}
       className="resource-list__item dockspace-browser__folder-item"
-      onContextMenu={(event) => {
-        if (!hasMenuActions) {
-          return;
-        }
-
-        event.preventDefault();
-        setMenuAnchor({ x: event.clientX, y: event.clientY });
-        setIsMenuOpen(true);
-      }}
+      onContextMenu={rowMenu.onContextMenu}
     >
-      <div className="dockspace-browser__folder-row">
+      <div
+        className="dockspace-browser__folder-row"
+        data-selection-mode={selectionMode ? 'true' : 'false'}
+      >
         <button
+          ref={rowMenu.buttonRef}
           type="button"
           className="dockspace-browser__folder-button"
-          onClick={() => onOpenFolder(folderEntry.fullPath)}
+          aria-disabled={isInertForSelection ? 'true' : undefined}
+          aria-describedby={isPhoneLayout && canOpenMenu ? actionsHintId : undefined}
+          data-pressed={rowMenu.isPressed ? 'true' : undefined}
+          onKeyDown={rowMenu.onButtonKeyDown}
+          {...rowMenu.longPressHandlers}
+          onClick={() => {
+            if (isInertForSelection) {
+              return;
+            }
+
+            onOpenFolder(folderEntry.fullPath);
+          }}
         >
           <span className="dockspace-browser__item-main">
             {selectionMode ? (
@@ -307,31 +500,25 @@ const FolderRow = ({
           ) : null}
           <ChevronRight className="dockspace-browser__folder-chevron" size={14} aria-hidden="true" />
         </button>
-        {hasMenuActions ? (
+        {canOpenMenu ? (
           <DropdownMenu
             className="dockspace-browser__file-actions"
-            isOpen={isMenuOpen}
-            onOpenChange={(nextOpen) => {
-              if (!nextOpen) {
-                setMenuAnchor(null);
-              }
-
-              setIsMenuOpen(nextOpen);
-            }}
+            isOpen={rowMenu.isMenuOpen}
+            onOpenChange={rowMenu.onOpenChange}
           >
-            <DropdownMenu.Trigger
-              className="dockspace-browser__file-actions-trigger"
-              aria-label={`Actions for ${folderEntry.name}`}
-              onClick={() => {
-                setMenuAnchor(null);
-              }}
-            >
-              ⋯
-            </DropdownMenu.Trigger>
+            {isPhoneLayout ? null : (
+              <DropdownMenu.Trigger
+                className="dockspace-browser__file-actions-trigger"
+                aria-label={`Actions for ${folderEntry.name}`}
+                onClick={rowMenu.clearAnchor}
+              >
+                ⋯
+              </DropdownMenu.Trigger>
+            )}
             <DropdownMenu.Content
               label={`Actions for ${folderEntry.name}`}
               className="dockspace-browser__file-actions-menu"
-              style={menuStyle}
+              style={rowMenu.menuStyle}
             >
               {hasRenameAction ? (
                 <DropdownMenu.Button
@@ -377,8 +564,10 @@ const FolderRow = ({
 
 interface FileRowProps {
   actionLabel: string;
+  actionsHintId?: string | undefined;
   downloadActionLabel?: string | undefined;
   file: FileRecord;
+  isPhoneLayout: boolean;
   isPreviewed: boolean;
   isSelected: boolean;
   selectionMode: boolean;
@@ -392,8 +581,10 @@ interface FileRowProps {
 
 const FileRow = ({
   actionLabel,
+  actionsHintId,
   downloadActionLabel,
   file,
+  isPhoneLayout,
   isPreviewed,
   isSelected,
   selectionMode,
@@ -405,33 +596,17 @@ const FileRow = ({
   renameActionLabel
 }: FileRowProps) => {
   const FileIcon = useFileIconForPath(file.fullPath);
-  const [isMenuOpen, setIsMenuOpen] = useState(false);
-  const [menuAnchor, setMenuAnchor] = useState<{ x: number; y: number } | null>(null);
   const fileName = fileNameFromPath(file.fullPath);
-  const menuStyle: CSSProperties | undefined = menuAnchor
-    ? {
-        position: 'fixed',
-        left: menuAnchor.x + 4,
-        top: menuAnchor.y + 4,
-        right: 'auto'
-      }
-    : undefined;
+  const canOpenMenu = !selectionMode;
+  const rowMenu = useRowMenu({ isPhoneLayout, canOpenMenu, suppressNativeContextMenu: true });
 
   return (
     <li
+      ref={rowMenu.itemRef}
       className={`resource-list__item dockspace-browser__file-item${
         isPreviewed ? ' dockspace-browser__file-item--previewed' : ''
       }`}
-      onContextMenu={(event) => {
-        if (selectionMode) {
-          event.preventDefault();
-          return;
-        }
-
-        event.preventDefault();
-        setMenuAnchor({ x: event.clientX, y: event.clientY });
-        setIsMenuOpen(true);
-      }}
+      onContextMenu={rowMenu.onContextMenu}
     >
       <div
         className="dockspace-browser__file-row"
@@ -439,10 +614,15 @@ const FileRow = ({
         data-selection-mode={selectionMode ? 'true' : 'false'}
       >
         <button
+          ref={rowMenu.buttonRef}
           type="button"
           className="dockspace-browser__file-open"
           data-file-path={file.fullPath}
           aria-current={isPreviewed ? 'true' : undefined}
+          aria-describedby={isPhoneLayout && canOpenMenu ? actionsHintId : undefined}
+          data-pressed={rowMenu.isPressed ? 'true' : undefined}
+          onKeyDown={rowMenu.onButtonKeyDown}
+          {...rowMenu.longPressHandlers}
           onClick={() => {
             if (selectionMode && onToggleSelection) {
               onToggleSelection(file.fullPath);
@@ -482,31 +662,25 @@ const FileRow = ({
             />
           </span>
         ) : null}
-        {!selectionMode ? (
+        {canOpenMenu ? (
           <DropdownMenu
             className="dockspace-browser__file-actions"
-            isOpen={isMenuOpen}
-            onOpenChange={(nextOpen) => {
-              if (!nextOpen) {
-                setMenuAnchor(null);
-              }
-
-              setIsMenuOpen(nextOpen);
-            }}
+            isOpen={rowMenu.isMenuOpen}
+            onOpenChange={rowMenu.onOpenChange}
           >
-            <DropdownMenu.Trigger
-              className="dockspace-browser__file-actions-trigger"
-              aria-label={`Actions for ${fileName}`}
-              onClick={() => {
-                setMenuAnchor(null);
-              }}
-            >
-              ⋯
-            </DropdownMenu.Trigger>
+            {isPhoneLayout ? null : (
+              <DropdownMenu.Trigger
+                className="dockspace-browser__file-actions-trigger"
+                aria-label={`Actions for ${fileName}`}
+                onClick={rowMenu.clearAnchor}
+              >
+                ⋯
+              </DropdownMenu.Trigger>
+            )}
             <DropdownMenu.Content
               label={`Actions for ${fileName}`}
               className="dockspace-browser__file-actions-menu"
-              style={menuStyle}
+              style={rowMenu.menuStyle}
             >
               {onRename && renameActionLabel ? (
                 <DropdownMenu.Button
@@ -571,6 +745,8 @@ interface FolderModeListProps {
   previewedFilePath?: string | null | undefined;
   selectedFilePaths: string[];
   selectionActions?: ReactNode;
+  selectionMode?: boolean | undefined;
+  isPhoneLayout: boolean;
   statusMessage?: string | null;
   onToggleFileSelection?: ((fullPath: string) => void) | undefined;
 }
@@ -604,12 +780,15 @@ const FolderModeList = ({
   previewedFilePath,
   selectedFilePaths,
   selectionActions,
+  selectionMode: selectionModeOverride,
+  isPhoneLayout,
   statusMessage,
   onToggleFileSelection
 }: FolderModeListProps) => {
   const normalizedCurrentFolder = normalizeFolderPath(currentFolder);
   const selectedFilePathSet = useMemo(() => new Set(selectedFilePaths), [selectedFilePaths]);
-  const selectionMode = selectedFilePaths.length > 0;
+  const selectionMode = selectionModeOverride ?? selectedFilePaths.length > 0;
+  const actionsHintId = useId();
 
   const directFiles = useMemo(
     () =>
@@ -732,6 +911,11 @@ const FolderModeList = ({
         </div>
       ) : null}
 
+      {isPhoneLayout ? (
+        <span id={actionsHintId} className="visually-hidden">
+          Press and hold, or press Shift+F10, for more actions.
+        </span>
+      ) : null}
       <ul className="resource-list dockspace-browser__list">
         {!hasEntries ? (
           <li className="resource-list__item dockspace-browser__empty-item">
@@ -756,6 +940,8 @@ const FolderModeList = ({
             <FolderRow
               key={folderEntry.fullPath}
               actionLabel={actionLabel}
+              actionsHintId={actionsHintId}
+              isPhoneLayout={isPhoneLayout}
               downloadActionLabel={folderDownloadActionLabel}
               fileCount={folderFileCounts?.get(folderEntry.fullPath)}
               folderEntry={folderEntry}
@@ -784,6 +970,8 @@ const FolderModeList = ({
           <FileRow
             key={file.fullPath}
             actionLabel={actionLabel}
+            actionsHintId={actionsHintId}
+            isPhoneLayout={isPhoneLayout}
             downloadActionLabel={downloadActionLabel}
             file={file}
             isPreviewed={previewedFilePath === file.fullPath}
@@ -838,6 +1026,8 @@ export const FileList = ({
   secondaryActionVariant = 'secondary',
   selectedFilePaths = [],
   selectionActions,
+  selectionMode,
+  isPhoneLayout = false,
   statusMessage,
   onSecondaryAction
 }: FileListProps) => {
@@ -888,6 +1078,8 @@ export const FileList = ({
       previewedFilePath={previewedFilePath}
       selectedFilePaths={selectedFilePaths}
       selectionActions={selectionActions}
+      selectionMode={selectionMode}
+      isPhoneLayout={isPhoneLayout}
       statusMessage={statusMessage ?? null}
       onToggleFileSelection={onToggleFileSelection}
     />

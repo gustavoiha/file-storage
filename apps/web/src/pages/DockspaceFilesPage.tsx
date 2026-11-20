@@ -187,6 +187,8 @@ export const DockspaceFilesPage = () => {
   const [moveFolderDialogError, setMoveFolderDialogError] = useState<string | null>(null);
   const [moveFilesSummary, setMoveFilesSummary] = useState<string | null>(null);
   const [selectedFilePaths, setSelectedFilePaths] = useState<string[]>([]);
+  // Phone only: selection mode stays on with nothing selected after "Select items".
+  const [isSelectionModeOn, setIsSelectionModeOn] = useState(false);
   const [pendingFolderTrashPaths, setPendingFolderTrashPaths] = useState<string[]>([]);
   const [previewFile, setPreviewFile] = useState<FileRecord | null>(null);
   const [discoveredFoldersByNodeId, setDiscoveredFoldersByNodeId] = useState<
@@ -200,7 +202,12 @@ export const DockspaceFilesPage = () => {
   const columnsRef = useRef<HTMLDivElement>(null);
   const focusFileRowAfterCloseRef = useRef<string | null>(null);
   const phoneListScrollYRef = useRef(0);
+  const selectionStatusRef = useRef<HTMLParagraphElement>(null);
+  const focusSelectionStatusRef = useRef(false);
   const isPhone = useMediaQuery(PHONE_LAYOUT_QUERY);
+  const selectionMode = isPhone
+    ? isSelectionModeOn || selectedFilePaths.length > 0
+    : selectedFilePaths.length > 0;
   const currentFolder = folderTrail[folderTrail.length - 1] ?? ROOT_FOLDER;
   const parentFolder = folderTrail.length > 1 ? folderTrail[folderTrail.length - 2] ?? null : null;
 
@@ -291,6 +298,7 @@ export const DockspaceFilesPage = () => {
 
   useEffect(() => {
     setSelectedFilePaths([]);
+    setIsSelectionModeOn(false);
     setIsMoveFilesDialogOpen(false);
     setMoveFilesDialogError(null);
     setIsMoveFolderDialogOpen(false);
@@ -576,8 +584,24 @@ export const DockspaceFilesPage = () => {
     );
   }, []);
 
+  const startSelectionMode = useCallback(() => {
+    setMoveFilesSummary(null);
+    focusSelectionStatusRef.current = true;
+    setIsSelectionModeOn(true);
+  }, []);
+
+  useEffect(() => {
+    if (!selectionMode || !focusSelectionStatusRef.current) {
+      return;
+    }
+
+    focusSelectionStatusRef.current = false;
+    selectionStatusRef.current?.focus();
+  }, [selectionMode]);
+
   const cancelSelectionMode = useCallback(() => {
     setSelectedFilePaths([]);
+    setIsSelectionModeOn(false);
     setMoveFilesSummary(null);
     setMoveFilesDialogError(null);
     setIsMoveFilesDialogOpen(false);
@@ -646,6 +670,7 @@ export const DockspaceFilesPage = () => {
 
           if (!failedCount) {
             setSelectedFilePaths([]);
+            setIsSelectionModeOn(false);
             setIsMoveFilesDialogOpen(false);
             return;
           }
@@ -1102,10 +1127,17 @@ export const DockspaceFilesPage = () => {
   }, [uploadDialog.activeUploads]);
 
   const selectionActions =
-    selectedFilePaths.length > 0 ? (
+    selectionMode ? (
       <>
-        <p className="dockspace-browser__selection-meta">
-          {selectedFilePaths.length} file{selectedFilePaths.length === 1 ? '' : 's'} selected
+        <p
+          ref={selectionStatusRef}
+          className="dockspace-browser__selection-meta"
+          aria-live="polite"
+          tabIndex={-1}
+        >
+          {selectedFilePaths.length
+            ? `${selectedFilePaths.length} file${selectedFilePaths.length === 1 ? '' : 's'} selected`
+            : 'Tap files to select'}
         </p>
         <div className="dockspace-browser__selection-actions">
           {moveFilesSummary ? (
@@ -1113,7 +1145,7 @@ export const DockspaceFilesPage = () => {
               {moveFilesSummary}
             </p>
           ) : null}
-          <Button type="button" onClick={openMoveFilesDialog}>
+          <Button type="button" onClick={openMoveFilesDialog} disabled={!selectedFilePaths.length}>
             Move
           </Button>
           <Button type="button" variant="secondary" onClick={cancelSelectionMode}>
@@ -1188,6 +1220,8 @@ export const DockspaceFilesPage = () => {
       pendingUploadFolderPaths={pendingUploadFolderPaths}
       selectedFilePaths={selectedFilePaths}
       selectionActions={selectionActions}
+      selectionMode={selectionMode}
+      isPhoneLayout={isPhone}
       statusMessage={moveFilesSummary}
       actionLabel="Move to Trash"
       downloadActionLabel="Download"
@@ -1259,9 +1293,10 @@ export const DockspaceFilesPage = () => {
               onAddFolder={addFolderDialog.openDialog}
               onUploadFiles={openFilePicker}
               onUploadFolder={openFolderPicker}
+              onStartSelection={files.length > 0 && !selectionMode ? startSelectionMode : undefined}
             />
           </div>
-          {parentFolder ? (
+          {parentFolder && !selectionMode ? (
             <ParentFolderChips
               dockspaceId={dockspaceId}
               parentEntry={parentFolder}
@@ -1276,7 +1311,9 @@ export const DockspaceFilesPage = () => {
           </section>
           <div className="dockspace-files__floating">
             {uploadsCard}
-            <UploadMenu variant="floating" onUploadFiles={openFilePicker} onUploadFolder={openFolderPicker} />
+            {selectionMode ? null : (
+              <UploadMenu variant="floating" onUploadFiles={openFilePicker} onUploadFolder={openFolderPicker} />
+            )}
           </div>
         </>
       )}

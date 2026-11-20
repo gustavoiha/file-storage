@@ -50,6 +50,8 @@ interface DockspaceOptionsMenuProps {
   onAddFolder: () => void;
   onUploadFiles: () => void;
   onUploadFolder: () => void;
+  /** Phone only: shows "Select items" first, which turns on selection mode. Omit to hide it. */
+  onStartSelection?: (() => void) | undefined;
 }
 
 export const DockspaceOptionsMenu = ({
@@ -57,7 +59,8 @@ export const DockspaceOptionsMenu = ({
   variant,
   onAddFolder,
   onUploadFiles,
-  onUploadFolder
+  onUploadFolder,
+  onStartSelection
 }: DockspaceOptionsMenuProps) => {
   const [isOpen, setIsOpen] = useState(false);
   const label = variant === 'phone' ? 'Folder options' : 'Dockspace options';
@@ -68,6 +71,17 @@ export const DockspaceOptionsMenu = ({
         ⋯
       </DropdownMenu.Trigger>
       <DropdownMenu.Content className="dockspace-page-menu__dropdown" label={label}>
+        {variant === 'phone' && onStartSelection ? (
+          <>
+            <DropdownMenu.Button
+              className="dockspace-page-menu__item dockspace-page-menu__item--button"
+              onClick={onStartSelection}
+            >
+              Select items
+            </DropdownMenu.Button>
+            <DropdownMenu.Separator />
+          </>
+        ) : null}
         {variant === 'phone' ? (
           <>
             <DropdownMenu.Button

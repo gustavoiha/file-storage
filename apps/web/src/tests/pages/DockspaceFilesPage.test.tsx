@@ -398,6 +398,76 @@ describe('DockspaceFilesPage', () => {
     expect(screen.queryByRole('region', { name: 'Uploads' })).not.toBeInTheDocument();
   });
 
+  describe('file sizes from the folder listing', () => {
+    const SIZED_TREE: Record<string, DirectoryChildRecord[]> = {
+      ...DEFAULT_TREE,
+      d_travel: [
+        folder('d_japan', 'Japan 2024', 'd_travel'),
+        folder('d_lisbon', 'Lisbon 2025', 'd_travel'),
+        { ...file('f_packing', 'packing-list.txt', 'd_travel'), size: 2_048 }
+      ],
+      d_lisbon: [
+        folder('d_daytrips', 'Day trips', 'd_lisbon'),
+        { ...file('f_4821', 'IMG_4821.jpg', 'd_lisbon'), size: 1_572_864 },
+        file('f_4826', 'IMG_4826.jpg', 'd_lisbon')
+      ]
+    };
+
+    const fileSizeText = (fullPath: string) =>
+      fileRow(fullPath).querySelector('.dockspace-browser__file-size')?.textContent;
+
+    it('shows sizes in the current column and ancestor columns, with the Size header', () => {
+      mockState.tree = SIZED_TREE;
+      renderPage();
+
+      expect(column('My Dockspace').querySelector('.dockspace-browser')).toHaveAttribute(
+        'data-has-sizes',
+        'false'
+      );
+
+      openFolderInCurrentColumn('Travel');
+      openFolderInCurrentColumn('Lisbon 2025');
+
+      const current = column('Lisbon 2025');
+      expect(current.querySelector('.dockspace-browser')).toHaveAttribute('data-has-sizes', 'true');
+      expect(within(current).getByText('Size')).toBeInTheDocument();
+      expect(fileSizeText('/Travel/Lisbon 2025/IMG_4821.jpg')).toBe('1.5 MB');
+      // A file without a stored size renders no size, without breaking the row.
+      expect(fileSizeText('/Travel/Lisbon 2025/IMG_4826.jpg')).toBe('');
+
+      const ancestorFile = within(column('Travel')).getByRole('button', { name: /packing-list\.txt/ });
+      expect(within(ancestorFile).getByText('2 KB')).toBeInTheDocument();
+    });
+
+    it('uses the listing size in the preview details', async () => {
+      mockState.tree = SIZED_TREE;
+      renderPage();
+
+      openFolderInCurrentColumn('Travel');
+      openFolderInCurrentColumn('Lisbon 2025');
+      fireEvent.click(fileRow('/Travel/Lisbon 2025/IMG_4821.jpg'));
+
+      const preview = screen.getByRole('complementary', { name: 'File preview' });
+      expect(within(preview).getByText('1.5 MB')).toBeInTheDocument();
+      // Wait for the download session (which reports another size) and check the listing size still wins.
+      await waitFor(() => expect(within(preview).getByText('JPEG image')).toBeInTheDocument());
+      expect(within(preview).queryByText('2.9 MB')).not.toBeInTheDocument();
+    });
+
+    it('shows sizes in phone rows', () => {
+      mockState.isPhone = true;
+      mockState.tree = SIZED_TREE;
+      renderPage();
+
+      openFolderInCurrentColumn('Travel');
+
+      expect(fileSizeText('/Travel/packing-list.txt')).toBe('2 KB');
+      expect(
+        fileRow('/Travel/packing-list.txt').closest('.dockspace-browser')
+      ).toHaveAttribute('data-has-sizes', 'true');
+    });
+  });
+
   it('uses one folder at a time on phone, with back, sibling chips and a full-width preview', () => {
     mockState.isPhone = true;
     renderPage();

@@ -1955,7 +1955,10 @@ export const buildRecursiveFolderTrashPlan = async (
   };
 };
 
-export { listDirectoryChildrenByParentFolderNodeId } from './repository/folderChildren.js';
+export {
+  getFileNodeSizesByIds,
+  listDirectoryChildrenByParentFolderNodeId
+} from './repository/folderChildren.js';
 
 export const listActiveFolderContents = async (
   userId: string,

@@ -186,7 +186,8 @@ export const AncestorColumn = ({
             file={{
               fileNodeId: item.childId,
               fullPath: buildPathInFolder(entry.fullPath, item.name),
-              updatedAt: item.updatedAt
+              updatedAt: item.updatedAt,
+              ...(typeof item.size === 'number' ? { size: item.size } : {})
             }}
             onOpenFile={onOpenFile}
           />

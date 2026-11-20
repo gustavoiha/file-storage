@@ -88,6 +88,8 @@ export interface DirectoryChildRecord {
   parentFolderNodeId: string;
   createdAt: string;
   updatedAt: string;
+  /** Size in bytes; only present on files whose size is stored. */
+  size?: number;
 }
 
 export interface DirectoryChildrenRecord {

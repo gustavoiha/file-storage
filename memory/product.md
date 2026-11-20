@@ -33,5 +33,5 @@ All open tasks have their own issues (#11-#16, sub-issues of request #5) since 2
 | T-0002 | #12 | #5 | Show file sizes in folder listings (backend size field) | done | Deployment |
 | T-0003 | #13 | #5 | Accessibility fixes on the dockspace files page | done | Deployment |
 | T-0004 | #14 | #5 | Remaining axe findings: phone preview h1, dockspace list role | done | Deployment |
-| T-0005 | #15 | #5 | Make multi-select reachable on touch phones | filtering | Design |
+| T-0005 | #15 | #5 | Make multi-select reachable on touch phones | engineering | Design |
 | T-0006 | #16 | #5 | Visible keyboard focus ring on dockspace cards | done | Deployment |

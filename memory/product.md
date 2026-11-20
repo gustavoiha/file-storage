@@ -14,7 +14,8 @@ Dockspace: a self-hosted, single-tenant cloud file storage app on AWS (minimal G
 ### In progress / next
 All open tasks have their own issues (#11-#16, sub-issues of request #5) since 2026-11-20. 2026-11-20 sweep: the permission and infra-hold blockers are resolved by the setup change (pre-approved prod-deploy.sh, gh pr merge for deployment, drift rules). T-0001, T-0002 and T-0006 have shipped. T-0003 and T-0004 ship with T-0001's deploy of main. Only T-0005 waits on the human (design pick).
 
-- T-0009 Return focus after closing file and folder dialogs (issue #21, from T-0007 testing): engineering since 2026-11-20.
+- T-0009 Return focus after closing file and folder dialogs (issue #21, from T-0007 testing): deploying since 2026-11-20.
+- T-0010 Visible focus on the file list after a dialog closes (issue #24, from T-0009 testing): new; needs T-0009 on main.
 
 ### Shipped
 - 2026-11-20 (prod at cd86cf4): T-0008 Desktop right-click menu takes keyboard focus (#20, PR #22): on desktop, a row menu opened by right-click, ContextMenu key or Shift+F10 focuses its first item, and Escape or a click outside returns focus to the row.
@@ -40,4 +41,5 @@ All open tasks have their own issues (#11-#16, sub-issues of request #5) since 2
 | T-0006 | #16 | #5 | Visible keyboard focus ring on dockspace cards | done | Deployment |
 | T-0007 | #18 | #5 | Arrow-key navigation in dropdown menus | done | Engineering |
 | T-0008 | #20 | #5 | Desktop right-click menu takes keyboard focus | done | Engineering |
-| T-0009 | #21 | #5 | Return focus after closing file and folder dialogs | filtering | Engineering |
+| T-0009 | #21 | #5 | Return focus after closing file and folder dialogs | deploying | Engineering |
+| T-0010 | #24 | #5 | Visible focus on the file list after a dialog closes | new | Product Manager |

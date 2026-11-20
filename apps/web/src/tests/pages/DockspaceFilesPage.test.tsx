@@ -656,6 +656,43 @@ describe('DockspaceFilesPage', () => {
       expect(row).toHaveFocus();
     });
 
+    it('does not swallow the next keyboard activation of the row after a press and hold', () => {
+      renderPage();
+      vi.useFakeTimers();
+      const row = fileRow('/README.md');
+
+      // Release cancelled (no click follows), then Escape and Enter on the row.
+      touchPress(row);
+      act(() => {
+        vi.advanceTimersByTime(500);
+      });
+      fireEvent.pointerUp(row, { pointerType: 'touch', pointerId: 1 });
+      expect(fireEvent.touchEnd(row)).toBe(false);
+      const firstMenu = screen.getByRole('menu', { name: 'Actions for README.md' });
+      fireEvent.keyDown(within(firstMenu).getByRole('menuitem', { name: 'Rename' }), { key: 'Escape' });
+      act(() => {
+        vi.runOnlyPendingTimers();
+      });
+      expect(row).toHaveFocus();
+      fireEvent.click(row);
+      expect(previewRegion()).toBeInTheDocument();
+
+      // Android path: the contextmenu during the hold opens the menu; closing it must also clear the swallow.
+      fireEvent.click(screen.getByRole('button', { name: 'Back to My Dockspace' }));
+      const sameRow = fileRow('/README.md');
+      touchPress(sameRow);
+      expect(fireEvent.contextMenu(sameRow, { clientX: 10, clientY: 10 })).toBe(false);
+      const menu = screen.getByRole('menu', { name: 'Actions for README.md' });
+      fireEvent.pointerUp(sameRow, { pointerType: 'touch', pointerId: 1 });
+      fireEvent.keyDown(within(menu).getByRole('menuitem', { name: 'Rename' }), { key: 'Escape' });
+      act(() => {
+        vi.runOnlyPendingTimers();
+      });
+      expect(screen.queryByRole('menu', { name: 'Actions for README.md' })).not.toBeInTheDocument();
+      fireEvent.click(sameRow);
+      expect(previewRegion()).toBeInTheDocument();
+    });
+
     it('does not cancel the touch release or mousedown of a normal tap', () => {
       renderPage();
       vi.useFakeTimers();

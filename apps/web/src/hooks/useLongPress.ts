@@ -55,6 +55,11 @@ export interface UseLongPressResult {
    * Lets the caller keep focus in the menu it opened if the release still moves focus to the row.
    */
   wasLongPressed: () => boolean;
+  /**
+   * Ends the current long press: call it when the menu it opened closes. A click that was waiting to be
+   * swallowed is no longer expected, so the next keyboard or assistive-tech activation of the row works.
+   */
+  reset: () => void;
 }
 
 const isTouchLike = (pointerType: string | undefined) => pointerType === 'touch' || pointerType === 'pen';
@@ -163,18 +168,26 @@ export const useLongPress = ({
 
   // After a long press, the finger lifting must not act like a tap: cancelling `touchend` stops the
   // compatibility mouse events (mousedown -> focus -> mouseup -> click) the browser would send to the row,
-  // so focus stays in the menu that was just opened.
+  // so focus stays in the menu that was just opened. No click follows a cancelled touchend, so there is
+  // nothing left to swallow: clear the flag, or it would eat the next keyboard activation of the row.
   const onTouchEnd = useCallback((event: TouchEvent<HTMLElement>) => {
     if (firedRef.current && event.cancelable) {
       event.preventDefault();
+      swallowClickRef.current = false;
     }
   }, []);
 
   // Backup for browsers that still send a compatibility mousedown: do not let it move focus to the row.
+  // A real mouse press starts with pointerdown, which clears `firedRef` first, so it is not affected.
   const onMouseDown = useCallback((event: MouseEvent<HTMLElement>) => {
-    if (firedRef.current && swallowClickRef.current) {
+    if (firedRef.current) {
       event.preventDefault();
     }
+  }, []);
+
+  const reset = useCallback(() => {
+    firedRef.current = false;
+    swallowClickRef.current = false;
   }, []);
 
   const wasLongPressed = useCallback(() => firedRef.current, []);
@@ -216,6 +229,7 @@ export const useLongPress = ({
       onTouchEnd
     },
     claim,
-    wasLongPressed
+    wasLongPressed,
+    reset
   };
 };

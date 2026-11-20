@@ -284,6 +284,7 @@ const useRowMenu = ({ isPhoneLayout, canOpenMenu, suppressNativeContextMenu }: U
   }, []);
 
   const longPress = useLongPress({ enabled: isPhoneLayout && canOpenMenu, onLongPress: openAt });
+  const resetLongPress = longPress.reset;
 
   // Keep a menu opened at a point inside the viewport (8 px margin, flipped up near the bottom).
   useLayoutEffect(() => {
@@ -317,11 +318,12 @@ const useRowMenu = ({ isPhoneLayout, canOpenMenu, suppressNativeContextMenu }: U
 
   useEffect(() => {
     if (!canOpenMenu && isMenuOpen) {
+      resetLongPress();
       setIsMenuOpen(false);
       setMenuAnchor(null);
       setMenuPosition(null);
     }
-  }, [canOpenMenu, isMenuOpen]);
+  }, [canOpenMenu, isMenuOpen, resetLongPress]);
 
   const onOpenChange = useCallback(
     (nextOpen: boolean) => {
@@ -340,11 +342,12 @@ const useRowMenu = ({ isPhoneLayout, canOpenMenu, suppressNativeContextMenu }: U
         }
 
         openedFromRowRef.current = false;
+        resetLongPress();
       }
 
       setIsMenuOpen(nextOpen);
     },
-    [isPhoneLayout]
+    [isPhoneLayout, resetLongPress]
   );
 
   const onContextMenu = useCallback(

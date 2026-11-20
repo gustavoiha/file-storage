@@ -45,3 +45,13 @@ Recorded 2026-11-20 by the setup session from a `cdk diff` of origin/main 5678ad
 - Smoke check: the CloudFront domain serves the new build, `/login` renders the sign-in form, and the console shows no errors.
 - Logs: /Users/gustavoiha/Personal/file-storage/.agent-local/logs/prod-deploy-web-20261120T125228Z.log, prod-deploy-diff-20261120T125239Z.log.
 - Prod is now at origin/main `f52c859` for both infra and web.
+
+### 2026-11-20 — T-0005 — web
+- origin/main commit: `8ca7c03` (PR #17 squash-merged). Run as `dockspace-prod-agent-deployer` via `prod-deploy.sh`.
+- Pre-deploy: main was `f52c859`, the commit prod already ran; `prod-deploy.sh diff-pr 17` showed 0 stacks with differences, so there was no drift and no infra impact.
+- Infra: not run. PR #17 is web-only; `prod-deploy.sh diff` at `8ca7c03` shows 0 stacks with differences.
+- Web (`prod-deploy.sh web`): built and synced to `dockspace-site-278820798556-eu-central-1-prod`; invalidated `/*` on E2H7JMCJNME3JF (I1TGBNQYSQKKFGM58WN2I8CFHR). Entry bundle `index-6fh0egiv.js`.
+- Shipped: #17 `8ca7c03` (T-0005).
+- Smoke check: https://dh0djlfa46gz6.cloudfront.net/login serves `index-6fh0egiv.js`, renders the sign-in form, and the console shows no errors.
+- Logs: /Users/gustavoiha/Personal/file-storage/.agent-local/logs/prod-deploy-diff-pr-20261120T133324Z.log, prod-deploy-web-20261120T133421Z.log, prod-deploy-diff-20261120T133432Z.log.
+- Prod is now at origin/main `8ca7c03` for both infra and web.

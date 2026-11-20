@@ -14,10 +14,10 @@ Dockspace: a self-hosted, single-tenant cloud file storage app on AWS (minimal G
 ### In progress / next
 All open tasks have their own issues (#11-#16, sub-issues of request #5) since 2026-11-20. 2026-11-20 sweep: the permission and infra-hold blockers are resolved by the setup change (pre-approved prod-deploy.sh, gh pr merge for deployment, drift rules). T-0001, T-0002 and T-0006 have shipped. T-0003 and T-0004 ship with T-0001's deploy of main. Only T-0005 waits on the human (design pick).
 
-- T-0005 Make multi-select reachable on touch phones (issue #15, PR #17, follow-up from T-0003). Human decided 2026-11-20: on mobile, "Select items" in the Folder options menu enters selection mode; the row `⋯` button is removed and press-and-hold opens the item menu. In engineering round 3 (fix after test round 2).
 - T-0007 Arrow-key navigation in dropdown menus (issue #18, follow-up from T-0005 testing): ArrowUp/Down, Home/End in the shared DropdownMenu. In engineering since 2026-11-20.
 
 ### Shipped
+- 2026-11-20 (prod at 8ca7c03): T-0005 Make multi-select reachable on touch phones (#15, PR #17): on phone, Folder options has "Select items" to enter selection mode; the row `⋯` is gone and press-and-hold (or Shift+F10) opens the item menu.
 - 2026-11-20 (prod at f52c859): T-0006 Visible keyboard focus ring on dockspace cards (#16, PR #10): 2px accent outline with offset on `:focus-visible` for workspace and create cards.
 - 2026-11-20 (prod at 5569c71): T-0002 Show file sizes in folder listings (#12, PR #8): folder-children API returns file sizes, shown in current/ancestor columns, phone rows and the preview.
 - 2026-11-20 (prod at 66c72ab): T-0001 File navigability (#11, PR #6), T-0003 Accessibility fixes on the files page (#13, PR #7), T-0004 Remaining axe findings (#14, PR #9). Also shipped the PR #1-#3 infra drift (image analysis removed, thumbnail Lambda without Docker, DistributionId output).
@@ -34,6 +34,6 @@ All open tasks have their own issues (#11-#16, sub-issues of request #5) since 2
 | T-0002 | #12 | #5 | Show file sizes in folder listings (backend size field) | done | Deployment |
 | T-0003 | #13 | #5 | Accessibility fixes on the dockspace files page | done | Deployment |
 | T-0004 | #14 | #5 | Remaining axe findings: phone preview h1, dockspace list role | done | Deployment |
-| T-0005 | #15 | #5 | Make multi-select reachable on touch phones | deploying | Engineering |
+| T-0005 | #15 | #5 | Make multi-select reachable on touch phones | done | Engineering |
 | T-0006 | #16 | #5 | Visible keyboard focus ring on dockspace cards | done | Deployment |
 | T-0007 | #18 | #5 | Arrow-key navigation in dropdown menus | testing | Engineering |

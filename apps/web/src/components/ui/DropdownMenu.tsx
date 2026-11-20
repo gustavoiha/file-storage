@@ -11,14 +11,19 @@ import {
   type ButtonHTMLAttributes,
   type HTMLAttributes,
   type MouseEvent,
+  type MutableRefObject,
   type ReactElement,
-  type ReactNode
+  type ReactNode,
+  type RefObject
 } from 'react';
 
 interface DropdownMenuContextValue {
   isOpen: boolean;
   close: () => void;
   toggle: () => void;
+  triggerRef: RefObject<HTMLButtonElement>;
+  contentRef: RefObject<HTMLDivElement>;
+  openedFromTriggerRef: MutableRefObject<boolean>;
 }
 
 interface DropdownMenuProps {
@@ -44,6 +49,15 @@ const DropdownMenuContext = createContext<DropdownMenuContextValue | null>(null)
 
 const classNames = (...tokens: Array<string | undefined>) => tokens.filter(Boolean).join(' ');
 
+const MENU_ITEM_SELECTOR = '[role="menuitem"]';
+
+const isItemEnabled = (item: HTMLElement): boolean =>
+  !item.hasAttribute('disabled') && item.getAttribute('aria-disabled') !== 'true';
+
+/** Enabled menu items in DOM order. Separators have no menuitem role, so they are never included. */
+const getEnabledItems = (content: HTMLElement | null): HTMLElement[] =>
+  content ? Array.from(content.querySelectorAll<HTMLElement>(MENU_ITEM_SELECTOR)).filter(isItemEnabled) : [];
+
 const useDropdownMenuContext = (): DropdownMenuContextValue => {
   const context = useContext(DropdownMenuContext);
   if (!context) {
@@ -55,6 +69,11 @@ const useDropdownMenuContext = (): DropdownMenuContextValue => {
 
 const DropdownMenuRoot = ({ children, className, isOpen, onOpenChange }: DropdownMenuProps) => {
   const rootRef = useRef<HTMLDivElement>(null);
+  const triggerRef = useRef<HTMLButtonElement>(null);
+  const contentRef = useRef<HTMLDivElement>(null);
+  // True only when the menu was opened with the trigger button. Menus opened another way
+  // (e.g. the phone long-press on a row) let their owner decide where focus goes on close.
+  const openedFromTriggerRef = useRef(false);
 
   const close = useCallback(() => {
     onOpenChange(false);
@@ -76,9 +95,49 @@ const DropdownMenuRoot = ({ children, className, isOpen, onOpenChange }: Dropdow
     };
 
     const onDocumentKeyDown = (event: KeyboardEvent) => {
+      const active = document.activeElement as HTMLElement | null;
+      const focusIsInMenu = Boolean(active && rootRef.current?.contains(active));
+
       if (event.key === 'Escape') {
+        const shouldRefocusTrigger =
+          focusIsInMenu && openedFromTriggerRef.current && active !== triggerRef.current;
         close();
+        if (shouldRefocusTrigger) {
+          triggerRef.current?.focus();
+        }
+        return;
       }
+
+      if (!focusIsInMenu) {
+        return;
+      }
+
+      const items = getEnabledItems(contentRef.current);
+      if (items.length === 0) {
+        return;
+      }
+
+      const currentIndex = active ? items.indexOf(active) : -1;
+      let nextIndex: number;
+      switch (event.key) {
+        case 'ArrowDown':
+          nextIndex = currentIndex === -1 ? 0 : (currentIndex + 1) % items.length;
+          break;
+        case 'ArrowUp':
+          nextIndex = currentIndex === -1 ? items.length - 1 : (currentIndex - 1 + items.length) % items.length;
+          break;
+        case 'Home':
+          nextIndex = 0;
+          break;
+        case 'End':
+          nextIndex = items.length - 1;
+          break;
+        default:
+          return;
+      }
+
+      event.preventDefault();
+      items[nextIndex]?.focus();
     };
 
     document.addEventListener('pointerdown', onDocumentPointerDown);
@@ -90,11 +149,20 @@ const DropdownMenuRoot = ({ children, className, isOpen, onOpenChange }: Dropdow
     };
   }, [close, isOpen]);
 
+  useEffect(() => {
+    if (!isOpen) {
+      openedFromTriggerRef.current = false;
+    }
+  }, [isOpen]);
+
   const value = useMemo(
     () => ({
       isOpen,
       close,
-      toggle
+      toggle,
+      triggerRef,
+      contentRef,
+      openedFromTriggerRef
     }),
     [close, isOpen, toggle]
   );
@@ -109,11 +177,12 @@ const DropdownMenuRoot = ({ children, className, isOpen, onOpenChange }: Dropdow
 };
 
 const DropdownMenuTrigger = ({ className, onClick, ...props }: DropdownMenuTriggerProps) => {
-  const { isOpen, toggle } = useDropdownMenuContext();
+  const { isOpen, toggle, triggerRef, openedFromTriggerRef } = useDropdownMenuContext();
 
   return (
     <button
       {...props}
+      ref={triggerRef}
       type="button"
       className={classNames('dropdown-menu__trigger', className)}
       aria-haspopup="menu"
@@ -121,6 +190,7 @@ const DropdownMenuTrigger = ({ className, onClick, ...props }: DropdownMenuTrigg
       onClick={(event) => {
         onClick?.(event);
         if (!event.defaultPrevented) {
+          openedFromTriggerRef.current = !isOpen;
           toggle();
         }
       }}
@@ -129,7 +199,7 @@ const DropdownMenuTrigger = ({ className, onClick, ...props }: DropdownMenuTrigg
 };
 
 const DropdownMenuContent = ({ className, label, ...props }: DropdownMenuContentProps) => {
-  const { isOpen } = useDropdownMenuContext();
+  const { isOpen, contentRef } = useDropdownMenuContext();
   if (!isOpen) {
     return null;
   }
@@ -137,6 +207,7 @@ const DropdownMenuContent = ({ className, label, ...props }: DropdownMenuContent
   return (
     <div
       {...props}
+      ref={contentRef}
       role="menu"
       aria-label={label}
       className={classNames('dropdown-menu__content', className)}

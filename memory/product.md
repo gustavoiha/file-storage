@@ -31,4 +31,4 @@ Dockspace: a self-hosted, single-tenant cloud file storage app on AWS (minimal G
 | T-0002 | #5 | Show file sizes in folder listings (backend size field) | testing | Engineering |
 | T-0003 | #5 | Accessibility fixes on the dockspace files page | awaiting-human | Engineering |
 | T-0004 | #5 | Remaining axe findings: phone preview h1, dockspace list role | review | Engineering |
-| T-0005 | #5 | Make multi-select reachable on touch phones | design | Design |
+| T-0005 | #5 | Make multi-select reachable on touch phones | awaiting-human | Design |

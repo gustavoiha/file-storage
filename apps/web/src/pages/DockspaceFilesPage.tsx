@@ -25,6 +25,7 @@ import { MoveFilesDialog } from '@/components/files/MoveFilesDialog';
 import { MoveFolderDialog } from '@/components/files/MoveFolderDialog';
 import { RenameFileDialog } from '@/components/files/RenameFileDialog';
 import { RenameFolderDialog } from '@/components/files/RenameFolderDialog';
+import { findRowByPath } from '@/components/files/useDialogDismiss';
 import {
   DockspaceFilesHeaderActions,
   DockspaceOptionsMenu,
@@ -201,6 +202,8 @@ export const DockspaceFilesPage = () => {
   const folderInputRef = useRef<HTMLInputElement>(null);
   const columnsRef = useRef<HTMLDivElement>(null);
   const focusFileRowAfterCloseRef = useRef<string | null>(null);
+  // Row to focus when a file or folder dialog closes after a submit; undefined = back to the opener.
+  const dialogReturnRowPathRef = useRef<string | undefined>(undefined);
   const phoneListScrollYRef = useRef(0);
   const selectionStatusRef = useRef<HTMLParagraphElement>(null);
   const focusSelectionStatusRef = useRef(false);
@@ -353,11 +356,41 @@ export const DockspaceFilesPage = () => {
     [folders]
   );
 
+  const getDialogReturnFocusTarget = useCallback(() => {
+    const fullPath = dialogReturnRowPathRef.current;
+    return fullPath === undefined ? undefined : findRowByPath(fullPath);
+  }, []);
+
+  // Focus the changed item's row after a submit only when it is still in the current folder.
+  const returnFocusToRowAfterSubmit = useCallback(
+    (fullPath: string | undefined) => {
+      dialogReturnRowPathRef.current =
+        fullPath !== undefined && parentFolderPathFromPath(fullPath) === currentFolder.fullPath
+          ? fullPath
+          : undefined;
+    },
+    [currentFolder.fullPath]
+  );
+
+  const createFolderAndFocusRow = useCallback(
+    async (fullPath: string) => {
+      const response = await createFolder.mutateAsync(fullPath);
+      returnFocusToRowAfterSubmit(fullPath);
+      return response;
+    },
+    [createFolder, returnFocusToRowAfterSubmit]
+  );
+
   const addFolderDialog = useAddFolderDialog({
-    createFolder: createFolder.mutateAsync,
+    createFolder: createFolderAndFocusRow,
     currentFolderPath: currentFolder.fullPath,
     fetchedFolderPaths
   });
+
+  const openAddFolderDialog = useCallback(() => {
+    dialogReturnRowPathRef.current = undefined;
+    addFolderDialog.openDialog();
+  }, [addFolderDialog]);
 
   const uploadDialog = useDockspaceUploadDialog({
     currentFolderPath: currentFolder.fullPath,
@@ -618,6 +651,7 @@ export const DockspaceFilesPage = () => {
       return;
     }
 
+    dialogReturnRowPathRef.current = undefined;
     setMoveFilesDialogDestinationPath(currentFolder.fullPath);
     setMoveFilesDialogError(null);
     setIsMoveFilesDialogOpen(true);
@@ -633,6 +667,7 @@ export const DockspaceFilesPage = () => {
   }, [moveFiles.isPending]);
 
   const openMoveFolderDialog = useCallback((folderPath: string) => {
+    dialogReturnRowPathRef.current = undefined;
     setMoveFilesSummary(null);
     setMoveFolderDialogSourcePath(folderPath);
     setMoveFolderDialogDestinationPath(parentFolderPathFromPath(folderPath));
@@ -675,6 +710,8 @@ export const DockspaceFilesPage = () => {
           );
 
           if (!failedCount) {
+            const firstMovedPath = response.moved[0]?.to;
+            returnFocusToRowAfterSubmit(firstMovedPath);
             setSelectedFilePaths([]);
             setIsSelectionModeOn(false);
             setIsMoveFilesDialogOpen(false);
@@ -694,7 +731,7 @@ export const DockspaceFilesPage = () => {
         }
       })();
     },
-    [moveFiles, moveFilesDialogDestinationPath, selectedFilePaths]
+    [moveFiles, moveFilesDialogDestinationPath, returnFocusToRowAfterSubmit, selectedFilePaths]
   );
 
   const onMoveFolderSubmit = useCallback(
@@ -757,6 +794,11 @@ export const DockspaceFilesPage = () => {
             });
           }
 
+          returnFocusToRowAfterSubmit(
+            wasMoved
+              ? remapPathAfterFolderMove(sourceFolderPath, sourceFolderPath, targetFolderPath)
+              : sourceFolderPath
+          );
           setMoveFilesSummary(
             wasMoved
               ? `Folder moved from ${response.from} to ${response.to}.`
@@ -772,7 +814,13 @@ export const DockspaceFilesPage = () => {
         }
       })();
     },
-    [folderNodeIdByPath, moveFolder, moveFolderDialogDestinationPath, moveFolderDialogSourcePath]
+    [
+      folderNodeIdByPath,
+      moveFolder,
+      moveFolderDialogDestinationPath,
+      moveFolderDialogSourcePath,
+      returnFocusToRowAfterSubmit
+    ]
   );
 
   const openTrashFolderDialog = useCallback((folderPath: string) => {
@@ -976,6 +1024,7 @@ export const DockspaceFilesPage = () => {
   );
 
   const openRenameFileDialog = useCallback((fullPath: string) => {
+    dialogReturnRowPathRef.current = undefined;
     setRenameFileDialogFullPath(fullPath);
     setRenameFileDialogFileName(fileNameFromPath(fullPath));
     setRenameFileDialogValidationError(null);
@@ -1009,6 +1058,9 @@ export const DockspaceFilesPage = () => {
       void (async () => {
         try {
           await renameFile.mutateAsync({ fullPath: renameFileDialogFullPath, newName });
+          returnFocusToRowAfterSubmit(
+            buildPathInFolder(parentFolderPathFromPath(renameFileDialogFullPath), newName)
+          );
           setRenameFileDialogFullPath(null);
           setRenameFileDialogFileName('');
         } catch {
@@ -1016,10 +1068,11 @@ export const DockspaceFilesPage = () => {
         }
       })();
     },
-    [renameFileDialogFileName, renameFileDialogFullPath, renameFile]
+    [renameFileDialogFileName, renameFileDialogFullPath, renameFile, returnFocusToRowAfterSubmit]
   );
 
   const openRenameFolderDialog = useCallback((folderPath: string) => {
+    dialogReturnRowPathRef.current = undefined;
     setRenameFolderDialogPath(folderPath);
     setRenameFolderDialogName(folderNameFromPath(folderPath));
     setRenameFolderDialogValidationError(null);
@@ -1072,6 +1125,7 @@ export const DockspaceFilesPage = () => {
       void (async () => {
         try {
           await renameFolder.mutateAsync({ folderPath: renameFolderDialogPath, newName });
+          returnFocusToRowAfterSubmit(buildPathInFolder(targetParentPath, newName));
           setRenameFolderDialogPath(null);
           setRenameFolderDialogName('');
         } catch (error) {
@@ -1081,7 +1135,7 @@ export const DockspaceFilesPage = () => {
         }
       })();
     },
-    [folders, renameFolder, renameFolderDialogName, renameFolderDialogPath]
+    [folders, renameFolder, renameFolderDialogName, renameFolderDialogPath, returnFocusToRowAfterSubmit]
   );
 
   const renameFileDialogErrorMessage =
@@ -1296,7 +1350,7 @@ export const DockspaceFilesPage = () => {
             <DockspaceOptionsMenu
               dockspaceId={dockspaceId}
               variant="phone"
-              onAddFolder={addFolderDialog.openDialog}
+              onAddFolder={openAddFolderDialog}
               onUploadFiles={openFilePicker}
               onUploadFolder={openFolderPicker}
               onStartSelection={files.length > 0 && !selectionMode ? startSelectionMode : undefined}
@@ -1334,7 +1388,7 @@ export const DockspaceFilesPage = () => {
         <FolderBreadcrumb crumbs={crumbs} onSelectCrumb={onSelectCrumb} />
         <DockspaceFilesHeaderActions
           dockspaceId={dockspaceId}
-          onAddFolder={addFolderDialog.openDialog}
+          onAddFolder={openAddFolderDialog}
           onUploadFiles={openFilePicker}
           onUploadFolder={openFolderPicker}
         />
@@ -1396,6 +1450,7 @@ export const DockspaceFilesPage = () => {
             />
             {isPhone ? phoneLayout : desktopLayout}
             <AddFolderDialog
+              getReturnFocusTarget={getDialogReturnFocusTarget}
               errorMessage={addFolderDialog.errorMessage}
               folderName={addFolderDialog.folderName}
               isOpen={addFolderDialog.isDialogOpen}
@@ -1405,6 +1460,7 @@ export const DockspaceFilesPage = () => {
               onSubmit={addFolderDialog.onSubmit}
             />
             <RenameFileDialog
+              getReturnFocusTarget={getDialogReturnFocusTarget}
               errorMessage={renameFileDialogErrorMessage}
               fileName={renameFileDialogFileName}
               isOpen={Boolean(renameFileDialogFullPath)}
@@ -1419,6 +1475,7 @@ export const DockspaceFilesPage = () => {
               onSubmit={onRenameFileSubmit}
             />
             <RenameFolderDialog
+              getReturnFocusTarget={getDialogReturnFocusTarget}
               errorMessage={renameFolderDialogErrorMessage}
               folderName={renameFolderDialogName}
               isOpen={Boolean(renameFolderDialogPath)}
@@ -1441,6 +1498,7 @@ export const DockspaceFilesPage = () => {
               onSubmit={onTrashFolderSubmit}
             />
             <MoveFilesDialog
+              getReturnFocusTarget={getDialogReturnFocusTarget}
               destinationFolderPath={moveFilesDialogDestinationPath}
               destinationOptions={moveFilesDestinationOptions}
               errorMessage={moveFilesDialogError}
@@ -1457,6 +1515,7 @@ export const DockspaceFilesPage = () => {
               onSubmit={onMoveFilesSubmit}
             />
             <MoveFolderDialog
+              getReturnFocusTarget={getDialogReturnFocusTarget}
               sourceFolderPath={moveFolderDialogSourcePath}
               destinationFolderPath={moveFolderDialogDestinationPath}
               destinationOptions={moveFolderDestinationOptions}

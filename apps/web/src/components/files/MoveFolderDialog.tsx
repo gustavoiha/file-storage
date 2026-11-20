@@ -15,6 +15,7 @@ interface MoveFolderDialogProps {
   isOpen: boolean;
   isSubmitting: boolean;
   sourceFolderPath: string | null;
+  getReturnFocusTarget?: (() => HTMLElement | null | undefined) | undefined;
   onClose: () => void;
   onDestinationFolderPathChange: (nextValue: string) => void;
   onSubmit: FormEventHandler<HTMLFormElement>;
@@ -27,12 +28,13 @@ export const MoveFolderDialog = ({
   isOpen,
   isSubmitting,
   sourceFolderPath,
+  getReturnFocusTarget,
   onClose,
   onDestinationFolderPathChange,
   onSubmit
 }: MoveFolderDialogProps) => {
   const isDialogOpen = isOpen && Boolean(sourceFolderPath);
-  const { onBackdropMouseDown } = useDialogDismiss({ isOpen: isDialogOpen, onClose });
+  const { onBackdropMouseDown } = useDialogDismiss({ isOpen: isDialogOpen, onClose, getReturnFocusTarget });
 
   if (!isDialogOpen || !sourceFolderPath) {
     return null;

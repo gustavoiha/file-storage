@@ -478,6 +478,7 @@ const FolderRow = ({
           ref={rowMenu.buttonRef}
           type="button"
           className="dockspace-browser__folder-button"
+          data-row-path={folderEntry.fullPath}
           aria-disabled={isInertForSelection ? 'true' : undefined}
           aria-describedby={isPhoneLayout && canOpenMenu ? actionsHintId : undefined}
           data-pressed={rowMenu.isPressed ? 'true' : undefined}
@@ -535,6 +536,7 @@ const FolderRow = ({
               label={`Actions for ${folderEntry.name}`}
               className="dockspace-browser__file-actions-menu"
               style={rowMenu.menuStyle}
+              data-return-focus={rowMenu.menuStyle ? 'row' : undefined}
             >
               {hasRenameAction ? (
                 <DropdownMenu.Button
@@ -634,6 +636,7 @@ const FileRow = ({
           type="button"
           className="dockspace-browser__file-open"
           data-file-path={file.fullPath}
+          data-row-path={file.fullPath}
           aria-current={isPreviewed ? 'true' : undefined}
           aria-describedby={isPhoneLayout && canOpenMenu ? actionsHintId : undefined}
           data-pressed={rowMenu.isPressed ? 'true' : undefined}
@@ -698,6 +701,7 @@ const FileRow = ({
               label={`Actions for ${fileName}`}
               className="dockspace-browser__file-actions-menu"
               style={rowMenu.menuStyle}
+              data-return-focus={rowMenu.menuStyle ? 'row' : undefined}
             >
               {onRename && renameActionLabel ? (
                 <DropdownMenu.Button
@@ -933,7 +937,7 @@ const FolderModeList = ({
           Press and hold, or press Shift+F10, for more actions.
         </span>
       ) : null}
-      <ul className="resource-list dockspace-browser__list">
+      <ul className="resource-list dockspace-browser__list" tabIndex={-1} data-dialog-focus-fallback="">
         {!hasEntries ? (
           <li className="resource-list__item dockspace-browser__empty-item">
             {emptyState ?? <p>No files or folders in this location.</p>}

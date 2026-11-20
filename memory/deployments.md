@@ -25,3 +25,13 @@ Recorded 2026-11-20 by the setup session from a `cdk diff` of origin/main 5678ad
 - After the deploy, `prod-deploy.sh diff` shows 0 stacks with differences. Smoke check: the CloudFront domain serves the new build, `/login` renders the sign-in form, and the console shows no errors.
 - Logs: /Users/gustavoiha/Personal/file-storage/.agent-local/logs/prod-deploy-infra-20261120T122653Z.log, prod-deploy-web-20261120T123105Z.log.
 - Prod is now at origin/main `66c72ab` for both infra and web.
+
+### 2026-11-20 — T-0002 — infra + web
+- origin/main commit: `5569c71` (PR #8 squash-merged). Run as `dockspace-prod-agent-deployer` via `prod-deploy.sh`.
+- Pre-deploy `prod-deploy.sh diff` of `66c72ab`: 0 stacks with differences, so no drift was shipped.
+- Infra (`prod-deploy.sh infra`): DockspaceBackend changed (new code for listFolderChildrenFn only). DockspaceIdentity, DockspaceStorage and DockspaceFrontendHosting had no changes.
+- Web (`prod-deploy.sh web`): built and synced to `dockspace-site-278820798556-eu-central-1-prod`; invalidated `/*` on E2H7JMCJNME3JF (I6H2N5KD0ABVI0XAGBF3CNRWPA). Entry bundle `index-COV3TJUL.js`.
+- Shipped: #8 `5569c71` (T-0002).
+- After the deploy, `prod-deploy.sh diff` shows 0 stacks with differences. Smoke check: the CloudFront domain serves `index-COV3TJUL.js`, `/login` renders the sign-in form, and the console shows no errors.
+- Logs: /Users/gustavoiha/Personal/file-storage/.agent-local/logs/prod-deploy-infra-20261120T123614Z.log, prod-deploy-web-20261120T123719Z.log.
+- Prod is now at origin/main `5569c71` for both infra and web.

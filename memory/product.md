@@ -14,11 +14,11 @@ Dockspace: a self-hosted, single-tenant cloud file storage app on AWS (minimal G
 ### In progress / next
 All open tasks have their own issues (#11-#16, sub-issues of request #5) since 2026-11-20. 2026-11-20 sweep: the permission and infra-hold blockers are resolved by the setup change (pre-approved prod-deploy.sh, gh pr merge for deployment, drift rules). T-0001, T-0002 and T-0006 are dispatched to deploying. T-0003 and T-0004 ship with T-0001's deploy of main. Only T-0005 waits on the human (design pick).
 
-- T-0002 Show file sizes in folder listings (issue #12, follow-up from T-0001, needs backend). PR #8 ready; deploying (merge, then prod infra + web; the PR #1-#3 drift is decided by the deployment agent under its drift rules).
 - T-0005 Make multi-select reachable on touch phones (issue #15, follow-up from T-0003). 3 design options posted; waiting on the human's pick.
 - T-0006 Visible keyboard focus ring on dockspace cards (issue #16, follow-up from T-0004). PR #10 ready; deploying (merge + prod web).
 
 ### Shipped
+- 2026-11-20 (prod at 5569c71): T-0002 Show file sizes in folder listings (#12, PR #8): folder-children API returns file sizes, shown in current/ancestor columns, phone rows and the preview.
 - 2026-11-20 (prod at 66c72ab): T-0001 File navigability (#11, PR #6), T-0003 Accessibility fixes on the files page (#13, PR #7), T-0004 Remaining axe findings (#14, PR #9). Also shipped the PR #1-#3 infra drift (image analysis removed, thumbnail Lambda without Docker, DistributionId output).
 
 ### Backlog (from TODO.md, no tasks yet)
@@ -30,7 +30,7 @@ All open tasks have their own issues (#11-#16, sub-issues of request #5) since 2
 | Task | Issue | Request | Title | Status | Owner |
 |------|-------|---------|-------|--------|-------|
 | T-0001 | #11 | #5 | File navigability: single folder view, parent context, side preview | done | Deployment |
-| T-0002 | #12 | #5 | Show file sizes in folder listings (backend size field) | deploying | Deployment |
+| T-0002 | #12 | #5 | Show file sizes in folder listings (backend size field) | done | Deployment |
 | T-0003 | #13 | #5 | Accessibility fixes on the dockspace files page | done | Deployment |
 | T-0004 | #14 | #5 | Remaining axe findings: phone preview h1, dockspace list role | done | Deployment |
 | T-0005 | #15 | #5 | Make multi-select reachable on touch phones | awaiting-human | Design |

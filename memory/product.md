@@ -18,7 +18,7 @@ Dockspace: a self-hosted, single-tenant cloud file storage app on AWS (minimal G
 - T-0003 Accessibility fixes on the files page (contrast, nested checkbox, h1; follow-up from T-0001). PR #7 merged to main (8a56afc); prod web deploy waiting on a local permission.
 - T-0004 Remaining axe findings: phone preview h1 and dockspace list role (follow-up from T-0003). In engineering.
 - T-0005 Make multi-select reachable on touch phones (follow-up from T-0003). In design (3 options for the human).
-- T-0006 Visible keyboard focus ring on dockspace cards (follow-up from T-0004). New.
+- T-0006 Visible keyboard focus ring on dockspace cards (follow-up from T-0004). In engineering.
 
 ### Backlog (from TODO.md, no tasks yet)
 - Dockspace types (Photos/Videos and Generic Files) with type-specific upload rules and UI; media dockspaces are folderless and use albums. Plan: plans/dockspace-types-and-media-album-plan.md (partly in place: the media page exists).
@@ -33,4 +33,4 @@ Dockspace: a self-hosted, single-tenant cloud file storage app on AWS (minimal G
 | T-0003 | #5 | Accessibility fixes on the dockspace files page | awaiting-human | Engineering |
 | T-0004 | #5 | Remaining axe findings: phone preview h1, dockspace list role | deploying | Engineering |
 | T-0005 | #5 | Make multi-select reachable on touch phones | awaiting-human | Design |
-| T-0006 | #5 | Visible keyboard focus ring on dockspace cards | new | - |
+| T-0006 | #5 | Visible keyboard focus ring on dockspace cards | engineering | Engineering |

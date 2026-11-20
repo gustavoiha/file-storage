@@ -1,5 +1,5 @@
 import type { ReactElement } from 'react';
-import { cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
+import { act, cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { ApiError } from '@/lib/apiClient';
 import type { DirectoryChildRecord } from '@/lib/apiTypes';
@@ -173,6 +173,7 @@ beforeEach(() => {
 
 afterEach(() => {
   cleanup();
+  vi.useRealTimers();
 });
 
 describe('DockspaceFilesPage', () => {
@@ -504,6 +505,308 @@ describe('DockspaceFilesPage', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Folder options' }));
     expect(screen.getByRole('menuitem', { name: 'New folder' })).toBeInTheDocument();
     expect(screen.getByRole('menuitem', { name: 'Trash' })).toBeInTheDocument();
+  });
+
+  describe('touch phone: selection mode and press-and-hold menus', () => {
+    const touchPress = (element: HTMLElement, x = 40, y = 120) => {
+      fireEvent.pointerDown(element, { pointerType: 'touch', pointerId: 1, isPrimary: true, clientX: x, clientY: y });
+    };
+
+    const previewRegion = () => screen.queryByRole('complementary', { name: 'File preview' });
+
+    beforeEach(() => {
+      mockState.isPhone = true;
+    });
+
+    it('starts selection mode from Folder options and leaves it with Cancel', () => {
+      renderPage();
+
+      fireEvent.click(screen.getByRole('button', { name: 'Folder options' }));
+      const menu = screen.getByRole('menu', { name: 'Folder options' });
+      const items = within(menu).getAllByRole('menuitem');
+      expect(items[0]).toHaveTextContent('Select items');
+      fireEvent.click(within(menu).getByRole('menuitem', { name: 'Select items' }));
+
+      expect(screen.queryByRole('menu', { name: 'Folder options' })).not.toBeInTheDocument();
+      const status = screen.getByText('Tap files to select');
+      expect(status).toHaveAttribute('aria-live', 'polite');
+      expect(status).toHaveFocus();
+      expect(screen.getByRole('button', { name: 'Move' })).toBeDisabled();
+      expect(screen.getByRole('button', { name: 'Cancel' })).toBeEnabled();
+      expect(screen.getByRole('checkbox', { name: 'Select README.md' })).not.toBeChecked();
+      expect(screen.queryByRole('button', { name: 'Upload' })).not.toBeInTheDocument();
+
+      fireEvent.click(screen.getByRole('button', { name: 'Folder options' }));
+      expect(screen.queryByRole('menuitem', { name: 'Select items' })).not.toBeInTheDocument();
+      fireEvent.click(screen.getByRole('button', { name: 'Folder options' }));
+
+      // Tapping a file row toggles it instead of previewing.
+      fireEvent.click(fileRow('/README.md'));
+      expect(previewRegion()).not.toBeInTheDocument();
+      expect(screen.getByRole('checkbox', { name: 'Select README.md' })).toBeChecked();
+      expect(screen.getByText('1 file selected')).toBeInTheDocument();
+      expect(screen.getByRole('button', { name: 'Move' })).toBeEnabled();
+
+      // Deselecting the last file keeps the mode on.
+      fireEvent.click(fileRow('/README.md'));
+      expect(screen.getByText('Tap files to select')).toBeInTheDocument();
+      expect(screen.getByRole('button', { name: 'Move' })).toBeDisabled();
+
+      // Folders are inert while selecting.
+      const travel = screen.getByRole('button', { name: /^Travel/ });
+      expect(travel).toHaveAttribute('aria-disabled', 'true');
+      fireEvent.click(travel);
+      expect(screen.getByRole('heading', { level: 1, name: 'My Dockspace' })).toBeInTheDocument();
+
+      fireEvent.click(screen.getByRole('button', { name: 'Cancel' }));
+      expect(screen.queryByText('Tap files to select')).not.toBeInTheDocument();
+      expect(screen.getByRole('button', { name: 'Upload' })).toBeInTheDocument();
+
+      fireEvent.click(fileRow('/README.md'));
+      expect(previewRegion()).toBeInTheDocument();
+    });
+
+    it('hides the parent folder chips while selecting and resets the mode when the folder changes', () => {
+      renderPage();
+      openFolderInCurrentColumn('Travel');
+      openFolderInCurrentColumn('Lisbon 2025');
+      expect(screen.getByRole('region', { name: 'In Travel' })).toBeInTheDocument();
+
+      fireEvent.click(screen.getByRole('button', { name: 'Folder options' }));
+      fireEvent.click(screen.getByRole('menuitem', { name: 'Select items' }));
+      expect(screen.queryByRole('region', { name: 'In Travel' })).not.toBeInTheDocument();
+
+      fireEvent.click(screen.getByRole('button', { name: 'Back to Travel' }));
+      expect(screen.getByRole('heading', { level: 1, name: 'Travel' })).toBeInTheDocument();
+      expect(screen.queryByText('Tap files to select')).not.toBeInTheDocument();
+    });
+
+    it('renders no row ⋯ buttons and describes the press-and-hold menu', () => {
+      renderPage();
+
+      expect(screen.queryAllByRole('button', { name: /^Actions for/ })).toHaveLength(0);
+      const hintId = fileRow('/README.md').getAttribute('aria-describedby');
+      expect(hintId).toBeTruthy();
+      expect(document.getElementById(hintId as string)).toHaveTextContent(
+        'Press and hold, or press Shift+F10, for more actions.'
+      );
+      expect(screen.getByRole('button', { name: /^Travel/ })).toHaveAttribute('aria-describedby', hintId);
+      expect(fileRow('/README.md')).not.toHaveAttribute('aria-haspopup');
+    });
+
+    it('opens the item menu after a 500 ms press and swallows the click that follows', () => {
+      renderPage();
+      vi.useFakeTimers();
+      const row = fileRow('/README.md');
+
+      touchPress(row);
+      act(() => {
+        vi.advanceTimersByTime(499);
+      });
+      expect(screen.queryByRole('menu', { name: 'Actions for README.md' })).not.toBeInTheDocument();
+      act(() => {
+        vi.advanceTimersByTime(1);
+      });
+
+      const menu = screen.getByRole('menu', { name: 'Actions for README.md' });
+      expect(within(menu).getByRole('menuitem', { name: 'Rename' })).toHaveFocus();
+      expect(within(menu).getByRole('menuitem', { name: 'Download' })).toBeInTheDocument();
+      expect(within(menu).getByRole('menuitem', { name: 'Move to Trash' })).toBeInTheDocument();
+
+      fireEvent.pointerUp(row, { pointerType: 'touch', pointerId: 1 });
+      fireEvent.click(row);
+      expect(previewRegion()).not.toBeInTheDocument();
+
+      // The Android contextmenu that follows a long-press does not open a second menu.
+      expect(fireEvent.contextMenu(row)).toBe(false);
+      expect(screen.getAllByRole('menu', { name: 'Actions for README.md' })).toHaveLength(1);
+    });
+
+    it('keeps focus in the press-and-hold menu when the finger lifts', () => {
+      renderPage();
+      vi.useFakeTimers();
+      const row = fileRow('/README.md');
+
+      touchPress(row);
+      act(() => {
+        vi.advanceTimersByTime(500);
+      });
+      const menu = screen.getByRole('menu', { name: 'Actions for README.md' });
+      const rename = within(menu).getByRole('menuitem', { name: 'Rename' });
+      expect(rename).toHaveFocus();
+
+      // The release must not act like a tap: no compatibility mouse events, no focus move to the row.
+      fireEvent.pointerUp(row, { pointerType: 'touch', pointerId: 1 });
+      expect(fireEvent.touchEnd(row)).toBe(false);
+      expect(fireEvent.mouseDown(row)).toBe(false);
+
+      // If a browser still focuses the row, focus goes back to the first menu item.
+      act(() => {
+        row.focus();
+      });
+      expect(rename).toHaveFocus();
+      expect(screen.getByRole('menu', { name: 'Actions for README.md' })).toBeInTheDocument();
+
+      // Escape closes the menu and focus returns to the row, where it stays.
+      fireEvent.keyDown(rename, { key: 'Escape' });
+      act(() => {
+        vi.runOnlyPendingTimers();
+      });
+      expect(screen.queryByRole('menu', { name: 'Actions for README.md' })).not.toBeInTheDocument();
+      expect(row).toHaveFocus();
+    });
+
+    it('does not swallow the next keyboard activation of the row after a press and hold', () => {
+      renderPage();
+      vi.useFakeTimers();
+      const row = fileRow('/README.md');
+
+      // Release cancelled (no click follows), then Escape and Enter on the row.
+      touchPress(row);
+      act(() => {
+        vi.advanceTimersByTime(500);
+      });
+      fireEvent.pointerUp(row, { pointerType: 'touch', pointerId: 1 });
+      expect(fireEvent.touchEnd(row)).toBe(false);
+      const firstMenu = screen.getByRole('menu', { name: 'Actions for README.md' });
+      fireEvent.keyDown(within(firstMenu).getByRole('menuitem', { name: 'Rename' }), { key: 'Escape' });
+      act(() => {
+        vi.runOnlyPendingTimers();
+      });
+      expect(row).toHaveFocus();
+      fireEvent.click(row);
+      expect(previewRegion()).toBeInTheDocument();
+
+      // Android path: the contextmenu during the hold opens the menu; closing it must also clear the swallow.
+      fireEvent.click(screen.getByRole('button', { name: 'Back to My Dockspace' }));
+      const sameRow = fileRow('/README.md');
+      touchPress(sameRow);
+      expect(fireEvent.contextMenu(sameRow, { clientX: 10, clientY: 10 })).toBe(false);
+      const menu = screen.getByRole('menu', { name: 'Actions for README.md' });
+      fireEvent.pointerUp(sameRow, { pointerType: 'touch', pointerId: 1 });
+      fireEvent.keyDown(within(menu).getByRole('menuitem', { name: 'Rename' }), { key: 'Escape' });
+      act(() => {
+        vi.runOnlyPendingTimers();
+      });
+      expect(screen.queryByRole('menu', { name: 'Actions for README.md' })).not.toBeInTheDocument();
+      fireEvent.click(sameRow);
+      expect(previewRegion()).toBeInTheDocument();
+    });
+
+    it('does not cancel the touch release or mousedown of a normal tap', () => {
+      renderPage();
+      vi.useFakeTimers();
+      const row = fileRow('/README.md');
+
+      touchPress(row);
+      act(() => {
+        vi.advanceTimersByTime(200);
+      });
+      fireEvent.pointerUp(row, { pointerType: 'touch', pointerId: 1 });
+      expect(fireEvent.touchEnd(row)).toBe(true);
+      expect(fireEvent.mouseDown(row)).toBe(true);
+    });
+
+    it('opens a folder menu on press and hold without opening the folder', () => {
+      renderPage();
+      vi.useFakeTimers();
+      const travel = screen.getByRole('button', { name: /^Travel/ });
+
+      touchPress(travel);
+      act(() => {
+        vi.advanceTimersByTime(500);
+      });
+      const menu = screen.getByRole('menu', { name: 'Actions for Travel' });
+      expect(within(menu).getByRole('menuitem', { name: 'Move' })).toBeInTheDocument();
+
+      fireEvent.pointerUp(travel, { pointerType: 'touch', pointerId: 1 });
+      fireEvent.click(travel);
+      expect(screen.getByRole('heading', { level: 1, name: 'My Dockspace' })).toBeInTheDocument();
+    });
+
+    it('treats a short press as a tap and cancels a press that moves', () => {
+      renderPage();
+      vi.useFakeTimers();
+      const row = fileRow('/README.md');
+
+      touchPress(row);
+      act(() => {
+        vi.advanceTimersByTime(200);
+      });
+      expect(row).toHaveAttribute('data-pressed', 'true');
+      fireEvent.pointerUp(row, { pointerType: 'touch', pointerId: 1 });
+      expect(row).not.toHaveAttribute('data-pressed');
+      act(() => {
+        vi.advanceTimersByTime(600);
+      });
+      expect(screen.queryByRole('menu', { name: 'Actions for README.md' })).not.toBeInTheDocument();
+      fireEvent.click(row);
+      expect(previewRegion()).toBeInTheDocument();
+
+      fireEvent.click(screen.getByRole('button', { name: 'Back to My Dockspace' }));
+      const sameRow = fileRow('/README.md');
+      touchPress(sameRow, 40, 120);
+      fireEvent.pointerMove(sameRow, { pointerType: 'touch', pointerId: 1, clientX: 40, clientY: 131 });
+      act(() => {
+        vi.advanceTimersByTime(600);
+      });
+      expect(screen.queryByRole('menu', { name: 'Actions for README.md' })).not.toBeInTheDocument();
+    });
+
+    it('ignores a mouse press held down and does not open menus in selection mode', () => {
+      renderPage();
+      vi.useFakeTimers();
+
+      fireEvent.pointerDown(fileRow('/README.md'), { pointerType: 'mouse', pointerId: 1, clientX: 5, clientY: 5 });
+      act(() => {
+        vi.advanceTimersByTime(600);
+      });
+      expect(screen.queryByRole('menu', { name: 'Actions for README.md' })).not.toBeInTheDocument();
+      fireEvent.pointerUp(fileRow('/README.md'), { pointerType: 'mouse', pointerId: 1 });
+
+      fireEvent.click(screen.getByRole('button', { name: 'Folder options' }));
+      fireEvent.click(screen.getByRole('menuitem', { name: 'Select items' }));
+      touchPress(fileRow('/README.md'));
+      act(() => {
+        vi.advanceTimersByTime(600);
+      });
+      expect(screen.queryByRole('menu', { name: 'Actions for README.md' })).not.toBeInTheDocument();
+      expect(fireEvent.contextMenu(fileRow('/README.md'))).toBe(false);
+      expect(screen.queryByRole('menu', { name: 'Actions for README.md' })).not.toBeInTheDocument();
+    });
+
+    it('prevents the native context menu and opens the item menu from it once', () => {
+      renderPage();
+
+      expect(fireEvent.contextMenu(fileRow('/README.md'), { clientX: 30, clientY: 40 })).toBe(false);
+      expect(screen.getAllByRole('menu', { name: 'Actions for README.md' })).toHaveLength(1);
+    });
+
+    it('opens the item menu with Shift+F10 and returns focus to the row on Escape', async () => {
+      renderPage();
+      const row = fileRow('/README.md');
+      row.focus();
+
+      fireEvent.keyDown(row, { key: 'F10', shiftKey: true });
+      const menu = screen.getByRole('menu', { name: 'Actions for README.md' });
+      expect(within(menu).getByRole('menuitem', { name: 'Rename' })).toHaveFocus();
+
+      fireEvent.keyDown(document, { key: 'Escape' });
+      expect(screen.queryByRole('menu', { name: 'Actions for README.md' })).not.toBeInTheDocument();
+      await waitFor(() => expect(row).toHaveFocus());
+
+      fireEvent.keyDown(row, { key: 'ContextMenu' });
+      expect(screen.getByRole('menu', { name: 'Actions for README.md' })).toBeInTheDocument();
+    });
+  });
+
+  it('keeps the desktop row menus and has no "Select items" in Dockspace options', () => {
+    renderPage();
+
+    expect(screen.getByRole('button', { name: 'Actions for README.md' })).toBeInTheDocument();
+    expect(fileRow('/README.md')).not.toHaveAttribute('aria-describedby');
+    fireEvent.click(screen.getByRole('button', { name: 'Dockspace options' }));
+    expect(screen.queryByRole('menuitem', { name: 'Select items' })).not.toBeInTheDocument();
   });
 
   it('renders unauthorized notice for 403', () => {

@@ -14,11 +14,11 @@ Dockspace: a self-hosted, single-tenant cloud file storage app on AWS (minimal G
 ### In progress / next
 All open tasks have their own issues (#11-#16, sub-issues of request #5) since 2026-11-20. 2026-11-20 sweep: the permission and infra-hold blockers are resolved by the setup change (pre-approved prod-deploy.sh, gh pr merge for deployment, drift rules). T-0001, T-0002 and T-0006 have shipped. T-0003 and T-0004 ship with T-0001's deploy of main. Only T-0005 waits on the human (design pick).
 
-- T-0007 Arrow-key navigation in dropdown menus (issue #18, follow-up from T-0005 testing): ArrowUp/Down, Home/End in the shared DropdownMenu. Deploying since 2026-11-20.
 - T-0008 Desktop right-click menu takes keyboard focus (issue #20, from T-0007 testing): engineering since 2026-11-20.
 - T-0009 Return focus after closing file and folder dialogs (issue #21, from T-0007 testing): engineering since 2026-11-20.
 
 ### Shipped
+- 2026-11-20 (prod at aa66545): T-0007 Arrow-key navigation in dropdown menus (#18, PR #19): ArrowUp/Down with wrap-around and Home/End in the shared DropdownMenu, skipping disabled items and separators.
 - 2026-11-20 (prod at 8ca7c03): T-0005 Make multi-select reachable on touch phones (#15, PR #17): on phone, Folder options has "Select items" to enter selection mode; the row `⋯` is gone and press-and-hold (or Shift+F10) opens the item menu.
 - 2026-11-20 (prod at f52c859): T-0006 Visible keyboard focus ring on dockspace cards (#16, PR #10): 2px accent outline with offset on `:focus-visible` for workspace and create cards.
 - 2026-11-20 (prod at 5569c71): T-0002 Show file sizes in folder listings (#12, PR #8): folder-children API returns file sizes, shown in current/ancestor columns, phone rows and the preview.
@@ -38,6 +38,6 @@ All open tasks have their own issues (#11-#16, sub-issues of request #5) since 2
 | T-0004 | #14 | #5 | Remaining axe findings: phone preview h1, dockspace list role | done | Deployment |
 | T-0005 | #15 | #5 | Make multi-select reachable on touch phones | done | Engineering |
 | T-0006 | #16 | #5 | Visible keyboard focus ring on dockspace cards | done | Deployment |
-| T-0007 | #18 | #5 | Arrow-key navigation in dropdown menus | deploying | Engineering |
+| T-0007 | #18 | #5 | Arrow-key navigation in dropdown menus | done | Engineering |
 | T-0008 | #20 | #5 | Desktop right-click menu takes keyboard focus | engineering | Engineering |
 | T-0009 | #21 | #5 | Return focus after closing file and folder dialogs | engineering | Engineering |

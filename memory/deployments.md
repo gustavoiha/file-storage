@@ -55,3 +55,13 @@ Recorded 2026-11-20 by the setup session from a `cdk diff` of origin/main 5678ad
 - Smoke check: https://dh0djlfa46gz6.cloudfront.net/login serves `index-6fh0egiv.js`, renders the sign-in form, and the console shows no errors.
 - Logs: /Users/gustavoiha/Personal/file-storage/.agent-local/logs/prod-deploy-diff-pr-20261120T133324Z.log, prod-deploy-web-20261120T133421Z.log, prod-deploy-diff-20261120T133432Z.log.
 - Prod is now at origin/main `8ca7c03` for both infra and web.
+
+### 2026-11-20 — T-0007 — web
+- origin/main commit: `aa66545` (PR #19 squash-merged). Run as `dockspace-prod-agent-deployer` via `prod-deploy.sh`.
+- Pre-deploy: PR #19 branched before PR #17; merged locally with origin/main `8ca7c03` it passed typecheck, 152 web tests and the build. `prod-deploy.sh diff-pr 19` showed 0 stacks with differences. Main was `8ca7c03`, which prod already ran, so no drift.
+- Infra: not run. PR #19 is web-only; `prod-deploy.sh diff` at `aa66545` shows 0 stacks with differences.
+- Web (`prod-deploy.sh web`): built and synced to `dockspace-site-278820798556-eu-central-1-prod`; invalidated `/*` on E2H7JMCJNME3JF (IDW3W46I0FT0RRADPM7RA8QM8G). Entry bundle `index-Bzyj_-1v.js`.
+- Shipped: #19 `aa66545` (T-0007).
+- Smoke check: https://dh0djlfa46gz6.cloudfront.net/login serves `index-Bzyj_-1v.js`, renders the sign-in form, and the console shows no errors.
+- Logs: /Users/gustavoiha/Personal/file-storage/.agent-local/logs/prod-deploy-diff-pr-20261120T133751Z.log, prod-deploy-web-20261120T133850Z.log, prod-deploy-diff-20261120T133858Z.log.
+- Prod is now at origin/main `aa66545` for both infra and web.

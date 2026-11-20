@@ -307,14 +307,14 @@ const useRowMenu = ({ isPhoneLayout, canOpenMenu, suppressNativeContextMenu }: U
     );
   }, [isMenuOpen, menuAnchor]);
 
-  // On phone, a menu opened from the row (press and hold, ContextMenu key) takes focus.
+  // A menu opened from the row (right-click, press and hold, ContextMenu key, Shift+F10) takes focus.
   useEffect(() => {
-    if (!isMenuOpen || !isPhoneLayout || !openedFromRowRef.current) {
+    if (!isMenuOpen || !openedFromRowRef.current) {
       return;
     }
 
     itemRef.current?.querySelector<HTMLElement>('[role="menuitem"]')?.focus();
-  }, [isMenuOpen, isPhoneLayout]);
+  }, [isMenuOpen]);
 
   useEffect(() => {
     if (!canOpenMenu && isMenuOpen) {
@@ -330,8 +330,8 @@ const useRowMenu = ({ isPhoneLayout, canOpenMenu, suppressNativeContextMenu }: U
       if (!nextOpen) {
         setMenuAnchor(null);
         setMenuPosition(null);
-        if (isPhoneLayout && openedFromRowRef.current) {
-          // Return focus to the row when closing left it nowhere (Escape, tap outside),
+        if (openedFromRowRef.current) {
+          // Return focus to the row when closing left it nowhere (Escape, click or tap outside),
           // but not when a menu action moved it on (e.g. into a dialog).
           setTimeout(() => {
             const active = document.activeElement;
@@ -347,7 +347,7 @@ const useRowMenu = ({ isPhoneLayout, canOpenMenu, suppressNativeContextMenu }: U
 
       setIsMenuOpen(nextOpen);
     },
-    [isPhoneLayout, resetLongPress]
+    [resetLongPress]
   );
 
   const onContextMenu = useCallback(
@@ -361,7 +361,7 @@ const useRowMenu = ({ isPhoneLayout, canOpenMenu, suppressNativeContextMenu }: U
       }
 
       event.preventDefault();
-      if (isPhoneLayout && (longPress.claim() || isMenuOpen)) {
+      if ((isPhoneLayout && longPress.claim()) || isMenuOpen) {
         // The long-press (or the keyboard handler) already opened this menu.
         return;
       }
@@ -412,7 +412,7 @@ const useRowMenu = ({ isPhoneLayout, canOpenMenu, suppressNativeContextMenu }: U
     longPressHandlers: isPhoneLayout ? longPress.handlers : undefined,
     onOpenChange,
     onContextMenu,
-    onButtonKeyDown: isPhoneLayout ? onButtonKeyDown : undefined,
+    onButtonKeyDown,
     onButtonFocus: isPhoneLayout ? onButtonFocus : undefined,
     clearAnchor: () => {
       setMenuAnchor(null);

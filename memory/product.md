@@ -16,6 +16,8 @@ Dockspace: a self-hosted, single-tenant cloud file storage app on AWS (minimal G
 
 - T-0002 Show file sizes in folder listings (follow-up from T-0001, needs backend). In engineering.
 - T-0003 Accessibility fixes on the files page (contrast, nested checkbox, h1; follow-up from T-0001). In engineering.
+- T-0004 Remaining axe findings: phone preview h1 and dockspace list role (follow-up from T-0003). New.
+- T-0005 Make multi-select reachable on touch phones (follow-up from T-0003). New.
 
 ### Backlog (from TODO.md, no tasks yet)
 - Dockspace types (Photos/Videos and Generic Files) with type-specific upload rules and UI; media dockspaces are folderless and use albums. Plan: plans/dockspace-types-and-media-album-plan.md (partly in place: the media page exists).
@@ -27,4 +29,6 @@ Dockspace: a self-hosted, single-tenant cloud file storage app on AWS (minimal G
 |------|-------|-------|--------|-------|
 | T-0001 | #5 | File navigability: single folder view, parent context, side preview | awaiting-human | Deployment |
 | T-0002 | #5 | Show file sizes in folder listings (backend size field) | testing | Engineering |
-| T-0003 | #5 | Accessibility fixes on the dockspace files page | filtering | Engineering |
+| T-0003 | #5 | Accessibility fixes on the dockspace files page | deploying | Engineering |
+| T-0004 | #5 | Remaining axe findings: phone preview h1, dockspace list role | new | - |
+| T-0005 | #5 | Make multi-select reachable on touch phones | new | - |

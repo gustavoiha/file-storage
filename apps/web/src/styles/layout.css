@@ -197,6 +197,9 @@
 
 .dockspace-grid__list {
   display: contents;
+  margin: 0;
+  padding: 0;
+  list-style: none;
 }
 
 .dockspace-grid__item {

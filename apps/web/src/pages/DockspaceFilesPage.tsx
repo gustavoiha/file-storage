@@ -243,7 +243,8 @@ export const DockspaceFilesPage = () => {
           (item): FileRecord => ({
             fileNodeId: item.childId,
             fullPath: buildPathInFolder(currentFolder.fullPath, item.name),
-            updatedAt: item.updatedAt
+            updatedAt: item.updatedAt,
+            ...(typeof item.size === 'number' ? { size: item.size } : {})
           })
         ),
     [currentFolder.fullPath, filesQuery.data?.items]

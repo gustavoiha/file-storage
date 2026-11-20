@@ -16,3 +16,12 @@ Recorded 2026-11-20 by the setup session from a `cdk diff` of origin/main 5678ad
   #9 `66c72ab` (T-0004, web/a11y). Check them with `prod-deploy.sh diff` and the PR file lists.
 - Web app: last deployed commit unknown. Treat prod web as older than origin/main.
 - DockspaceIdentity and DockspaceStorage had no differences.
+
+### 2026-11-20 — T-0001 (with T-0003, T-0004 and baseline drift) — infra + web
+- origin/main commit: `66c72ab`. Run as `dockspace-prod-agent-deployer` via `prod-deploy.sh`.
+- Infra (`prod-deploy.sh infra`): DockspaceBackend changed (destroyed analyzeImageFn, its role, policy and event source mapping, ImageAnalysisJobsQueue, its DLQ, queue policy and SNS subscription; replaced generateThumbnailFn with a zip bundle on nodejs24.x). DockspaceFrontendHosting changed (new `DistributionId` output). DockspaceIdentity and DockspaceStorage had no changes.
+- Web (`prod-deploy.sh web`): built and synced to `dockspace-site-278820798556-eu-central-1-prod`; invalidated `/*` on E2H7JMCJNME3JF (I23O08ABLB31MBXHHHVGP70YJG). Entry bundle `index-jTdMD4Ks.js`.
+- Shipped: #1 `b9445ba`, #2 `a9c79a3`, #3 `5678adc` (baseline drift); #6 `e031ebc` (T-0001); #7 `8a56afc` (T-0003); #9 `66c72ab` (T-0004).
+- After the deploy, `prod-deploy.sh diff` shows 0 stacks with differences. Smoke check: the CloudFront domain serves the new build, `/login` renders the sign-in form, and the console shows no errors.
+- Logs: /Users/gustavoiha/Personal/file-storage/.agent-local/logs/prod-deploy-infra-20261120T122653Z.log, prod-deploy-web-20261120T123105Z.log.
+- Prod is now at origin/main `66c72ab` for both infra and web.

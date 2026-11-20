@@ -7,6 +7,8 @@
   --text-muted: #9d9dac;
   --accent: #4da8ff;
   --accent-soft: #2f79c9;
+  /* Fill behind white text: 5.09:1 with #fff (WCAG AA). */
+  --accent-strong: #1f6fc4;
   --border: #3a3a42;
   --error: #ff5f7f;
   --info: #4da8ff;

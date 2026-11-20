@@ -219,6 +219,43 @@ describe('FileList', () => {
     expect(onOpenFile).not.toHaveBeenCalled();
   });
 
+  it('keeps the select checkbox outside the row button and toggles only selection', () => {
+    const onOpenFile = vi.fn();
+    const onToggleFileSelection = vi.fn();
+
+    render(
+      <FileList
+        files={[
+          {
+            fullPath: '/x.txt',
+            size: 1,
+            state: 'ACTIVE'
+          }
+        ]}
+        folders={[]}
+        currentFolder="/"
+        pendingFolderPaths={[]}
+        selectedFilePaths={[]}
+        actionLabel="Trash"
+        onToggleFileSelection={onToggleFileSelection}
+        onOpenFile={onOpenFile}
+        onOpenFolder={vi.fn()}
+        onAction={vi.fn()}
+      />
+    );
+
+    const checkbox = screen.getByRole('checkbox', { name: 'Select x.txt' });
+    expect(checkbox.closest('button')).toBeNull();
+    expect(document.querySelectorAll('button input, button [tabindex]:not([tabindex="-1"])')).toHaveLength(0);
+
+    fireEvent.click(checkbox);
+    expect(onToggleFileSelection).toHaveBeenCalledWith('/x.txt');
+    expect(onOpenFile).not.toHaveBeenCalled();
+
+    fireEvent.click(screen.getByText('x.txt'));
+    expect(onOpenFile).toHaveBeenCalledTimes(1);
+  });
+
   it('renders folder checkbox placeholder when selection mode is active', () => {
     const onAction = vi.fn();
     const onOpenFolder = vi.fn();

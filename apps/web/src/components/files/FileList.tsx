@@ -433,7 +433,11 @@ const FileRow = ({
         setIsMenuOpen(true);
       }}
     >
-      <div className="dockspace-browser__file-row">
+      <div
+        className="dockspace-browser__file-row"
+        data-selected={isSelected ? 'true' : 'false'}
+        data-selection-mode={selectionMode ? 'true' : 'false'}
+      >
         <button
           type="button"
           className="dockspace-browser__file-open"
@@ -450,11 +454,7 @@ const FileRow = ({
         >
           <span className="dockspace-browser__file-summary">
             <span className="dockspace-browser__file-main">
-              <span
-                className="dockspace-browser__file-icon-slot"
-                data-selected={isSelected ? 'true' : 'false'}
-                data-selection-mode={selectionMode ? 'true' : 'false'}
-              >
+              <span className="dockspace-browser__file-icon-slot">
                 <span className="dockspace-browser__file-icon-wrap">
                   <FileIcon
                     className="dockspace-browser__file-icon"
@@ -463,18 +463,6 @@ const FileRow = ({
                     aria-hidden="true"
                   />
                 </span>
-                {onToggleSelection ? (
-                  <span className="dockspace-browser__file-checkbox-wrap">
-                    <input
-                      type="checkbox"
-                      className="dockspace-browser__row-checkbox"
-                      checked={isSelected}
-                      onChange={() => onToggleSelection(file.fullPath)}
-                      onClick={(event) => event.stopPropagation()}
-                      aria-label={`Select ${fileName}`}
-                    />
-                  </span>
-                ) : null}
               </span>
               <span className="dockspace-browser__file-name">{fileName}</span>
             </span>
@@ -482,6 +470,18 @@ const FileRow = ({
             <span className="dockspace-browser__file-date">{formatModifiedDate(file.updatedAt) ?? ''}</span>
           </span>
         </button>
+        {onToggleSelection ? (
+          // Sibling of the row button (not nested in it), drawn over the icon slot by CSS.
+          <span className="dockspace-browser__file-checkbox-wrap">
+            <input
+              type="checkbox"
+              className="dockspace-browser__row-checkbox"
+              checked={isSelected}
+              onChange={() => onToggleSelection(file.fullPath)}
+              aria-label={`Select ${fileName}`}
+            />
+          </span>
+        ) : null}
         {!selectionMode ? (
           <DropdownMenu
             className="dockspace-browser__file-actions"

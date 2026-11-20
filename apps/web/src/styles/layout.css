@@ -1553,6 +1553,12 @@ a.dockspace-card:focus-visible {
   outline: none;
 }
 
+/* Keyboard focus ring (WCAG 2.4.7): accent outline, ~8:1 against the page background. */
+.dockspace-card:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 3px;
+}
+
 .dockspace-card:hover::before,
 .dockspace-card:focus-visible::before {
   transform: scale(1.01);

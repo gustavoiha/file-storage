@@ -15,7 +15,7 @@ Dockspace: a self-hosted, single-tenant cloud file storage app on AWS (minimal G
 - T-0001 File navigability (issue #5): single folder view, parent-folder context, side preview panel. Human chose Option 1 (Miller columns); PR #6 merged to main (e031ebc). Deploying: the human allowed the prod deploy with the dedicated profile `file-storage-prod-agent` (2026-11-20).
 
 - T-0002 Show file sizes in folder listings (follow-up from T-0001, needs backend). In engineering.
-- T-0003 Accessibility fixes on the files page (contrast, nested checkbox, h1; follow-up from T-0001). In engineering.
+- T-0003 Accessibility fixes on the files page (contrast, nested checkbox, h1; follow-up from T-0001). PR #7 merged to main (8a56afc); prod web deploy waiting on a local permission.
 - T-0004 Remaining axe findings: phone preview h1 and dockspace list role (follow-up from T-0003). In engineering.
 - T-0005 Make multi-select reachable on touch phones (follow-up from T-0003). In design (3 options for the human).
 
@@ -29,6 +29,6 @@ Dockspace: a self-hosted, single-tenant cloud file storage app on AWS (minimal G
 |------|-------|-------|--------|-------|
 | T-0001 | #5 | File navigability: single folder view, parent context, side preview | awaiting-human | Deployment |
 | T-0002 | #5 | Show file sizes in folder listings (backend size field) | testing | Engineering |
-| T-0003 | #5 | Accessibility fixes on the dockspace files page | deploying | Engineering |
+| T-0003 | #5 | Accessibility fixes on the dockspace files page | awaiting-human | Engineering |
 | T-0004 | #5 | Remaining axe findings: phone preview h1, dockspace list role | engineering | Engineering |
 | T-0005 | #5 | Make multi-select reachable on touch phones | design | Design |

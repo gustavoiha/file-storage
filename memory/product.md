@@ -33,4 +33,4 @@ Dockspace: a self-hosted, single-tenant cloud file storage app on AWS (minimal G
 | T-0003 | #5 | Accessibility fixes on the dockspace files page | awaiting-human | Engineering |
 | T-0004 | #5 | Remaining axe findings: phone preview h1, dockspace list role | awaiting-human | Engineering |
 | T-0005 | #5 | Make multi-select reachable on touch phones | awaiting-human | Design |
-| T-0006 | #5 | Visible keyboard focus ring on dockspace cards | review | Engineering |
+| T-0006 | #5 | Visible keyboard focus ring on dockspace cards | testing | Engineering |

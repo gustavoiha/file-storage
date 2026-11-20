@@ -1,4 +1,4 @@
-import { cleanup, fireEvent, render, screen } from '@testing-library/react';
+import { act, cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { FileList } from '@/components/files/FileList';
 
@@ -486,5 +486,100 @@ describe('FileList', () => {
     expect(screen.getByText('Upload your first files')).toBeInTheDocument();
     expect(screen.queryByText('Modified')).not.toBeInTheDocument();
     expect(screen.queryByText('Size')).not.toBeInTheDocument();
+  });
+  describe('desktop row menu focus', () => {
+    const renderDesktopList = () =>
+      render(
+        <FileList
+          files={[{ fullPath: '/x.txt', size: 1, state: 'ACTIVE' }]}
+          folders={[
+            {
+              folderNodeId: 'f_docs',
+              parentFolderNodeId: 'root',
+              fullPath: '/docs',
+              name: 'docs',
+              createdAt: '2026-01-01T00:00:00.000Z',
+              updatedAt: '2026-01-01T00:00:00.000Z'
+            }
+          ]}
+          currentFolder="/"
+          pendingFolderPaths={[]}
+          actionLabel="Trash"
+          onRename={vi.fn()}
+          folderRenameActionLabel="Rename"
+          onRenameFolder={vi.fn()}
+          onOpenFolder={vi.fn()}
+          onAction={vi.fn()}
+          onActionFolder={vi.fn()}
+        />
+      );
+
+    const rowButton = (name: string) => screen.getByText(name).closest('button') as HTMLButtonElement;
+
+    it('moves focus into a right-click file menu and returns it to the row on Escape', async () => {
+      renderDesktopList();
+      const row = rowButton('x.txt');
+      act(() => {
+        row.focus();
+      });
+
+      fireEvent.contextMenu(row, { clientX: 20, clientY: 30 });
+      const menu = screen.getByRole('menu', { name: 'Actions for x.txt' });
+      expect(within(menu).getAllByRole('menuitem')[0]).toHaveFocus();
+
+      fireEvent.keyDown(document, { key: 'Escape' });
+      expect(screen.queryByRole('menu', { name: 'Actions for x.txt' })).not.toBeInTheDocument();
+      await waitFor(() => expect(row).toHaveFocus());
+    });
+
+    it('opens a folder menu with Shift+F10 and the ContextMenu key, focused, without a second open from contextmenu', async () => {
+      renderDesktopList();
+      const row = rowButton('docs');
+      act(() => {
+        row.focus();
+      });
+
+      fireEvent.keyDown(row, { key: 'F10', shiftKey: true });
+      // Browsers follow the key with a contextmenu event on the focused row; it must not reopen the menu.
+      expect(fireEvent.contextMenu(row)).toBe(false);
+      expect(screen.getAllByRole('menu', { name: 'Actions for docs' })).toHaveLength(1);
+      const menu = screen.getByRole('menu', { name: 'Actions for docs' });
+      expect(within(menu).getAllByRole('menuitem')[0]).toHaveFocus();
+
+      fireEvent.keyDown(document, { key: 'Escape' });
+      await waitFor(() => expect(row).toHaveFocus());
+
+      fireEvent.keyDown(row, { key: 'ContextMenu' });
+      expect(
+        within(screen.getByRole('menu', { name: 'Actions for docs' })).getAllByRole('menuitem')[0]
+      ).toHaveFocus();
+    });
+
+    it('returns focus to the row, not body, after a click outside closes the menu', async () => {
+      renderDesktopList();
+      const row = rowButton('x.txt');
+
+      fireEvent.contextMenu(row, { clientX: 20, clientY: 30 });
+      expect(within(screen.getByRole('menu', { name: 'Actions for x.txt' })).getAllByRole('menuitem')[0]).toHaveFocus();
+
+      fireEvent.pointerDown(document.body);
+      act(() => {
+        (document.activeElement as HTMLElement | null)?.blur();
+      });
+      expect(screen.queryByRole('menu', { name: 'Actions for x.txt' })).not.toBeInTheDocument();
+      await waitFor(() => expect(row).toHaveFocus());
+    });
+
+    it('keeps the ⋯ trigger menu behaviour: focus stays on the trigger', () => {
+      renderDesktopList();
+      const trigger = screen.getByRole('button', { name: 'Actions for x.txt' });
+      act(() => {
+        trigger.focus();
+      });
+
+      fireEvent.click(trigger);
+      expect(screen.getByRole('menu', { name: 'Actions for x.txt' })).toBeInTheDocument();
+      expect(trigger).toHaveFocus();
+    });
   });
 });

@@ -22,7 +22,8 @@ const deferred = (): Deferred => {
 };
 
 const { trashState, restoreFileMock, purgeFileNowMock } = vi.hoisted(() => ({
-  trashState: { items: [] as FileRecord[] },
+  // refetchBeforePurgeResolves: false models the trash refetch landing after the dialog closed.
+  trashState: { items: [] as FileRecord[], refetchBeforePurgeResolves: true },
   restoreFileMock: vi.fn<(target: TrashedFileTarget) => Promise<void>>(async () => {}),
   purgeFileNowMock: vi.fn<(target: TrashedFileTarget) => Promise<void>>(async () => {})
 }));
@@ -39,7 +40,8 @@ vi.mock('@/components/auth/RequireAuth', () => ({
 vi.mock('@/hooks/useFiles', async () => {
   const React = await import('react');
   // Mirrors react-query: isPending is true while the mutation runs, and a successful purge
-  // removes the purged copy from the trash list before mutateAsync resolves.
+  // removes the purged copy from the trash list before mutateAsync resolves (unless a test
+  // sets trashState.refetchBeforePurgeResolves = false and removes it itself, later).
   const useMutationMock = (
     fn: (target: TrashedFileTarget) => Promise<void>,
     onSuccess?: (target: TrashedFileTarget) => void
@@ -64,6 +66,9 @@ vi.mock('@/hooks/useFiles', async () => {
     useRestoreFile: () => useMutationMock(restoreFileMock),
     usePurgeFileNow: () =>
       useMutationMock(purgeFileNowMock, (target) => {
+        if (!trashState.refetchBeforePurgeResolves) {
+          return;
+        }
         trashState.items = trashState.items.filter(
           (item) => item.fileNodeId !== target.fileNodeId
         );
@@ -91,6 +96,7 @@ const newerName = `/docs/report.txt, trashed ${formatDateTime(newerCopy.deletedA
 describe('TrashPage', () => {
   beforeEach(() => {
     trashState.items = [olderCopy, newerCopy];
+    trashState.refetchBeforePurgeResolves = true;
     restoreFileMock.mockReset();
     restoreFileMock.mockImplementation(async () => {});
     purgeFileNowMock.mockReset();
@@ -321,5 +327,244 @@ describe('TrashPage', () => {
     fireEvent.click(within(dialog).getByRole('button', { name: 'Cancel' }));
     expect(screen.queryByRole('dialog')).toBeNull();
     expect(screen.getAllByRole('listitem')).toHaveLength(2);
+  });
+
+  describe('focus after a row leaves the trash', () => {
+    const trashedFile = (name: string, day: number): FileRecord => ({
+      fileNodeId: `file-${name}`,
+      fullPath: `/docs/${name}.txt`,
+      size: 10,
+      deletedAt: `2026-01-${String(day).padStart(2, '0')}T09:00:00.000Z`,
+      state: 'TRASH'
+    });
+    const first = trashedFile('first', 1);
+    const middle = trashedFile('middle', 2);
+    const last = trashedFile('last', 3);
+    const rowName = (file: FileRecord) =>
+      `${file.fullPath}, trashed ${formatDateTime(file.deletedAt)}`;
+    const restoreButton = (file: FileRecord) =>
+      screen.getByRole('button', { name: `Restore ${rowName(file)}` });
+    const purgeButton = (file: FileRecord) =>
+      screen.getByRole('button', { name: `Purge now ${rowName(file)}` });
+    // Mirrors react-query: the trash refetch lands before mutateAsync resolves.
+    const removeFromTrash = async (target: TrashedFileTarget) => {
+      trashState.items = trashState.items.filter((item) => item.fileNodeId !== target.fileNodeId);
+    };
+
+    /** Keyboard user: focus the control, then activate it. */
+    const press = (element: HTMLElement) => {
+      element.focus();
+      expect(document.activeElement).toBe(element);
+      fireEvent.click(element);
+    };
+
+    /** Lets the dialog's own focus restore (a timeout after it closes) run too. */
+    const flushDialogFocusRestore = () =>
+      act(async () => {
+        await new Promise((resolve) => setTimeout(resolve, 0));
+      });
+
+    beforeEach(() => {
+      trashState.items = [first, middle, last];
+    });
+
+    it('moves focus to the next row\'s Restore button after restoring a middle row', async () => {
+      restoreFileMock.mockImplementation(removeFromTrash);
+      render(<TrashPage />);
+
+      press(restoreButton(middle));
+
+      await waitFor(() => expect(screen.getAllByRole('listitem')).toHaveLength(2));
+      expect(document.activeElement).toBe(restoreButton(last));
+    });
+
+    it('moves focus to the previous row\'s Restore button after restoring the last row', async () => {
+      restoreFileMock.mockImplementation(removeFromTrash);
+      render(<TrashPage />);
+
+      press(restoreButton(last));
+
+      await waitFor(() => expect(screen.getAllByRole('listitem')).toHaveLength(2));
+      expect(document.activeElement).toBe(restoreButton(middle));
+    });
+
+    it('moves focus to the empty-trash message after restoring the only row', async () => {
+      trashState.items = [middle];
+      restoreFileMock.mockImplementation(removeFromTrash);
+      render(<TrashPage />);
+
+      press(restoreButton(middle));
+
+      const emptyMessage = await screen.findByText('No files found.');
+      expect(document.activeElement).toBe(emptyMessage);
+      expect(emptyMessage).toHaveAttribute('tabindex', '-1');
+      expect(emptyMessage).toHaveClass('flat-file-list__empty');
+    });
+
+    it('skips a row whose Restore is in progress and falls back to the list when none is left', async () => {
+      trashState.items = [middle, last];
+      const lastRestore = deferred();
+      restoreFileMock.mockImplementation(async (target) => {
+        if (target.fileNodeId === last.fileNodeId) {
+          await lastRestore.promise;
+          return;
+        }
+        await removeFromTrash(target);
+      });
+      render(<TrashPage />);
+
+      fireEvent.click(restoreButton(last));
+      expect(screen.getByRole('button', { name: `Restoring... ${rowName(last)}` })).toBeDisabled();
+      press(restoreButton(middle));
+
+      await waitFor(() => expect(screen.getAllByRole('listitem')).toHaveLength(1));
+      const list = screen.getByRole('list');
+      expect(document.activeElement).toBe(list);
+      expect(list).toHaveAttribute('tabindex', '-1');
+      expect(list).toHaveClass('flat-file-list');
+
+      await act(async () => {
+        lastRestore.resolve();
+        await lastRestore.promise;
+      });
+    });
+
+    it('moves focus once the row leaves the list, when the list updates after the restore resolves', async () => {
+      const restore = deferred();
+      restoreFileMock.mockImplementation(() => restore.promise);
+      const { rerender } = render(<TrashPage />);
+
+      press(restoreButton(middle));
+      await act(async () => {
+        restore.resolve();
+        await restore.promise;
+      });
+      // The row is still listed: focus stays where it is.
+      expect(document.activeElement).toBe(restoreButton(middle));
+
+      trashState.items = [first, last];
+      rerender(<TrashPage />);
+      expect(document.activeElement).toBe(restoreButton(last));
+    });
+
+    it('leaves focus alone when the user moved it elsewhere while the restore ran', async () => {
+      const restore = deferred();
+      restoreFileMock.mockImplementation(async (target) => {
+        await restore.promise;
+        await removeFromTrash(target);
+      });
+      render(<TrashPage />);
+
+      press(restoreButton(middle));
+      const elsewhere = purgeButton(first);
+      elsewhere.focus();
+      await act(async () => {
+        restore.resolve();
+        await restore.promise;
+      });
+
+      await waitFor(() => expect(screen.getAllByRole('listitem')).toHaveLength(2));
+      expect(document.activeElement).toBe(elsewhere);
+    });
+
+    it('keeps focus on the row\'s Restore button after a failed restore', async () => {
+      restoreFileMock.mockRejectedValue(new Error('Restore failed'));
+      render(<TrashPage />);
+
+      press(restoreButton(middle));
+
+      expect(await screen.findByRole('alert')).toHaveTextContent('Restore failed');
+      expect(screen.getAllByRole('listitem')).toHaveLength(3);
+      expect(document.activeElement).toBe(restoreButton(middle));
+    });
+
+    it('moves focus to the next row\'s Restore button once the dialog closes after a purge', async () => {
+      render(<TrashPage />);
+
+      press(purgeButton(middle));
+      const dialog = screen.getByRole('dialog', { name: 'Purge file now' });
+      press(within(dialog).getByRole('button', { name: 'Purge now' }));
+
+      await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull());
+      expect(screen.getAllByRole('listitem')).toHaveLength(2);
+      expect(document.activeElement).toBe(restoreButton(last));
+
+      await flushDialogFocusRestore();
+      expect(document.activeElement).toBe(restoreButton(last));
+    });
+
+    it('moves focus once the row leaves the list, when the list updates after the purge dialog closed', async () => {
+      trashState.refetchBeforePurgeResolves = false;
+      const { rerender } = render(<TrashPage />);
+
+      const opener = purgeButton(middle);
+      press(opener);
+      press(
+        within(screen.getByRole('dialog', { name: 'Purge file now' })).getByRole('button', {
+          name: 'Purge now'
+        })
+      );
+
+      await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull());
+      await flushDialogFocusRestore();
+      // The row is still listed: the dialog hands focus back to its opener.
+      expect(screen.getAllByRole('listitem')).toHaveLength(3);
+      expect(document.activeElement).toBe(opener);
+
+      trashState.items = [first, last];
+      rerender(<TrashPage />);
+      expect(screen.getAllByRole('listitem')).toHaveLength(2);
+      expect(document.activeElement).toBe(restoreButton(last));
+
+      await flushDialogFocusRestore();
+      expect(document.activeElement).toBe(restoreButton(last));
+    });
+
+    it('moves focus to the previous row\'s Restore button after purging the last row', async () => {
+      render(<TrashPage />);
+
+      press(purgeButton(last));
+      press(
+        within(screen.getByRole('dialog', { name: 'Purge file now' })).getByRole('button', {
+          name: 'Purge now'
+        })
+      );
+
+      await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull());
+      await flushDialogFocusRestore();
+      expect(document.activeElement).toBe(restoreButton(middle));
+    });
+
+    it('moves focus to the empty-trash message after purging the only row', async () => {
+      trashState.items = [middle];
+      render(<TrashPage />);
+
+      press(purgeButton(middle));
+      press(
+        within(screen.getByRole('dialog', { name: 'Purge file now' })).getByRole('button', {
+          name: 'Purge now'
+        })
+      );
+
+      await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull());
+      await flushDialogFocusRestore();
+      expect(document.activeElement).toBe(screen.getByText('No files found.'));
+    });
+
+    it('returns focus to the Purge button when the dialog is cancelled after a failed purge', async () => {
+      purgeFileNowMock.mockRejectedValue(new Error('Purge failed'));
+      render(<TrashPage />);
+
+      const opener = purgeButton(middle);
+      press(opener);
+      const dialog = screen.getByRole('dialog', { name: 'Purge file now' });
+      press(within(dialog).getByRole('button', { name: 'Purge now' }));
+      expect(await within(dialog).findByRole('alert')).toHaveTextContent('Purge failed');
+
+      fireEvent.click(within(dialog).getByRole('button', { name: 'Cancel' }));
+      await flushDialogFocusRestore();
+      expect(screen.getAllByRole('listitem')).toHaveLength(3);
+      expect(document.activeElement).toBe(opener);
+    });
   });
 });

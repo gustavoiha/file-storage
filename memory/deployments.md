@@ -96,3 +96,13 @@ Recorded 2026-11-20 by the setup session from a `cdk diff` of origin/main 5678ad
 - Logs: $LOCAL/logs/prod-deploy-diff-pr-20261121T170429Z.log, prod-deploy-diff-20261121T170500Z.log, prod-deploy-web-20261121T170559Z.log, prod-deploy-diff-20261121T170613Z.log.
 - Prod is now at origin/main `9ac7afb` for both infra and web.
 - Housekeeping: removed bucket names, account IDs, distribution/invalidation IDs and absolute paths from earlier entries (the ledger is public).
+
+### 2026-11-21 — T-0011 — web
+- origin/main commit: `f0a598a` (PR #27 squash-merged). Run as `dockspace-prod-agent-deployer` via `prod-deploy.sh`.
+- Pre-deploy: PR #27 was MERGEABLE/CLEAN and already contained origin/main `9ac7afb` (merge commit on the branch), so the tested head is what landed. `prod-deploy.sh diff-pr 27` showed 0 stacks with differences. Main was `9ac7afb`, which prod already ran, so no drift.
+- Infra: not run. PR #27 is web-only; `prod-deploy.sh diff` at `f0a598a` shows 0 stacks with differences.
+- Web (`prod-deploy.sh web`): built and synced to the prod site bucket; invalidated `/*` on the prod distribution. Entry bundle `index-Dh9Ljnvn.js`, stylesheet `index-1OmrkbdH.css`.
+- Shipped: #27 `f0a598a` (T-0011).
+- Smoke check: https://dh0djlfa46gz6.cloudfront.net/login serves `index-Dh9Ljnvn.js`, renders the sign-in form, the served stylesheet contains `.dockspace-browser__sticky--empty`, and the console shows no errors.
+- Logs: $LOCAL/logs/prod-deploy-diff-pr-20261121T171947Z.log, prod-deploy-web-20261121T172031Z.log, prod-deploy-diff-20261121T172043Z.log.
+- Prod is now at origin/main `f0a598a` for both infra and web.

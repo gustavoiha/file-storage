@@ -136,3 +136,13 @@ Recorded 2026-11-20 by the setup session from a `cdk diff` of origin/main 5678ad
 - Smoke check: https://dh0djlfa46gz6.cloudfront.net/login serves `index-bf7eOYj7.js`, renders the sign-in form, the served stylesheet contains `.resource-list__item:has(:focus-visible)` and the `@supports not selector(:has(*))` fallback, and the console shows no errors.
 - Logs: $LOCAL/logs/prod-deploy-diff-pr-20261121T180553Z.log, prod-deploy-diff-20261121T180621Z.log, prod-deploy-web-20261121T180700Z.log, prod-deploy-diff-20261121T180714Z.log.
 - Prod is now at origin/main `3361fc4` for both infra and web.
+
+### 2026-11-21 — T-0017 — web
+- origin/main commit: `ac36267` (PR #40 squash-merged). Run as `dockspace-prod-agent-deployer` via `prod-deploy.sh`.
+- Pre-deploy: PR #40 was MERGEABLE/CLEAN but branched from `8e15ec8` (before T-0013). Merged locally onto origin/main `3361fc4` it merged cleanly (different rules in `layout.css`) and passed typecheck, tests (web 200, backend 165) and the build. `prod-deploy.sh diff-pr 40` showed 0 stacks with differences. Main was `3361fc4`, which prod already ran, so no drift.
+- Infra: not run. PR #40 is web-only (CSS and a style test); `prod-deploy.sh diff` at `ac36267` shows 0 stacks with differences.
+- Web (`prod-deploy.sh web`): built and synced to the prod site bucket; invalidated `/*` on the prod distribution. Entry bundle `index-C2lxzaBK.js`, stylesheet `index-BDqNdBlA.css`.
+- Shipped: #40 `ac36267` (T-0017).
+- Smoke check: https://dh0djlfa46gz6.cloudfront.net/login serves `index-C2lxzaBK.js`, renders the sign-in form, the served stylesheet contains `.dockspace-column__row[aria-current]:focus-visible`, and the console shows no errors.
+- Logs: $LOCAL/logs/prod-deploy-diff-pr-20261121T182042Z.log, prod-deploy-diff-20261121T182138Z.log, prod-deploy-web-20261121T182204Z.log.
+- Prod is now at origin/main `ac36267` for both infra and web.

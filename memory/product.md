@@ -14,7 +14,7 @@ Dockspace: a self-hosted, single-tenant cloud file storage app on AWS (minimal G
 ### In progress / next
 All open tasks have their own issues (#11-#16, sub-issues of request #5) since 2026-11-20. 2026-11-20 sweep: the permission and infra-hold blockers are resolved by the setup change (pre-approved prod-deploy.sh, gh pr merge for deployment, drift rules). T-0001, T-0002 and T-0006 have shipped. T-0003 and T-0004 ship with T-0001's deploy of main. Only T-0005 waits on the human (design pick).
 
-- T-0015 Folder info panel from the folder action menu (issue #33, request #31): round 1 options posted on #33; waits on the human's pick.
+- T-0015 Folder info panel from the folder action menu (issue #33, request #31): human picked option 2 (info in the right-hand file-preview panel) on 2026-11-21; in design-decision for the final spec.
 - T-0019 Trash page restore errors name the item that failed (issue #42, request #5, from T-0018 review round 1, finding C1): page-level, unnamed restore error cleared by any other restore; AC 5 (error visible without scrolling) from T-0018 test round 1. In engineering since 2026-11-21 (T-0018 merged).
 - T-0020 Confirmation dialogs take focus when they open (issue #43, request #5, from T-0018 test round 1, finding 3): the Purge and folder Move to Trash dialogs get initial focus on Cancel; in engineering since 2026-11-21 (T-0018 merged), in parallel with T-0019.
 
@@ -57,7 +57,7 @@ All open tasks have their own issues (#11-#16, sub-issues of request #5) since 2
 | T-0012 | #28 | #5 | Keep focus in the file list after a file is moved to the trash | done | Deployment |
 | T-0013 | #30 | #5 | Show the row focus highlight only after keyboard use | done | Review judge |
 | T-0014 | #32 | #31 | Remove the folder and file counts from the current folder heading | done | Deployment |
-| T-0015 | #33 | #31 | Folder info panel from the folder action menu | awaiting-human | Design |
+| T-0015 | #33 | #31 | Folder info panel from the folder action menu | design | Design |
 | T-0016 | #36 | #31 | Keep folder file counts current after moving files | done | Engineering |
 | T-0017 | #38 | #5 | Visible keyboard focus on the current row in ancestor columns | done | Engineering |
 | T-0018 | #39 | #5 | Trash page handles two trashed items with the same path separately | done | Review judge |

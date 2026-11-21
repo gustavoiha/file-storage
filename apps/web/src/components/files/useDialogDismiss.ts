@@ -30,7 +30,7 @@ export const findRowByPath = (fullPath: string): HTMLElement | null => {
   return null;
 };
 
-const isFocusable = (element: HTMLElement | null | undefined): element is HTMLElement =>
+export const isFocusable = (element: HTMLElement | null | undefined): element is HTMLElement =>
   Boolean(
     element &&
       element.isConnected &&
@@ -42,7 +42,7 @@ const isFocusable = (element: HTMLElement | null | undefined): element is HTMLEl
  * The element a dialog was opened from. A menu item is removed when its menu closes,
  * so it resolves to the menu trigger, or to the row when the menu was opened from the row.
  */
-const resolveOpener = (active: Element | null): HTMLElement | null => {
+export const resolveOpener = (active: Element | null): HTMLElement | null => {
   if (!(active instanceof HTMLElement) || active === document.body) {
     return null;
   }
@@ -65,7 +65,7 @@ const resolveOpener = (active: Element | null): HTMLElement | null => {
   return trigger ?? rowButton;
 };
 
-const focusIsLost = () => {
+export const focusIsLost = () => {
   const active = document.activeElement;
   return !active || active === document.body;
 };

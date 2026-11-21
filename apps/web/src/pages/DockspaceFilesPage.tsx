@@ -25,6 +25,7 @@ import { MoveFilesDialog } from '@/components/files/MoveFilesDialog';
 import { MoveFolderDialog } from '@/components/files/MoveFolderDialog';
 import { RenameFileDialog } from '@/components/files/RenameFileDialog';
 import { RenameFolderDialog } from '@/components/files/RenameFolderDialog';
+import { startRowRemovalFocus } from '@/components/files/rowRemovalFocus';
 import { findRowByPath } from '@/components/files/useDialogDismiss';
 import {
   DockspaceFilesHeaderActions,
@@ -609,13 +610,17 @@ export const DockspaceFilesPage = () => {
 
   const onMoveToTrash = useCallback(
     (fullPath: string) => {
+      // No dialog here: the row and its menu go away, so focus moves to a nearby row (T-0012).
+      const rowFocus = startRowRemovalFocus(fullPath);
       setMoveFilesSummary(null);
       void (async () => {
         try {
           await moveToTrash.mutateAsync({ fullPath, targetType: 'file' });
           setMoveFilesSummary('File moved to trash.');
+          rowFocus.onRemoved();
         } catch {
           setMoveFilesSummary('Failed to move file to trash.');
+          rowFocus.onFailed();
         }
       })();
     },

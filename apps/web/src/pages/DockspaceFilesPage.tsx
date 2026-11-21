@@ -1608,14 +1608,6 @@ export const DockspaceFilesPage = () => {
     </div>
   );
 
-  // A failed refetch of a folder whose earlier listing is still shown: the alert sits above that listing.
-  const filesErrorAlert =
-    filesQuery.error && hasListing && !unauthorized ? (
-      <Alert
-        message={filesQuery.error instanceof Error ? filesQuery.error.message : 'Unable to load folder.'}
-      />
-    ) : null;
-
   const retryListing = () => {
     if (isRetryingListing) {
       return;
@@ -1645,6 +1637,16 @@ export const DockspaceFilesPage = () => {
     />
   );
 
+  // The alert sits above the list, outside its empty slot: the list hides that slot as soon as it has a row, and a
+  // pending folder create or upload adds one while the listing is still unknown. Kept here, the error and a focused
+  // Try again stay mounted when that happens.
+  const filesErrorAlert = listingFailed ? (
+    listingErrorState
+  ) : filesQuery.error && hasListing && !unauthorized ? (
+    // A failed refetch of a folder whose earlier listing is still shown.
+    <Alert message={filesQuery.error instanceof Error ? filesQuery.error.message : 'Unable to load folder.'} />
+  ) : null;
+
   const fileList = (
     <FileList
       files={files}
@@ -1669,7 +1671,7 @@ export const DockspaceFilesPage = () => {
       renameActionLabel="Rename"
       folderMoveActionLabel="Move"
       folderRenameActionLabel="Rename"
-      emptyState={listingFailed ? listingErrorState : hasListing ? emptyDockspaceState : <p>Loading...</p>}
+      emptyState={listingFailed ? false : hasListing ? emptyDockspaceState : <p>Loading...</p>}
       onRename={openRenameFileDialog}
       onRenameFolder={openRenameFolderDialog}
       onMoveFolder={openMoveFolderDialog}

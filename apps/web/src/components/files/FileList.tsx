@@ -31,6 +31,7 @@ interface FileListProps {
   pendingFolderTrashPaths?: string[];
   pendingUploadFiles?: PendingUploadFileEntry[];
   pendingUploadFolderPaths?: string[];
+  /** Shown in place of the rows when the folder has none. `false` shows nothing there (the page shows its own message). */
   emptyState?: ReactNode;
   downloadActionLabel?: string | undefined;
   folderDownloadActionLabel?: string | undefined;
@@ -1207,7 +1208,7 @@ const FolderModeList = ({
         </span>
       ) : null}
       <ul className="resource-list dockspace-browser__list" tabIndex={-1} data-dialog-focus-fallback="">
-        {!hasEntries ? (
+        {!hasEntries && emptyState !== false ? (
           <li className="resource-list__item dockspace-browser__empty-item">
             {emptyState ?? <p>No files or folders in this location.</p>}
           </li>

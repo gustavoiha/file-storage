@@ -9,13 +9,19 @@ import { createTestQueryClient, QueryWrapper } from '@/tests/testUtils';
 // Uses the real `useFiles` / `useDiscoverFolder` hooks and React Query, with only the API mocked, so the folder
 // discovery and the folder info panel share one query cache, as in the app.
 
-const { listFolderChildren } = vi.hoisted(() => ({
-  listFolderChildren: vi.fn<(dockspaceId: string, folderNodeId: string) => Promise<DirectoryChildrenRecord>>()
+const { listFolderChildren, createFolder, uploadFile } = vi.hoisted(() => ({
+  listFolderChildren: vi.fn<(dockspaceId: string, folderNodeId: string) => Promise<DirectoryChildrenRecord>>(),
+  createFolder: vi.fn<
+    (dockspaceId: string, folderPath: string) => Promise<{ folderPath: string; folderNodeId: string; created: boolean }>
+  >(),
+  uploadFile: vi.fn<(dockspaceId: string, fullPath: string, file: File) => Promise<void>>()
 }));
 
 vi.mock('@/lib/dockspaceApi', async (importOriginal) => ({
   ...(await importOriginal<typeof import('@/lib/dockspaceApi')>()),
-  listFolderChildren
+  listFolderChildren,
+  createFolder,
+  uploadFile
 }));
 
 vi.mock('@tanstack/react-router', () => ({
@@ -120,6 +126,10 @@ beforeEach(() => {
   unhandledRejections.length = 0;
   process.on('unhandledRejection', onUnhandledRejection);
   listFolderChildren.mockReset();
+  createFolder.mockReset();
+  uploadFile.mockReset();
+  // Uploads never finish here, so their pending rows stay.
+  uploadFile.mockImplementation(() => new Promise<void>(() => {}));
   listFolderChildren.mockImplementation(async (_dockspaceId, folderNodeId) => {
     await heldFolderNodeIds.get(folderNodeId);
     if (failingFolderNodeIds.has(folderNodeId)) {
@@ -239,6 +249,9 @@ describe('DockspaceFilesPage open folder listing', () => {
     expect(screen.queryByText('This folder is empty')).not.toBeInTheDocument();
     expect(screen.queryByRole('button', { name: 'Upload your first files' })).not.toBeInTheDocument();
     expect(screen.queryByText('Loading...')).not.toBeInTheDocument();
+    expect(screen.queryByText('No files or folders in this location.')).not.toBeInTheDocument();
+    // The list keeps no empty row: the error above it is the only message.
+    expect(column.querySelector('.dockspace-browser__empty-item')).toBeNull();
   };
 
   it.each([
@@ -322,6 +335,68 @@ describe('DockspaceFilesPage open folder listing', () => {
     // Folder discovery runs for the listed folders.
     await waitFor(() => expect(folderButton('Travel')).toHaveTextContent('1 file'));
     await waitFor(() => expect(folderButton('Documents')).toHaveTextContent('0 files'));
+    expect(unhandledRejections).toEqual([]);
+  });
+
+  it('keeps the error and Try again, with its focus, when an upload adds a pending row', async () => {
+    failingFolderNodeIds = new Set(['root']);
+    const { container } = renderPage();
+
+    const column = currentColumn('My Dockspace');
+    await within(column).findByRole('alert');
+    await settle();
+    const tryAgain = within(column).getByRole('button', { name: 'Try again' });
+    tryAgain.focus();
+
+    // Files dropped or picked while Try again has focus: the upload's pending row joins the list.
+    const fileInput = container.querySelector<HTMLInputElement>('input[type="file"][multiple]')!;
+    fireEvent.change(fileInput, { target: { files: [new File(['x'], 'notes.txt')] } });
+    await waitFor(() => expect(within(column).getByText('notes.txt')).toBeInTheDocument());
+    await settle();
+    expect(within(column).getByRole('alert')).toHaveTextContent('Request failed');
+    expect(within(column).getByRole('button', { name: 'Try again' })).toBe(tryAgain);
+    expect(document.activeElement).toBe(tryAgain);
+    expectNoEmptyState();
+    expect(screen.queryByText('Loading...')).not.toBeInTheDocument();
+  });
+
+  it('keeps the error and Try again when a folder is created into a folder whose listing failed', async () => {
+    failingFolderNodeIds = new Set(['root']);
+    let finishCreate: () => void = () => {};
+    createFolder.mockImplementation(
+      (_dockspaceId, folderPath) =>
+        new Promise((resolve) => {
+          finishCreate = () => resolve({ folderPath, folderNodeId: 'd_new', created: true });
+        })
+    );
+    renderPage();
+
+    const column = currentColumn('My Dockspace');
+    await within(column).findByRole('alert');
+    await settle();
+
+    fireEvent.click(screen.getByRole('button', { name: 'New folder' }));
+    const dialog = screen.getByRole('dialog', { name: 'Add folder' });
+    fireEvent.change(within(dialog).getByLabelText('Folder name'), { target: { value: 'Receipts' } });
+    fireEvent.click(within(dialog).getByRole('button', { name: 'Create' }));
+
+    // While the create runs, its pending row is shown and the error with Try again stays with it.
+    await waitFor(() => expect(createFolder).toHaveBeenCalledWith('v1', '/Receipts'));
+    await waitFor(() => expect(within(column).getByText('Receipts')).toBeInTheDocument());
+    expect(within(column).getByRole('alert', { hidden: true })).toHaveTextContent('Request failed');
+    expect(within(column).getByRole('button', { name: 'Try again', hidden: true })).toBeInTheDocument();
+    expectNoEmptyState();
+
+    // The create succeeds and the listing is fetched again, which still fails: the row and the error both stay.
+    const callsBeforeCreate = callsFor('root');
+    finishCreate();
+    await waitFor(() => expect(screen.queryByRole('dialog', { name: 'Add folder' })).not.toBeInTheDocument());
+    await waitFor(() => expect(callsFor('root')).toBeGreaterThan(callsBeforeCreate));
+    await settle();
+    expect(within(column).getByText('Receipts')).toBeInTheDocument();
+    expect(within(column).getByRole('alert')).toHaveTextContent('Request failed');
+    expect(within(column).getByRole('button', { name: 'Try again' })).toBeInTheDocument();
+    expectNoEmptyState();
     expect(unhandledRejections).toEqual([]);
   });
 

@@ -1123,6 +1123,7 @@ describe('DockspaceFilesPage', () => {
 
       await waitFor(() => expect(fileRow('/c.txt')).toHaveFocus());
       expect(screen.queryByRole('button', { name: /^b\.txt/ })).not.toBeInTheDocument();
+      expect(screen.getByRole('status')).toHaveTextContent(/^File moved to trash\.$/);
     });
 
     it('focuses the previous row after trashing the last file', async () => {
@@ -1246,6 +1247,7 @@ describe('DockspaceFilesPage', () => {
       expect(fileRow('/b.txt')).toBeInTheDocument();
       expect(trigger.isConnected).toBe(true);
       await waitFor(() => expect(trigger).toHaveFocus());
+      expect(screen.getByRole('status')).toHaveTextContent(/^Failed to move file to trash\.$/);
     });
 
     it('returns focus to the row when the trash request fails from a row-opened menu', async () => {

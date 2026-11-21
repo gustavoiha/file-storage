@@ -14,10 +14,10 @@ Dockspace: a self-hosted, single-tenant cloud file storage app on AWS (minimal G
 ### In progress / next
 All open tasks have their own issues (#11-#16, sub-issues of request #5) since 2026-11-20. 2026-11-20 sweep: the permission and infra-hold blockers are resolved by the setup change (pre-approved prod-deploy.sh, gh pr merge for deployment, drift rules). T-0001, T-0002 and T-0006 have shipped. T-0003 and T-0004 ship with T-0001's deploy of main. Only T-0005 waits on the human (design pick).
 
-- T-0010 Visible focus on the file list after a dialog closes (issue #24, from T-0009 testing, PR #25): reviews approved; testing passed 2026-11-21 with the agent dev profile; filtering found no critical issues. Now deploying.
 - T-0011 Status line confirms Move to Trash and drops stale messages (issue #26, from T-0010 testing): dispatched to engineering 2026-11-21 (no design round: reuses the existing status line).
 
 ### Shipped
+- 2026-11-21 (prod at 9ac7afb): T-0010 Visible focus on the file list after a dialog closes (#24, PR #25): the file list fallback shows the 2px accent ring on `:focus-visible` after Move to Trash or a move out of the current folder; no ring for mouse users.
 - 2026-11-20 (prod at b8f2339): T-0009 Return focus after closing file and folder dialogs (#21, PR #23): Rename, Move and Add folder dialogs return focus to the opener (menu trigger or row) on Escape, Cancel or backdrop; after submit focus goes to the changed row or the file list.
 - 2026-11-20 (prod at cd86cf4): T-0008 Desktop right-click menu takes keyboard focus (#20, PR #22): on desktop, a row menu opened by right-click, ContextMenu key or Shift+F10 focuses its first item, and Escape or a click outside returns focus to the row.
 - 2026-11-20 (prod at aa66545): T-0007 Arrow-key navigation in dropdown menus (#18, PR #19): ArrowUp/Down with wrap-around and Home/End in the shared DropdownMenu, skipping disabled items and separators.
@@ -43,5 +43,5 @@ All open tasks have their own issues (#11-#16, sub-issues of request #5) since 2
 | T-0007 | #18 | #5 | Arrow-key navigation in dropdown menus | done | Engineering |
 | T-0008 | #20 | #5 | Desktop right-click menu takes keyboard focus | done | Engineering |
 | T-0009 | #21 | #5 | Return focus after closing file and folder dialogs | done | Engineering |
-| T-0010 | #24 | #5 | Visible focus on the file list after a dialog closes | deploying | Filtering |
+| T-0010 | #24 | #5 | Visible focus on the file list after a dialog closes | done | Deployment |
 | T-0011 | #26 | #5 | Status line confirms Move to Trash and drops stale messages | review | Engineering |

@@ -207,3 +207,13 @@ Recorded 2026-11-20 by the setup session from a `cdk diff` of origin/main 5678ad
 - Smoke check: https://dh0djlfa46gz6.cloudfront.net/login serves `index-BRjJGFT6.js`, renders the sign-in form, `useDialogDismiss-CJGirHFX.js` is served (200, JavaScript) and contains `data-row-path`, and the console shows no errors.
 - Logs: $LOCAL/logs/prod-deploy-diff-pr-20261121T195719Z.log, prod-deploy-diff-20261121T195746Z.log, prod-deploy-web-20261121T195839Z.log, prod-deploy-diff-20261121T195850Z.log.
 - Prod is now at origin/main `7803b6f` for both infra and web.
+
+### 2026-11-21 — T-0015 — web
+- origin/main commit: `133d212` (PR #47 squash-merged). Run as `dockspace-prod-agent-deployer` via `prod-deploy.sh`.
+- Pre-deploy: PR #47 at `68a1da3` was MERGEABLE/CLEAN but did not contain `7803b6f` (T-0022). Merged locally onto origin/main `7803b6f` it merged cleanly and passed typecheck, tests (web 308, backend 178) and the build; the squash-merged main tree is identical to that local merge. Web only (`FolderInfoPanel.tsx`, `detailPanelFocus.ts`, `FileList.tsx`, `DockspaceFilesHeaderActions.tsx`, `DockspaceFilesPage.tsx`, `layout.css`, tests). `prod-deploy.sh diff-pr 47` showed 0 stacks with differences. Main was `7803b6f`, which prod already ran (`prod-deploy.sh diff` 0 stacks), so no drift.
+- Infra: not run. Post-deploy `prod-deploy.sh diff` at `133d212` shows 0 stacks with differences.
+- Web (`prod-deploy.sh web`): built and synced to the prod site bucket; invalidated `/*` on the prod distribution. Entry bundle `index-B78-C1am.js`, `DockspaceFilesPage-Du_IIADG.js`, `FileList-o-Z7LlC4.js`, stylesheet `index-KpoBk-M8.css`.
+- Shipped: #47 `133d212` (T-0015).
+- Smoke check: https://dh0djlfa46gz6.cloudfront.net/login serves `index-B78-C1am.js`, renders the sign-in form, `DockspaceFilesPage-Du_IIADG.js` is served (200, JavaScript) and contains `Folder info` and `Counting contents`, and the console shows no errors.
+- Logs: $LOCAL/logs/prod-deploy-diff-pr-20261121T200423Z.log, prod-deploy-diff-20261121T200451Z.log, prod-deploy-web-20261121T200538Z.log, prod-deploy-diff-20261121T200548Z.log.
+- Prod is now at origin/main `133d212` for both infra and web.

@@ -15,8 +15,8 @@ Dockspace: a self-hosted, single-tenant cloud file storage app on AWS (minimal G
 All open tasks have their own issues (#11-#16, sub-issues of request #5) since 2026-11-20. 2026-11-20 sweep: the permission and infra-hold blockers are resolved by the setup change (pre-approved prod-deploy.sh, gh pr merge for deployment, drift rules). T-0001, T-0002 and T-0006 have shipped. T-0003 and T-0004 ship with T-0001's deploy of main. Only T-0005 waits on the human (design pick).
 
 - T-0015 Folder info panel from the folder action menu (issue #33, request #31): round 1 options posted on #33; waits on the human's pick.
-- T-0019 Trash page restore errors name the item that failed (issue #42, request #5, from T-0018 review round 1, finding C1): restore error is page-level, unnamed, and cleared by any other restore; new, held until T-0018 (PR #41) is merged because the code it changes exists only on that PR. AC 5 added from T-0018 test round 1: the restore error must be visible without scrolling.
-- T-0020 Confirmation dialogs take focus when they open (issue #43, request #5, from T-0018 test round 1, finding 3): pre-existing; the Purge and folder Move to Trash dialogs set no initial focus; new, held until T-0018 (PR #41, deploying) is merged because PR #41 changes the Purge dialog and the trash page focus handling. Next: dispatch T-0019 and T-0020 to engineering after that merge.
+- T-0019 Trash page restore errors name the item that failed (issue #42, request #5, from T-0018 review round 1, finding C1): page-level, unnamed restore error cleared by any other restore; AC 5 (error visible without scrolling) from T-0018 test round 1. In engineering since 2026-11-21 (T-0018 merged).
+- T-0020 Confirmation dialogs take focus when they open (issue #43, request #5, from T-0018 test round 1, finding 3): the Purge and folder Move to Trash dialogs get initial focus on Cancel; in engineering since 2026-11-21 (T-0018 merged), in parallel with T-0019.
 
 ### Shipped
 - 2026-11-21 (prod at 87a4c04): T-0016 Keep folder file counts current after moving files (#36, PR #37): after a move (also a partly failed one) the target and source folder counts in the folder rows and the sidebar tree update from the move response without a reload or a full tree re-discovery; the open folder is recounted from its refetched listing only, so it is not counted twice.
@@ -61,5 +61,5 @@ All open tasks have their own issues (#11-#16, sub-issues of request #5) since 2
 | T-0016 | #36 | #31 | Keep folder file counts current after moving files | done | Engineering |
 | T-0017 | #38 | #5 | Visible keyboard focus on the current row in ancestor columns | done | Engineering |
 | T-0018 | #39 | #5 | Trash page handles two trashed items with the same path separately | done | Review judge |
-| T-0019 | #42 | #5 | Trash page restore errors name the item that failed | new | Review judge |
-| T-0020 | #43 | #5 | Confirmation dialogs take focus when they open | new | Test filter |
+| T-0019 | #42 | #5 | Trash page restore errors name the item that failed | engineering | Review judge |
+| T-0020 | #43 | #5 | Confirmation dialogs take focus when they open | engineering | Test filter |

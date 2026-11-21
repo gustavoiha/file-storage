@@ -65,5 +65,5 @@ All open tasks have their own issues (#11-#16, sub-issues of request #5) since 2
 | T-0018 | #39 | #5 | Trash page handles two trashed items with the same path separately | done | Review judge |
 | T-0019 | #42 | #5 | Trash page restore errors name the item that failed | done | Review judge |
 | T-0020 | #43 | #5 | Confirmation dialogs take focus when they open | done | Test filter |
-| T-0021 | #46 | #5 | Keep focus in the trash list after a restore or purge | testing | Test filter |
+| T-0021 | #46 | #5 | Keep focus in the trash list after a restore or purge | filtering | Test filter |
 | T-0022 | #48 | #5 | Confirmation dialogs keep focus after a failed purge or folder trash | new | Test filter |

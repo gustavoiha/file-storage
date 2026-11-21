@@ -1,7 +1,7 @@
 import type { FormEventHandler } from 'react';
 import { Alert } from '@/components/ui/Alert';
 import { Button } from '@/components/ui/Button';
-import { useDialogDismiss } from '@/components/files/useDialogDismiss';
+import { useDialogDismiss, useDialogTabTrap } from '@/components/files/useDialogDismiss';
 
 interface ConfirmPurgeFileDialogProps {
   errorMessage: string | null;
@@ -25,6 +25,7 @@ export const ConfirmPurgeFileDialog = ({
 }: ConfirmPurgeFileDialogProps) => {
   const isDialogOpen = isOpen && Boolean(fullPath);
   const { onBackdropMouseDown } = useDialogDismiss({ isOpen: isDialogOpen, onClose });
+  const dialogRef = useDialogTabTrap<HTMLDialogElement>(isDialogOpen);
 
   if (!isDialogOpen || !fullPath) {
     return null;
@@ -33,6 +34,7 @@ export const ConfirmPurgeFileDialog = ({
   return (
     <div className="dockspace-dialog-backdrop" onMouseDown={onBackdropMouseDown}>
       <dialog
+        ref={dialogRef}
         className="dockspace-dialog"
         open
         aria-modal="true"
@@ -54,7 +56,8 @@ export const ConfirmPurgeFileDialog = ({
             <Button type="submit" variant="danger" disabled={isSubmitting}>
               {isSubmitting ? 'Purging...' : 'Purge now'}
             </Button>
-            <Button type="button" variant="secondary" onClick={onClose} disabled={isSubmitting}>
+            {/* Initial focus on Cancel: pressing Enter right after opening must not delete anything. */}
+            <Button type="button" variant="secondary" onClick={onClose} disabled={isSubmitting} autoFocus>
               Cancel
             </Button>
           </div>

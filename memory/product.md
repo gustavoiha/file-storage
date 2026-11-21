@@ -15,7 +15,7 @@ Dockspace: a self-hosted, single-tenant cloud file storage app on AWS (minimal G
 All open tasks have their own issues (#11-#16, sub-issues of request #5) since 2026-11-20. 2026-11-20 sweep: the permission and infra-hold blockers are resolved by the setup change (pre-approved prod-deploy.sh, gh pr merge for deployment, drift rules). T-0001, T-0002 and T-0006 have shipped. T-0003 and T-0004 ship with T-0001's deploy of main. Only T-0005 waits on the human (design pick).
 
 - T-0012 Keep focus in the file list after a file is moved to the trash (issue #28, from T-0011 testing): dispatched to engineering 2026-11-21 (no design round: follows the T-0009/T-0010 focus pattern). T-0011 (PR #27) has merged (main `f0a598a`): rebase on it.
-- T-0013 Show the row focus highlight only after keyboard use (issue #30, from T-0012 review round 1, C1): new, not yet dispatched.
+- T-0013 Show the row focus highlight only after keyboard use (issue #30, from T-0012 review round 1, C1): dispatched to engineering 2026-11-21 (no design round: same highlight, keyboard-only via `:focus-visible`). Rebase on PR #29 (T-0012) once it merges.
 
 ### Shipped
 - 2026-11-21 (prod at f0a598a): T-0011 Status line confirms Move to Trash (#26, PR #27): folder and file Move to Trash clear the old move message and show "Folder moved to trash." / "File moved to trash." ("Failed to move file to trash." on a failed file trash); the `role="status"` region stays mounted so the confirmation is announced.
@@ -48,4 +48,4 @@ All open tasks have their own issues (#11-#16, sub-issues of request #5) since 2
 | T-0010 | #24 | #5 | Visible focus on the file list after a dialog closes | done | Deployment |
 | T-0011 | #26 | #5 | Status line confirms Move to Trash and drops stale messages | done | Deployment |
 | T-0012 | #28 | #5 | Keep focus in the file list after a file is moved to the trash | testing | Engineering |
-| T-0013 | #30 | #5 | Show the row focus highlight only after keyboard use | new | Review judge |
+| T-0013 | #30 | #5 | Show the row focus highlight only after keyboard use | engineering | Review judge |

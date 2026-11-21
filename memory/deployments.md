@@ -168,3 +168,12 @@ Recorded 2026-11-20 by the setup session from a `cdk diff` of origin/main 5678ad
 - Prod is now at origin/main `87a4c04` for both infra and web.
 - Note: `diff-pr` may merge onto an older base than origin/main; confirm with `diff` before reading its stack changes as the PR's.
 
+### 2026-11-21 — T-0019 — web
+- origin/main commit: `9a46bcc` (PR #45 squash-merged). Run as `dockspace-prod-agent-deployer` via `prod-deploy.sh`.
+- Pre-deploy: PR #45 at `c2d29d5` was MERGEABLE/CLEAN and already contained origin/main `87a4c04`, so the merged tree is the one engineering and testing checked. Web only (`FileList.tsx`, `Button.tsx` forwardRef, `TrashPage.tsx`, `layout.css`, tests). `prod-deploy.sh diff-pr 45` showed 0 stacks with differences. Main was `87a4c04`, which prod already ran (`prod-deploy.sh diff` 0 stacks), so no drift.
+- Infra: not run. Post-deploy `prod-deploy.sh diff` at `9a46bcc` shows 0 stacks with differences.
+- Web (`prod-deploy.sh web`): built and synced to the prod site bucket; invalidated `/*` on the prod distribution. Entry bundle `index-B4pimDT9.js`, `TrashPage-CrYRMJJo.js`, `FileList-D9Bb6THx.js`, stylesheet `index-0veNX-bE.css`.
+- Shipped: #45 `9a46bcc` (T-0019).
+- Smoke check: https://dh0djlfa46gz6.cloudfront.net/login serves `index-B4pimDT9.js`, renders the sign-in form, `TrashPage-CrYRMJJo.js` is served (200, JavaScript), the `FileList` chunk contains `Dismiss error for`, and the console shows no errors.
+- Logs: $LOCAL/logs/prod-deploy-diff-pr-20261121T190714Z.log, prod-deploy-diff-20261121T190746Z.log, prod-deploy-web-20261121T190838Z.log, prod-deploy-diff-20261121T190850Z.log.
+- Prod is now at origin/main `9a46bcc` for both infra and web.

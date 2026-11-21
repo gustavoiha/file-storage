@@ -768,7 +768,7 @@ interface FolderModeListProps {
   selectionActions?: ReactNode;
   selectionMode?: boolean | undefined;
   isPhoneLayout: boolean;
-  statusMessage?: string | null;
+  statusMessage?: string | null | undefined;
   onToggleFileSelection?: ((fullPath: string) => void) | undefined;
 }
 
@@ -810,6 +810,8 @@ const FolderModeList = ({
   const selectedFilePathSet = useMemo(() => new Set(selectedFilePaths), [selectedFilePaths]);
   const selectionMode = selectionModeOverride ?? selectedFilePaths.length > 0;
   const actionsHintId = useId();
+  // Pages that pass statusMessage (even null) get a status region that is always on the page.
+  const hasStatusRegion = statusMessage !== undefined;
 
   const directFiles = useMemo(
     () =>
@@ -921,11 +923,26 @@ const FolderModeList = ({
           ) : null}
         </header>
       ) : null}
-      {selectionActions || statusMessage ? (
-        <div className="dockspace-browser__sticky">
-          {statusMessage ? (
-            <p className="dockspace-browser__selection-feedback" role="status">
-              {statusMessage}
+      {selectionActions || hasStatusRegion ? (
+        <div
+          className={
+            selectionActions || statusMessage
+              ? 'dockspace-browser__sticky'
+              : 'dockspace-browser__sticky dockspace-browser__sticky--empty'
+          }
+        >
+          {/* The status region stays mounted (empty when there is no message) and only its text changes,
+              so screen readers announce each new message (T-0011). */}
+          {hasStatusRegion ? (
+            <p
+              className={
+                statusMessage
+                  ? 'dockspace-browser__selection-feedback dockspace-browser__selection-feedback--active'
+                  : 'dockspace-browser__selection-feedback'
+              }
+              role="status"
+            >
+              {statusMessage || null}
             </p>
           ) : null}
           {selectionActions ? <div className="dockspace-browser__selection-bar">{selectionActions}</div> : null}
@@ -1101,7 +1118,7 @@ export const FileList = ({
       selectionActions={selectionActions}
       selectionMode={selectionMode}
       isPhoneLayout={isPhoneLayout}
-      statusMessage={statusMessage ?? null}
+      statusMessage={statusMessage}
       onToggleFileSelection={onToggleFileSelection}
     />
   );

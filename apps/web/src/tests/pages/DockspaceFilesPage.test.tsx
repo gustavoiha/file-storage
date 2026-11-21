@@ -1162,25 +1162,31 @@ describe('DockspaceFilesPage', () => {
       mockState.moveToTrash = vi.fn(async () => {});
 
       renderPage();
-      expect(screen.queryByRole('status')).not.toBeInTheDocument();
+      // The status region is on the page before any message, so the confirmation is a text change
+      // in an existing live region (announced by screen readers), not a newly mounted one.
+      const region = screen.getByRole('status');
+      expect(region).toBeEmptyDOMElement();
       trashFolderDocs();
 
       await waitFor(() =>
         expect(screen.queryByRole('dialog', { name: /trash/i })).not.toBeInTheDocument()
       );
-      expect(screen.getByRole('status')).toHaveTextContent(/^Folder moved to trash\.$/);
+      expect(screen.getByRole('status')).toBe(region);
+      expect(region).toHaveTextContent(/^Folder moved to trash\.$/);
     });
 
     it('replaces a previous move message with the folder trash confirmation', async () => {
       mockState.moveToTrash = vi.fn(async () => {});
 
       renderPage();
+      const region = screen.getByRole('status');
       await moveFolderDocsToArchive();
       trashFolderDocs();
 
       await waitFor(() =>
         expect(screen.getByRole('status')).toHaveTextContent(/^Folder moved to trash\.$/)
       );
+      expect(screen.getByRole('status')).toBe(region);
       expect(screen.queryByText(/Folder moved from/)).not.toBeInTheDocument();
     });
 
@@ -1196,7 +1202,7 @@ describe('DockspaceFilesPage', () => {
       await waitFor(() =>
         expect(screen.getByText('Failed to move folder to trash')).toBeInTheDocument()
       );
-      expect(screen.queryByRole('status')).not.toBeInTheDocument();
+      expect(screen.getByRole('status')).toBeEmptyDOMElement();
       expect(screen.queryByText(/moved to trash\./)).not.toBeInTheDocument();
       expect(screen.queryByText(/Folder moved from/)).not.toBeInTheDocument();
     });
@@ -1205,6 +1211,7 @@ describe('DockspaceFilesPage', () => {
       mockState.moveToTrash = vi.fn(async () => {});
 
       renderPage();
+      const region = screen.getByRole('status');
       await moveFolderDocsToArchive();
       fireEvent.click(screen.getByRole('button', { name: 'Actions for README.md' }));
       fireEvent.click(screen.getByRole('menuitem', { name: 'Move to Trash' }));
@@ -1216,6 +1223,7 @@ describe('DockspaceFilesPage', () => {
       await waitFor(() =>
         expect(screen.getByRole('status')).toHaveTextContent(/^File moved to trash\.$/)
       );
+      expect(screen.getByRole('status')).toBe(region);
       expect(screen.queryByText(/Folder moved from/)).not.toBeInTheDocument();
     });
 

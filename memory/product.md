@@ -15,7 +15,7 @@ Dockspace: a self-hosted, single-tenant cloud file storage app on AWS (minimal G
 All open tasks have their own issues (#11-#16, sub-issues of request #5) since 2026-11-20. 2026-11-20 sweep: the permission and infra-hold blockers are resolved by the setup change (pre-approved prod-deploy.sh, gh pr merge for deployment, drift rules). T-0001, T-0002 and T-0006 have shipped. T-0003 and T-0004 ship with T-0001's deploy of main. Only T-0005 waits on the human (design pick).
 
 - T-0015 Folder info panel from the folder action menu (issue #33, request #31): round 1 options posted on #33; waits on the human's pick.
-- T-0016 Keep folder file counts current after moving files (issue #36, request #31, from T-0014 test round 1): pre-existing bug (folder-row counts stale after a move); dispatched to engineering 2026-11-21 (no design round); now in testing (pipeline running).
+- T-0016 Keep folder file counts current after moving files (issue #36, request #31, from T-0014 test round 1): pre-existing bug (folder-row counts stale after a move); dispatched to engineering 2026-11-21 (no design round); back in engineering after test round 1 (critical: source folder count double-subtracted).
 - T-0017 Visible keyboard focus on the current row in ancestor columns (issue #38, request #5, from T-0013 test round 1, finding 2): pre-existing CSS order issue; dispatched to engineering 2026-11-21.
 - T-0018 Trash page handles two trashed items with the same path separately (issue #39, request #5, from T-0013 test round 1, finding 4): pre-existing; pending state and purge/restore keyed by path only; dispatched to engineering 2026-11-21.
 
@@ -56,6 +56,6 @@ All open tasks have their own issues (#11-#16, sub-issues of request #5) since 2
 | T-0013 | #30 | #5 | Show the row focus highlight only after keyboard use | done | Review judge |
 | T-0014 | #32 | #31 | Remove the folder and file counts from the current folder heading | done | Deployment |
 | T-0015 | #33 | #31 | Folder info panel from the folder action menu | awaiting-human | Design |
-| T-0016 | #36 | #31 | Keep folder file counts current after moving files | filtering | Engineering |
+| T-0016 | #36 | #31 | Keep folder file counts current after moving files | engineering | Engineering |
 | T-0017 | #38 | #5 | Visible keyboard focus on the current row in ancestor columns | testing | Engineering |
 | T-0018 | #39 | #5 | Trash page handles two trashed items with the same path separately | review | Engineering |

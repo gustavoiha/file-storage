@@ -51,5 +51,5 @@ All open tasks have their own issues (#11-#16, sub-issues of request #5) since 2
 | T-0011 | #26 | #5 | Status line confirms Move to Trash and drops stale messages | done | Deployment |
 | T-0012 | #28 | #5 | Keep focus in the file list after a file is moved to the trash | deploying | Engineering |
 | T-0013 | #30 | #5 | Show the row focus highlight only after keyboard use | review | Review judge |
-| T-0014 | #32 | #31 | Remove the folder and file counts from the current folder heading | review | Engineering |
+| T-0014 | #32 | #31 | Remove the folder and file counts from the current folder heading | testing | Engineering |
 | T-0015 | #33 | #31 | Folder info panel from the folder action menu | design | Design |

@@ -208,6 +208,23 @@ const FlatFileList = ({
   onAction,
   onDismissActionError
 }: FlatFileListProps) => {
+  // Primary action button per row id. Dismissing a row error removes the focused Dismiss button,
+  // so focus moves to that row's action button instead of falling back to <body>.
+  const actionButtonsRef = useRef(new Map<string, HTMLButtonElement>());
+
+  const setActionButton = (rowId: string) => (element: HTMLButtonElement | null) => {
+    if (element) {
+      actionButtonsRef.current.set(rowId, element);
+    } else {
+      actionButtonsRef.current.delete(rowId);
+    }
+  };
+
+  const dismissActionError = (rowId: string) => {
+    actionButtonsRef.current.get(rowId)?.focus();
+    onDismissActionError?.(rowId);
+  };
+
   if (!files.length) {
     return <p>No files found.</p>;
   }
@@ -256,6 +273,7 @@ const FlatFileList = ({
                 </Button>
               ) : null}
               <Button
+                ref={setActionButton(rowId)}
                 variant="secondary"
                 aria-label={`${currentActionLabel} ${fileDescription}`}
                 onClick={() => onAction(file.fullPath, file)}
@@ -268,7 +286,7 @@ const FlatFileList = ({
               <FlatRowError
                 fileDescription={fileDescription}
                 message={actionErrorMessage}
-                onDismiss={onDismissActionError ? () => onDismissActionError(rowId) : undefined}
+                onDismiss={onDismissActionError ? () => dismissActionError(rowId) : undefined}
               />
             ) : null}
           </li>

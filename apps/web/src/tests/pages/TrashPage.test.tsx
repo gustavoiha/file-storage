@@ -215,6 +215,28 @@ describe('TrashPage', () => {
     expect(screen.queryByRole('button', { name: `Dismiss error for ${olderName}` })).toBeNull();
   });
 
+  it('moves focus to that row\'s Restore button when its error is dismissed', async () => {
+    restoreFileMock.mockImplementation(async (target) => {
+      throw new Error(`${target.fileNodeId} failed`);
+    });
+    render(<TrashPage />);
+
+    fireEvent.click(screen.getByRole('button', { name: `Restore ${olderName}` }));
+    fireEvent.click(screen.getByRole('button', { name: `Restore ${newerName}` }));
+    await waitFor(() => expect(screen.getAllByRole('alert')).toHaveLength(2));
+
+    const dismissOlder = screen.getByRole('button', { name: `Dismiss error for ${olderName}` });
+    dismissOlder.focus();
+    expect(document.activeElement).toBe(dismissOlder);
+    fireEvent.click(dismissOlder);
+
+    expect(screen.queryByRole('button', { name: `Dismiss error for ${olderName}` })).toBeNull();
+    expect(document.activeElement).toBe(
+      screen.getByRole('button', { name: `Restore ${olderName}` })
+    );
+    expect(document.activeElement).not.toBe(document.body);
+  });
+
   it('drops a row error once that copy leaves the trash, and does not bring it back if trashed again', async () => {
     restoreFileMock.mockRejectedValue(new Error('Old copy failed'));
     const { rerender } = render(<TrashPage />);

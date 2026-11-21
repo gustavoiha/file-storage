@@ -129,7 +129,7 @@ describe('TrashPage', () => {
     expect(screen.getByRole('button', { name: `Restore ${newerName}` })).toBeEnabled();
   });
 
-  it('shows the restore error when the restore fails', async () => {
+  it('shows the restore error in the failed row, naming that copy by path and trashed time', async () => {
     restoreFileMock.mockRejectedValue(
       new Error('Cannot restore because a file with this name already exists in the folder')
     );
@@ -137,10 +137,139 @@ describe('TrashPage', () => {
 
     fireEvent.click(screen.getByRole('button', { name: `Restore ${olderName}` }));
 
-    expect(await screen.findByRole('alert')).toHaveTextContent(
-      'Cannot restore because a file with this name already exists in the folder'
+    const [olderRow, newerRow] = screen.getAllByRole('listitem');
+    expect(await within(olderRow!).findByRole('alert')).toHaveTextContent(
+      `Could not restore /docs/report.txt (trashed ${formatDateTime(olderCopy.deletedAt)}): ` +
+        'Cannot restore because a file with this name already exists in the folder'
     );
+    expect(within(newerRow!).queryByRole('alert')).toBeNull();
+    expect(screen.getAllByRole('alert')).toHaveLength(1);
     expect(screen.getByRole('button', { name: `Restore ${olderName}` })).toBeEnabled();
+  });
+
+  it('keeps an earlier failure when another row is restored, and shows every failure', async () => {
+    const newerRestore = deferred();
+    restoreFileMock.mockImplementation(async (target) => {
+      if (target.fileNodeId === 'file-old') {
+        throw new Error('Old copy failed');
+      }
+      await newerRestore.promise;
+    });
+    render(<TrashPage />);
+
+    fireEvent.click(screen.getByRole('button', { name: `Restore ${olderName}` }));
+    const [olderRow, newerRow] = screen.getAllByRole('listitem');
+    expect(await within(olderRow!).findByRole('alert')).toHaveTextContent('Old copy failed');
+
+    fireEvent.click(screen.getByRole('button', { name: `Restore ${newerName}` }));
+    expect(screen.getByRole('button', { name: `Restoring... ${newerName}` })).toBeDisabled();
+    expect(within(olderRow!).getByRole('alert')).toHaveTextContent('Old copy failed');
+
+    await act(async () => {
+      newerRestore.reject(new Error('New copy failed'));
+      await newerRestore.promise.catch(() => {});
+    });
+
+    expect(within(olderRow!).getByRole('alert')).toHaveTextContent(
+      `Could not restore /docs/report.txt (trashed ${formatDateTime(olderCopy.deletedAt)}): Old copy failed`
+    );
+    expect(within(newerRow!).getByRole('alert')).toHaveTextContent(
+      `Could not restore /docs/report.txt (trashed ${formatDateTime(newerCopy.deletedAt)}): New copy failed`
+    );
+    expect(screen.getAllByRole('alert')).toHaveLength(2);
+  });
+
+  it('clears a row error when that row is retried', async () => {
+    restoreFileMock.mockRejectedValueOnce(new Error('Old copy failed'));
+    const retry = deferred();
+    restoreFileMock.mockImplementationOnce(() => retry.promise);
+    render(<TrashPage />);
+
+    fireEvent.click(screen.getByRole('button', { name: `Restore ${olderName}` }));
+    expect(await screen.findByRole('alert')).toHaveTextContent('Old copy failed');
+
+    fireEvent.click(screen.getByRole('button', { name: `Restore ${olderName}` }));
+    expect(screen.queryByRole('alert')).toBeNull();
+
+    await act(async () => {
+      retry.resolve();
+      await retry.promise;
+    });
+    expect(screen.queryByRole('alert')).toBeNull();
+  });
+
+  it('clears a row error when the user dismisses it, leaving other rows errors', async () => {
+    restoreFileMock.mockImplementation(async (target) => {
+      throw new Error(`${target.fileNodeId} failed`);
+    });
+    render(<TrashPage />);
+
+    fireEvent.click(screen.getByRole('button', { name: `Restore ${olderName}` }));
+    fireEvent.click(screen.getByRole('button', { name: `Restore ${newerName}` }));
+    await waitFor(() => expect(screen.getAllByRole('alert')).toHaveLength(2));
+
+    fireEvent.click(screen.getByRole('button', { name: `Dismiss error for ${olderName}` }));
+
+    expect(screen.getAllByRole('alert')).toHaveLength(1);
+    expect(screen.getByRole('alert')).toHaveTextContent('file-new failed');
+    expect(screen.queryByRole('button', { name: `Dismiss error for ${olderName}` })).toBeNull();
+  });
+
+  it('moves focus to that row\'s Restore button when its error is dismissed', async () => {
+    restoreFileMock.mockImplementation(async (target) => {
+      throw new Error(`${target.fileNodeId} failed`);
+    });
+    render(<TrashPage />);
+
+    fireEvent.click(screen.getByRole('button', { name: `Restore ${olderName}` }));
+    fireEvent.click(screen.getByRole('button', { name: `Restore ${newerName}` }));
+    await waitFor(() => expect(screen.getAllByRole('alert')).toHaveLength(2));
+
+    const dismissOlder = screen.getByRole('button', { name: `Dismiss error for ${olderName}` });
+    dismissOlder.focus();
+    expect(document.activeElement).toBe(dismissOlder);
+    fireEvent.click(dismissOlder);
+
+    expect(screen.queryByRole('button', { name: `Dismiss error for ${olderName}` })).toBeNull();
+    expect(document.activeElement).toBe(
+      screen.getByRole('button', { name: `Restore ${olderName}` })
+    );
+    expect(document.activeElement).not.toBe(document.body);
+  });
+
+  it('drops a row error once that copy leaves the trash, and does not bring it back if trashed again', async () => {
+    restoreFileMock.mockRejectedValue(new Error('Old copy failed'));
+    const { rerender } = render(<TrashPage />);
+
+    fireEvent.click(screen.getByRole('button', { name: `Restore ${olderName}` }));
+    expect(await screen.findByRole('alert')).toHaveTextContent('Old copy failed');
+
+    trashState.items = [newerCopy];
+    rerender(<TrashPage />);
+    expect(screen.queryByRole('alert')).toBeNull();
+
+    trashState.items = [{ ...olderCopy, deletedAt: '2026-03-10T09:00:00.000Z' }, newerCopy];
+    rerender(<TrashPage />);
+    expect(screen.getAllByRole('listitem')).toHaveLength(2);
+    expect(screen.queryByRole('alert')).toBeNull();
+  });
+
+  it('scrolls a new restore error into view', async () => {
+    const scrollIntoView = vi.fn();
+    const original = Element.prototype.scrollIntoView;
+    Element.prototype.scrollIntoView = scrollIntoView;
+    try {
+      restoreFileMock.mockRejectedValue(new Error('New copy failed'));
+      render(<TrashPage />);
+
+      fireEvent.click(screen.getByRole('button', { name: `Restore ${newerName}` }));
+      const alert = await screen.findByRole('alert');
+
+      expect(scrollIntoView).toHaveBeenCalledWith({ block: 'nearest' });
+      expect(scrollIntoView.mock.contexts.at(-1)).toContainElement(alert);
+    } finally {
+      Element.prototype.scrollIntoView = original;
+    }
   });
 
   it('purges only the picked copy, shows Purging... on that row alone, then closes the dialog', async () => {

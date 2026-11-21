@@ -283,6 +283,25 @@
   align-items: center;
 }
 
+.resource-list__item--has-error {
+  flex-wrap: wrap;
+  row-gap: 0.6rem;
+}
+
+.resource-list__item-error {
+  flex-basis: 100%;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.resource-list__item-error .ui-alert {
+  flex: 1;
+  min-width: 0;
+  margin: 0;
+  overflow-wrap: anywhere;
+}
+
 .resource-list__item-actions {
   display: flex;
   gap: 0.5rem;
@@ -2316,6 +2335,18 @@ a.dockspace-card:focus-visible {
     flex-direction: column;
     align-items: flex-start;
     gap: 0.7rem;
+  }
+
+  /* The row is a column here, so a 100% basis would set the error's height. */
+  .resource-list__item-error {
+    flex-basis: auto;
+    align-self: stretch;
+    flex-direction: column;
+    align-items: flex-start;
+  }
+
+  .resource-list__item-error .ui-alert {
+    align-self: stretch;
   }
 
   .dockspace-list-item__metrics {

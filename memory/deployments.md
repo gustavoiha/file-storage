@@ -217,3 +217,13 @@ Recorded 2026-11-20 by the setup session from a `cdk diff` of origin/main 5678ad
 - Smoke check: https://dh0djlfa46gz6.cloudfront.net/login serves `index-B78-C1am.js`, renders the sign-in form, `DockspaceFilesPage-Du_IIADG.js` is served (200, JavaScript) and contains `Folder info` and `Counting contents`, and the console shows no errors.
 - Logs: $LOCAL/logs/prod-deploy-diff-pr-20261121T200423Z.log, prod-deploy-diff-20261121T200451Z.log, prod-deploy-web-20261121T200538Z.log, prod-deploy-diff-20261121T200548Z.log.
 - Prod is now at origin/main `133d212` for both infra and web.
+
+### 2026-11-21 — T-0023 — web
+- origin/main commit: `82d3ca4` (PR #53 squash-merged). Run as `dockspace-prod-agent-deployer` via `prod-deploy.sh`.
+- Pre-deploy: PR #53 at `112c7d7` was MERGEABLE/CLEAN but did not contain `7803b6f` (T-0022) and `133d212` (T-0015). Merged locally onto origin/main `133d212` it merged cleanly and passed typecheck, tests (web 312, backend 178) and the build; the squash-merged main tree is identical to that local merge. Web only (`FileList.tsx`, `TrashPage.tsx`, `TrashPage.test.tsx`). `prod-deploy.sh diff-pr 53` showed 0 stacks with differences. Main was `133d212`, which prod already ran (`prod-deploy.sh diff` 0 stacks), so no drift.
+- Infra: not run. Post-deploy `prod-deploy.sh diff` at `82d3ca4` shows 0 stacks with differences.
+- Web (`prod-deploy.sh web`): built and synced to the prod site bucket; invalidated `/*` on the prod distribution. Entry bundle `index-CEM7BWPB.js`, `TrashPage-QDrSaYij.js`, `FileList-CZ7pns4m.js`, stylesheet `index-KpoBk-M8.css`.
+- Shipped: #53 `82d3ca4` (T-0023).
+- Smoke check: https://dh0djlfa46gz6.cloudfront.net/login serves `index-CEM7BWPB.js`, renders the sign-in form, `TrashPage-QDrSaYij.js` (200, JavaScript) and `FileList-CZ7pns4m.js` (200) are served, and the console shows no errors.
+- Logs: $LOCAL/logs/prod-deploy-diff-pr-20261121T200825Z.log, prod-deploy-diff-20261121T200852Z.log, prod-deploy-web-20261121T200949Z.log, prod-deploy-diff-20261121T201000Z.log.
+- Prod is now at origin/main `82d3ca4` for both infra and web.

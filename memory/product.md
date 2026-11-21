@@ -15,9 +15,9 @@ Dockspace: a self-hosted, single-tenant cloud file storage app on AWS (minimal G
 All open tasks have their own issues (#11-#16, sub-issues of request #5) since 2026-11-20. 2026-11-20 sweep: the permission and infra-hold blockers are resolved by the setup change (pre-approved prod-deploy.sh, gh pr merge for deployment, drift rules). T-0001, T-0002 and T-0006 have shipped. T-0003 and T-0004 ship with T-0001's deploy of main. Only T-0005 waits on the human (design pick).
 
 - T-0024 Failed folder listing shows the error without the empty state (issue #52, request #31, from T-0015 test round 2, finding 2): a folder whose listing fails shows the error plus "This folder is empty" / "Upload your first files"; show only the error with a retry. New; pre-existing, touches the same page as T-0015 (PR #47), so dispatch after it is merged (PR #47 merged and live on 2026-11-21).
-- T-0023 Trash page keeps focus on the row after a failed restore (issue #50, request #5, from T-0021 test round 1, finding 1): after a failed inline Restore focus falls to body because the button is disabled during the request; put it back on the row's Restore (or Dismiss). In engineering since 2026-11-21 (T-0021, PR #49, merged and live).
 
 ### Shipped
+- 2026-11-21 (prod at 82d3ca4): T-0023 Trash page keeps focus on the row after a failed restore (#50, PR #53): after a failed inline Restore, focus that fell to the page goes back to that row's Restore button (visible ring for keyboard users); focus the user moved elsewhere is left alone; the per-row error, Dismiss and T-0021's focus after a successful restore are unchanged.
 - 2026-11-21 (prod at 133d212): T-0015 Folder info panel from the folder action menu (#33, PR #47): "Info" first in every folder row menu and "Folder info" in Dockspace / Folder options open a panel in the file-preview slot (full page on phone) with subfolder and file counts (correct plurals), files size, created / modified dates and location; loading and error states with Try again; focus moves in on open and back to the opener on close.
 - 2026-11-21 (prod at 7803b6f): T-0022 Confirmation dialogs keep focus after a failed purge or folder trash (#48, PR #51): after a failed purge or folder Move to Trash, focus moves to Cancel (visible ring for keyboard users); closing after a failed folder trash returns focus to the folder's Actions trigger or row; all dialog titles are `h2` (no axe `heading-order` violation).
 - 2026-11-21 (prod at 4a9ea0b): T-0021 Keep focus in the trash list after a restore or purge (#46, PR #49): after a successful Restore, or a Purge confirmed in its dialog, focus moves to the next row's Restore button, else the previous row's, else the trash list or the empty-trash message (keyboard-only 2px accent ring). Never `body`.
@@ -69,5 +69,5 @@ All open tasks have their own issues (#11-#16, sub-issues of request #5) since 2
 | T-0020 | #43 | #5 | Confirmation dialogs take focus when they open | done | Test filter |
 | T-0021 | #46 | #5 | Keep focus in the trash list after a restore or purge | done | Test filter |
 | T-0022 | #48 | #5 | Confirmation dialogs keep focus after a failed purge or folder trash | done | Engineering |
-| T-0023 | #50 | #5 | Trash page keeps focus on the row after a failed restore | deploying | Engineering |
+| T-0023 | #50 | #5 | Trash page keeps focus on the row after a failed restore | done | Engineering |
 | T-0024 | #52 | #31 | Failed folder listing shows the error without the empty state | new | Test filter |

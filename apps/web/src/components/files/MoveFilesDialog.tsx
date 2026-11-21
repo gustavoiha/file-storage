@@ -51,7 +51,7 @@ export const MoveFilesDialog = ({
           onClose();
         }}
       >
-        <h3 className="dockspace-dialog__title">Move files</h3>
+        <h2 className="dockspace-dialog__title">Move files</h2>
         <form onSubmit={onSubmit}>
           <p className="dockspace-dialog__description">
             {selectedFileCount} file{selectedFileCount === 1 ? '' : 's'} selected.

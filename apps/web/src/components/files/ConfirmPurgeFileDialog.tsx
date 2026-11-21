@@ -1,7 +1,11 @@
 import type { FormEventHandler } from 'react';
 import { Alert } from '@/components/ui/Alert';
 import { Button } from '@/components/ui/Button';
-import { useDialogDismiss, useDialogTabTrap } from '@/components/files/useDialogDismiss';
+import {
+  useDialogDismiss,
+  useDialogTabTrap,
+  useFocusAfterFailedSubmit
+} from '@/components/files/useDialogDismiss';
 
 interface ConfirmPurgeFileDialogProps {
   errorMessage: string | null;
@@ -26,6 +30,11 @@ export const ConfirmPurgeFileDialog = ({
   const isDialogOpen = isOpen && Boolean(fullPath);
   const { onBackdropMouseDown } = useDialogDismiss({ isOpen: isDialogOpen, onClose });
   const dialogRef = useDialogTabTrap<HTMLDialogElement>(isDialogOpen);
+  const cancelRef = useFocusAfterFailedSubmit<HTMLButtonElement>({
+    isOpen: isDialogOpen,
+    isSubmitting,
+    errorMessage
+  });
 
   if (!isDialogOpen || !fullPath) {
     return null;
@@ -44,7 +53,7 @@ export const ConfirmPurgeFileDialog = ({
           onClose();
         }}
       >
-        <h3 className="dockspace-dialog__title">Purge file now</h3>
+        <h2 className="dockspace-dialog__title">Purge file now</h2>
         <form onSubmit={onSubmit}>
           <p className="auth-note">
             This permanently removes <strong>{fullPath}</strong>
@@ -56,8 +65,16 @@ export const ConfirmPurgeFileDialog = ({
             <Button type="submit" variant="danger" disabled={isSubmitting}>
               {isSubmitting ? 'Purging...' : 'Purge now'}
             </Button>
-            {/* Initial focus on Cancel: pressing Enter right after opening must not delete anything. */}
-            <Button type="button" variant="secondary" onClick={onClose} disabled={isSubmitting} autoFocus>
+            {/* Initial focus on Cancel: pressing Enter right after opening must not delete anything.
+                It also takes focus back after a failed submit. */}
+            <Button
+              ref={cancelRef}
+              type="button"
+              variant="secondary"
+              onClick={onClose}
+              disabled={isSubmitting}
+              autoFocus
+            >
               Cancel
             </Button>
           </div>

@@ -42,7 +42,7 @@ export const AddFolderDialog = ({
           onClose();
         }}
       >
-        <h3 className="dockspace-dialog__title">Add folder</h3>
+        <h2 className="dockspace-dialog__title">Add folder</h2>
         <form onSubmit={onSubmit}>
           <label className="ui-field" htmlFor="new-folder-name">
             <span className="ui-field__label">Folder name</span>

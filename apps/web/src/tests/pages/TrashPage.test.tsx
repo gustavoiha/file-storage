@@ -304,6 +304,34 @@ describe('TrashPage', () => {
     expect(screen.queryByRole('button', { name: `Purge now ${olderName}` })).toBeNull();
   });
 
+  it('moves focus to Cancel after a failed purge', async () => {
+    const purge = deferred();
+    purgeFileNowMock.mockImplementation(() => purge.promise);
+    render(<TrashPage />);
+
+    fireEvent.click(screen.getByRole('button', { name: `Purge now ${newerName}` }));
+    const dialog = screen.getByRole('dialog', { name: 'Purge file now' });
+    const confirm = within(dialog).getByRole('button', { name: 'Purge now' });
+    confirm.focus();
+    fireEvent.click(confirm);
+    expect(within(dialog).getByRole('button', { name: 'Purging...' })).toBeDisabled();
+    // A browser moves focus to body when the focused button is disabled; jsdom keeps it.
+    const placeholder = document.createElement('input');
+    document.body.append(placeholder);
+    placeholder.focus();
+    placeholder.remove();
+
+    await act(async () => {
+      purge.reject(new Error('Could not fully purge object versions from S3'));
+      await purge.promise.catch(() => {});
+    });
+
+    expect(within(dialog).getByRole('alert')).toHaveTextContent(
+      'Could not fully purge object versions from S3'
+    );
+    expect(within(dialog).getByRole('button', { name: 'Cancel' })).toHaveFocus();
+  });
+
   it('keeps the dialog open with the error after a failed purge, and lets it close', async () => {
     purgeFileNowMock.mockRejectedValue(new Error('Could not fully purge object versions from S3'));
     render(<TrashPage />);

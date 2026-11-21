@@ -109,7 +109,7 @@ export const CreateDockspaceForm = ({ disabled = false }: CreateDockspaceFormPro
               closeDialog();
             }}
           >
-            <h3 className="dockspace-dialog__title">{title}</h3>
+            <h2 className="dockspace-dialog__title">{title}</h2>
             <p className="dockspace-dialog__description">{selectedTypeDescription}</p>
             <p className="dockspace-dialog__description">Choose a name to continue.</p>
             <form onSubmit={onSubmit}>

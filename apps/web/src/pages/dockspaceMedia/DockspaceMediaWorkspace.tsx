@@ -461,7 +461,7 @@ export const DockspaceMediaWorkspace = ({ dockspaceId, controller }: DockspaceMe
               closeAddToAlbumDialog();
             }}
           >
-            <h3 className="dockspace-dialog__title">Add to album</h3>
+            <h2 className="dockspace-dialog__title">Add to album</h2>
             <p className="dockspace-dialog__description">
               Choose the album for {selectedMediaIds.length} selected item
               {selectedMediaIds.length === 1 ? '' : 's'}.
@@ -520,7 +520,7 @@ export const DockspaceMediaWorkspace = ({ dockspaceId, controller }: DockspaceMe
               closeTrashDialog();
             }}
           >
-            <h3 className="dockspace-dialog__title">Move to trash</h3>
+            <h2 className="dockspace-dialog__title">Move to trash</h2>
             <p className="dockspace-dialog__description">
               This will move {trashDialogSelectedCount} {trashDialogSelectionLabel} to trash.
             </p>

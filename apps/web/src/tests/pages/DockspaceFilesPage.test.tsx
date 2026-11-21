@@ -1253,6 +1253,100 @@ describe('DockspaceFilesPage', () => {
         expect(dialog).toContainElement(document.activeElement as HTMLElement);
         expect(currentList()).not.toHaveFocus();
       });
+
+      describe('after a failed move to trash', () => {
+        const folderRowButton = (fullPath: string) => {
+          const row = document.querySelector<HTMLElement>(`[data-row-path="${fullPath}"]`);
+          if (!row) {
+            throw new Error(`No row for ${fullPath}`);
+          }
+          return row;
+        };
+
+        // A browser moves focus to body when the focused button is disabled; jsdom keeps it.
+        const moveFocusToBody = () => {
+          const placeholder = document.createElement('input');
+          document.body.append(placeholder);
+          placeholder.focus();
+          placeholder.remove();
+        };
+
+        // The folder row is shown as a pending "Trashing..." row while the request runs, so the
+        // opener captured when the dialog opened is replaced by a new element once it fails.
+        let rejectTrash: (error: Error) => void = () => {};
+
+        beforeEach(() => {
+          mockState.moveToTrash = vi.fn(
+            () =>
+              new Promise<void>((_resolve, reject) => {
+                rejectTrash = reject;
+              })
+          );
+        });
+
+        const failTrash = async () => {
+          confirmWithKeyboard();
+          await waitFor(() => expect(mockState.moveToTrash).toHaveBeenCalledTimes(1));
+          expect(screen.getByText('Trashing...')).toBeInTheDocument();
+          expect(document.querySelector('[data-row-path="/Travel"]')).toBeNull();
+          moveFocusToBody();
+
+          await act(async () => {
+            rejectTrash(new Error('Failed to move folder to trash'));
+          });
+          const dialog = screen.getByRole('dialog', { name: 'Move folder to trash' });
+          expect(within(dialog).getByRole('alert')).toHaveTextContent('Failed to move folder to trash');
+          return dialog;
+        };
+
+        const closeDialog = {
+          Escape: () => fireEvent.keyDown(document, { key: 'Escape' }),
+          Cancel: (dialog: HTMLElement) =>
+            fireEvent.click(within(dialog).getByRole('button', { name: 'Cancel' })),
+          'a backdrop click': (dialog: HTMLElement) =>
+            fireEvent.mouseDown(dialog.parentElement as HTMLElement)
+        };
+
+        it('moves focus to Cancel', async () => {
+          renderPage();
+          openTrashConfirmation('Travel');
+          const dialog = await failTrash();
+
+          expect(within(dialog).getByRole('button', { name: 'Cancel' })).toHaveFocus();
+        });
+
+        it.each(Object.entries(closeDialog))(
+          'returns focus to the folder Actions trigger after %s',
+          async (_name, close) => {
+            renderPage();
+            const trigger = openTrashConfirmation('Travel');
+            const dialog = await failTrash();
+            expect(trigger.isConnected).toBe(false);
+
+            close(dialog);
+
+            expect(screen.queryByRole('dialog', { name: 'Move folder to trash' })).not.toBeInTheDocument();
+            await waitFor(() =>
+              expect(screen.getByRole('button', { name: 'Actions for Travel' })).toHaveFocus()
+            );
+          }
+        );
+
+        it('returns focus to the folder row when the menu was opened from the row', async () => {
+          renderPage();
+          const row = folderRowButton('/Travel');
+          row.focus();
+          fireEvent.keyDown(row, { key: 'F10', shiftKey: true });
+          activateMenuItem('Actions for Travel', 'Move to Trash');
+          await failTrash();
+          expect(row.isConnected).toBe(false);
+
+          fireEvent.keyDown(document, { key: 'Escape' });
+
+          await waitFor(() => expect(folderRowButton('/Travel')).toHaveFocus());
+          expect(currentList()).not.toHaveFocus();
+        });
+      });
     });
   });
 

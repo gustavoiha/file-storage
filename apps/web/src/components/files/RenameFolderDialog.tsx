@@ -42,7 +42,7 @@ export const RenameFolderDialog = ({
           onClose();
         }}
       >
-        <h3 className="dockspace-dialog__title">Rename folder</h3>
+        <h2 className="dockspace-dialog__title">Rename folder</h2>
         <form onSubmit={onSubmit}>
           <label className="ui-field" htmlFor="rename-folder-name">
             <span className="ui-field__label">Folder name</span>

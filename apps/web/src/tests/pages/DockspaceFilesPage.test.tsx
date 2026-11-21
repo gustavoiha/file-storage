@@ -1231,6 +1231,8 @@ describe('DockspaceFilesPage', () => {
         mockState.moveToTrash = vi.fn(async () => {});
         renderPage();
         const trigger = openTrashConfirmation('Travel');
+        const dialog = screen.getByRole('dialog', { name: 'Move folder to trash' });
+        expect(within(dialog).getByRole('button', { name: 'Cancel' })).toHaveFocus();
 
         fireEvent.click(screen.getByRole('button', { name: 'Cancel' }));
 

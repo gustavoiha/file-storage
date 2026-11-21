@@ -283,11 +283,48 @@
   align-items: center;
 }
 
+.resource-list__item--has-error {
+  flex-wrap: wrap;
+  row-gap: 0.6rem;
+}
+
+.resource-list__item-error {
+  flex-basis: 100%;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.resource-list__item-error .ui-alert {
+  flex: 1;
+  min-width: 0;
+  margin: 0;
+  overflow-wrap: anywhere;
+}
+
 .resource-list__item-actions {
   display: flex;
   gap: 0.5rem;
   flex-wrap: wrap;
   justify-content: flex-end;
+}
+
+/*
+ * The trash list (or its empty message) takes focus when a restore or purge removes a row and no
+ * other row's Restore button can take it (T-0021). Keyboard focus ring only (WCAG 2.4.7), the
+ * same 2px accent outline as the file list: focus also moves here after a mouse click, and a
+ * mouse user should not see a ring.
+ */
+.flat-file-list:focus,
+.flat-file-list__empty:focus {
+  outline: none;
+}
+
+.flat-file-list:focus-visible,
+.flat-file-list__empty:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+  border-radius: 6px;
 }
 
 .dockspace-browser {
@@ -2316,6 +2353,18 @@ a.dockspace-card:focus-visible {
     flex-direction: column;
     align-items: flex-start;
     gap: 0.7rem;
+  }
+
+  /* The row is a column here, so a 100% basis would set the error's height. */
+  .resource-list__item-error {
+    flex-basis: auto;
+    align-self: stretch;
+    flex-direction: column;
+    align-items: flex-start;
+  }
+
+  .resource-list__item-error .ui-alert {
+    align-self: stretch;
   }
 
   .dockspace-list-item__metrics {

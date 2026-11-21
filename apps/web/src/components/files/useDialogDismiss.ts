@@ -65,6 +65,77 @@ export const resolveOpener = (active: Element | null): HTMLElement | null => {
   return trigger ?? rowButton;
 };
 
+const TABBABLE_SELECTOR = [
+  'a[href]',
+  'button:not([disabled])',
+  'input:not([disabled]):not([type="hidden"])',
+  'select:not([disabled])',
+  'textarea:not([disabled])',
+  '[tabindex]:not([tabindex="-1"])'
+].join(', ');
+
+/**
+ * Tab and Shift+Tab wrap around the dialog's controls, so keyboard focus does not leave it
+ * for the page behind it. Focus outside the dialog (e.g. on body after the focused button was
+ * disabled during a submit) moves to its first or last control; with no control to take
+ * focus, Tab is swallowed.
+ */
+const trapTabKey = (dialog: HTMLElement, event: KeyboardEvent) => {
+  if (event.key !== 'Tab' || event.altKey || event.ctrlKey || event.metaKey) {
+    return;
+  }
+
+  const tabbable = Array.from(dialog.querySelectorAll<HTMLElement>(TABBABLE_SELECTOR)).filter(
+    (element) => element.getAttribute('aria-hidden') !== 'true'
+  );
+  const first = tabbable[0];
+  const last = tabbable[tabbable.length - 1];
+  if (!first || !last) {
+    event.preventDefault();
+    return;
+  }
+
+  const active = document.activeElement;
+  const activeIndex = active instanceof HTMLElement ? tabbable.indexOf(active) : -1;
+  if (event.shiftKey && activeIndex <= 0) {
+    event.preventDefault();
+    last.focus();
+  } else if (!event.shiftKey && (activeIndex === -1 || activeIndex === tabbable.length - 1)) {
+    event.preventDefault();
+    first.focus();
+  }
+};
+
+/**
+ * Keeps Tab and Shift+Tab inside a modal dialog while it is open. Attach the returned ref to
+ * the dialog element. The listener is on the document, not the dialog, because focus can sit on
+ * body (a disabled button loses focus while submitting, and it stays there after a failure),
+ * and a Tab from body never reaches the dialog's own handlers.
+ */
+export const useDialogTabTrap = <T extends HTMLElement>(isOpen: boolean) => {
+  const dialogRef = useRef<T>(null);
+
+  useEffect(() => {
+    if (!isOpen) {
+      return;
+    }
+
+    const onDocumentKeyDown = (event: KeyboardEvent) => {
+      const dialog = dialogRef.current;
+      if (dialog?.isConnected) {
+        trapTabKey(dialog, event);
+      }
+    };
+
+    document.addEventListener('keydown', onDocumentKeyDown);
+    return () => {
+      document.removeEventListener('keydown', onDocumentKeyDown);
+    };
+  }, [isOpen]);
+
+  return dialogRef;
+};
+
 export const focusIsLost = () => {
   const active = document.activeElement;
   return !active || active === document.body;

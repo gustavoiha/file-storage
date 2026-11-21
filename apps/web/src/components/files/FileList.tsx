@@ -13,10 +13,12 @@ import {
   type RefObject
 } from 'react';
 import { ChevronRight, Folder } from 'lucide-react';
+import { Alert } from '@/components/ui/Alert';
 import { Button } from '@/components/ui/Button';
 import { DropdownMenu } from '@/components/ui/DropdownMenu';
 import { useFileIconForPath } from '@/hooks/useFileIconForPath';
 import { useLongPress, type LongPressHandlers } from '@/hooks/useLongPress';
+import { focusIsLost, isFocusable } from '@/components/files/useDialogDismiss';
 import type { FileRecord, FolderRecord } from '@/lib/apiTypes';
 import { formatDateTime, formatFileSize, formatModifiedDate, pluralize } from '@/lib/fileFormat';
 import { positionMenuAtPoint, type MenuPoint } from '@/lib/menuPosition';
@@ -62,6 +64,14 @@ interface FileListProps {
   actionLabelWhilePending?: string | undefined;
   /** Flat list: row ids (see `fileRowId`) whose primary action is in progress. */
   pendingActionFileIds?: readonly string[] | undefined;
+  /** Flat list: error messages shown inside their own row, keyed by row id (see `fileRowId`). */
+  actionErrorMessages?: ReadonlyMap<string, string> | undefined;
+  /** Flat list: dismisses the error shown in a row (called with its row id). */
+  onDismissActionError?: ((rowId: string) => void) | undefined;
+  /**
+   * Flat list: a row whose action succeeded and that is leaving the list (see `FlatRowFocusRequest`).
+   */
+  focusAfterRemoval?: FlatRowFocusRequest | null | undefined;
   secondaryActionLabel?: string | undefined;
   secondaryActionLabelWhilePending?: string | undefined;
   /** Flat list: row ids (see `fileRowId`) whose secondary action is in progress. */
@@ -146,7 +156,60 @@ const describeFlatFile = (file: FileRecord): string => {
   return trashedAt ? `${file.fullPath}, trashed ${trashedAt}` : file.fullPath;
 };
 
+/**
+ * Asks the flat list to keep keyboard focus nearby once a row leaves it (restored, purged). When
+ * the row is gone and focus fell to <body>, focus moves to the next row's action button, else the
+ * previous row's, else the list itself (or its empty message). Pass a new object per request.
+ */
+export interface FlatRowFocusRequest {
+  rowId: string;
+}
+
+/** Rows after the removed one in order, then the rows before it, nearest first. */
+const neighbourRowIds = (order: readonly string[], rowId: string): string[] => {
+  const index = order.indexOf(rowId);
+  if (index < 0) {
+    return [];
+  }
+  return [...order.slice(index + 1), ...order.slice(0, index).reverse()];
+};
+
+interface FlatRowErrorProps {
+  fileDescription: string;
+  message: string;
+  onDismiss?: (() => void) | undefined;
+}
+
+/**
+ * Error shown inside the row it belongs to, so it is next to the button that caused it. On a long
+ * list the row can sit at the bottom of the viewport, so the error scrolls itself into view.
+ */
+const FlatRowError = ({ fileDescription, message, onDismiss }: FlatRowErrorProps) => {
+  const errorRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    errorRef.current?.scrollIntoView?.({ block: 'nearest' });
+  }, [message]);
+
+  return (
+    <div ref={errorRef} className="resource-list__item-error">
+      <Alert message={message} />
+      {onDismiss ? (
+        <Button
+          variant="secondary"
+          size="sm"
+          aria-label={`Dismiss error for ${fileDescription}`}
+          onClick={onDismiss}
+        >
+          Dismiss
+        </Button>
+      ) : null}
+    </div>
+  );
+};
+
 interface FlatFileListProps {
+  actionErrorMessages?: ReadonlyMap<string, string> | undefined;
   actionLabel: string;
   actionLabelWhilePending?: string | undefined;
   files: FileRecord[];
@@ -157,32 +220,111 @@ interface FlatFileListProps {
   secondaryActionVariant?: 'primary' | 'secondary' | 'danger' | undefined;
   onSecondaryAction?: ((fullPath: string, file: FileRecord) => void) | undefined;
   onAction: (fullPath: string, file: FileRecord) => void;
+  onDismissActionError?: ((rowId: string) => void) | undefined;
+  focusAfterRemoval?: FlatRowFocusRequest | null | undefined;
 }
 
 const FlatFileList = ({
+  actionErrorMessages,
   actionLabel,
   actionLabelWhilePending,
   files,
+  focusAfterRemoval,
   pendingActionFileIds,
   pendingSecondaryActionFileIds,
   secondaryActionLabel,
   secondaryActionLabelWhilePending,
   secondaryActionVariant = 'secondary',
   onSecondaryAction,
-  onAction
+  onAction,
+  onDismissActionError
 }: FlatFileListProps) => {
+  // Primary action button per row id. Dismissing a row error removes the focused Dismiss button,
+  // so focus moves to that row's action button instead of falling back to <body>.
+  const actionButtonsRef = useRef(new Map<string, HTMLButtonElement>());
+
+  const setActionButton = (rowId: string) => (element: HTMLButtonElement | null) => {
+    if (element) {
+      actionButtonsRef.current.set(rowId, element);
+    } else {
+      actionButtonsRef.current.delete(rowId);
+    }
+  };
+
+  const dismissActionError = (rowId: string) => {
+    actionButtonsRef.current.get(rowId)?.focus();
+    onDismissActionError?.(rowId);
+  };
+
+  const listRef = useRef<HTMLUListElement>(null);
+  const emptyMessageRef = useRef<HTMLParagraphElement>(null);
+  // Row order of the last commit, and for each row that left the list the order it last had:
+  // the row can be gone before the success that asks for focus arrives, or only after it.
+  const previousRowIdsRef = useRef<readonly string[]>([]);
+  const removedRowOrdersRef = useRef(new Map<string, readonly string[]>());
+  const handledFocusRequestRef = useRef<FlatRowFocusRequest | null>(null);
+
+  useLayoutEffect(() => {
+    const rowIds = files.map(fileRowId);
+    const currentRowIds = new Set(rowIds);
+    const previousRowIds = previousRowIdsRef.current;
+    const removedRowOrders = removedRowOrdersRef.current;
+    for (const rowId of previousRowIds) {
+      if (!currentRowIds.has(rowId)) {
+        removedRowOrders.set(rowId, previousRowIds);
+      }
+    }
+    for (const rowId of rowIds) {
+      removedRowOrders.delete(rowId);
+    }
+    previousRowIdsRef.current = rowIds;
+
+    const request = focusAfterRemoval;
+    if (!request || handledFocusRequestRef.current === request || currentRowIds.has(request.rowId)) {
+      return;
+    }
+
+    handledFocusRequestRef.current = request;
+    const order = removedRowOrders.get(request.rowId) ?? [];
+    removedRowOrders.delete(request.rowId);
+    // Leave focus alone if the user already moved it somewhere else while the action ran.
+    if (!focusIsLost()) {
+      return;
+    }
+
+    const target = neighbourRowIds(order, request.rowId)
+      .map((rowId) => actionButtonsRef.current.get(rowId))
+      .find(isFocusable);
+    (target ?? listRef.current ?? emptyMessageRef.current)?.focus();
+  }, [files, focusAfterRemoval]);
+
   if (!files.length) {
-    return <p>No files found.</p>;
+    return (
+      <p
+        ref={emptyMessageRef}
+        className="flat-file-list__empty"
+        tabIndex={-1}
+        data-dialog-focus-fallback=""
+      >
+        No files found.
+      </p>
+    );
   }
 
   return (
-    <ul className="resource-list">
+    <ul
+      ref={listRef}
+      className="resource-list flat-file-list"
+      tabIndex={-1}
+      data-dialog-focus-fallback=""
+    >
       {files.map((file) => {
         const rowId = fileRowId(file);
         const trashedAt = formatTrashedAt(file);
         const fileDescription = describeFlatFile(file);
         const isActionPending = pendingActionFileIds.includes(rowId);
         const isSecondaryActionPending = pendingSecondaryActionFileIds.includes(rowId);
+        const actionErrorMessage = actionErrorMessages?.get(rowId);
         const currentActionLabel = isActionPending
           ? (actionLabelWhilePending ?? actionLabel)
           : actionLabel;
@@ -192,7 +334,15 @@ const FlatFileList = ({
             : secondaryActionLabel;
 
         return (
-          <li key={rowId} className="resource-list__item resource-list__item--spaced">
+          <li
+            key={rowId}
+            className={[
+              'resource-list__item resource-list__item--spaced',
+              actionErrorMessage ? 'resource-list__item--has-error' : ''
+            ]
+              .filter(Boolean)
+              .join(' ')}
+          >
             <div>
               <strong>{file.fullPath}</strong>
               {typeof file.size === 'number' ? <p>{file.size} bytes</p> : null}
@@ -210,6 +360,7 @@ const FlatFileList = ({
                 </Button>
               ) : null}
               <Button
+                ref={setActionButton(rowId)}
                 variant="secondary"
                 aria-label={`${currentActionLabel} ${fileDescription}`}
                 onClick={() => onAction(file.fullPath, file)}
@@ -218,6 +369,13 @@ const FlatFileList = ({
                 {currentActionLabel}
               </Button>
             </div>
+            {actionErrorMessage ? (
+              <FlatRowError
+                fileDescription={fileDescription}
+                message={actionErrorMessage}
+                onDismiss={onDismissActionError ? () => dismissActionError(rowId) : undefined}
+              />
+            ) : null}
           </li>
         );
       })}
@@ -1094,6 +1252,7 @@ const FolderModeList = ({
 };
 
 export const FileList = ({
+  actionErrorMessages,
   actionLabel,
   actionLabelWhilePending,
   currentFolder = '/',
@@ -1114,6 +1273,8 @@ export const FileList = ({
   onShowFolderInfo,
   onAction,
   onActionFolder,
+  onDismissActionError,
+  focusAfterRemoval,
   onOpenFolder,
   onToggleFileSelection,
   pendingFolderPaths = [],
@@ -1140,6 +1301,7 @@ export const FileList = ({
   if (!onOpenFolder) {
     return (
       <FlatFileList
+        actionErrorMessages={actionErrorMessages}
         actionLabel={actionLabel}
         actionLabelWhilePending={actionLabelWhilePending}
         files={files}
@@ -1150,6 +1312,8 @@ export const FileList = ({
         secondaryActionVariant={secondaryActionVariant}
         onSecondaryAction={onSecondaryAction}
         onAction={onAction}
+        onDismissActionError={onDismissActionError}
+        focusAfterRemoval={focusAfterRemoval}
       />
     );
   }

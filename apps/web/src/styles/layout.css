@@ -2545,10 +2545,6 @@ button.dockspace-crumbs__crumb:focus-visible {
   color: var(--text);
 }
 
-.dockspace-column__counts {
-  color: var(--text-muted);
-}
-
 .dockspace-column__col-label {
   font-size: 0.74rem;
   text-transform: uppercase;

@@ -35,7 +35,7 @@ interface FileListProps {
   folderMoveActionLabel?: string | undefined;
   folderRenameActionLabel?: string | undefined;
   renameActionLabel?: string | undefined;
-  /** Folder name shown in the column header ("{name} · N folders, M files"). */
+  /** Folder name shown on its own in the current column header (desktop only). */
   columnTitle?: string | undefined;
   /** Direct file counts per folder path, shown on folder rows when known. */
   folderFileCounts?: ReadonlyMap<string, number> | undefined;
@@ -906,10 +906,6 @@ const FolderModeList = ({
         <header className="dockspace-column__head dockspace-column__head--current">
           <h2 className="dockspace-column__label dockspace-column__label--current">
             {columnTitle}
-            <span className="dockspace-column__counts">
-              {' · '}
-              {pluralize(folders.length, 'folder')}, {pluralize(directFiles.length, 'file')}
-            </span>
           </h2>
           {hasEntries ? (
             <>

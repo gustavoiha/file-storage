@@ -16,6 +16,8 @@ All open tasks have their own issues (#11-#16, sub-issues of request #5) since 2
 
 - T-0012 Keep focus in the file list after a file is moved to the trash (issue #28, from T-0011 testing): dispatched to engineering 2026-11-21 (no design round: follows the T-0009/T-0010 focus pattern). T-0011 (PR #27) has merged (main `f0a598a`): rebase on it.
 - T-0013 Show the row focus highlight only after keyboard use (issue #30, from T-0012 review round 1, C1): dispatched to engineering 2026-11-21 (no design round: same highlight, keyboard-only via `:focus-visible`). Rebase on PR #29 (T-0012) once it merges.
+- T-0014 Remove the folder and file counts from the current folder heading (issue #32, request #31): dispatched to engineering 2026-11-21 (no design round: pure removal).
+- T-0015 Folder info panel from the folder action menu (issue #33, request #31): dispatched to design 2026-11-21 (new panel; shows the counts removed in T-0014).
 
 ### Shipped
 - 2026-11-21 (prod at f0a598a): T-0011 Status line confirms Move to Trash (#26, PR #27): folder and file Move to Trash clear the old move message and show "Folder moved to trash." / "File moved to trash." ("Failed to move file to trash." on a failed file trash); the `role="status"` region stays mounted so the confirmation is announced.
@@ -49,3 +51,5 @@ All open tasks have their own issues (#11-#16, sub-issues of request #5) since 2
 | T-0011 | #26 | #5 | Status line confirms Move to Trash and drops stale messages | done | Deployment |
 | T-0012 | #28 | #5 | Keep focus in the file list after a file is moved to the trash | testing | Engineering |
 | T-0013 | #30 | #5 | Show the row focus highlight only after keyboard use | engineering | Review judge |
+| T-0014 | #32 | #31 | Remove the folder and file counts from the current folder heading | engineering | Engineering |
+| T-0015 | #33 | #31 | Folder info panel from the folder action menu | design | Design |

@@ -1,7 +1,7 @@
 import type { FormEventHandler } from 'react';
 import { Alert } from '@/components/ui/Alert';
 import { Button } from '@/components/ui/Button';
-import { useDialogDismiss } from '@/components/files/useDialogDismiss';
+import { trapDialogTabKey, useDialogDismiss } from '@/components/files/useDialogDismiss';
 
 interface ConfirmPurgeFileDialogProps {
   errorMessage: string | null;
@@ -36,6 +36,7 @@ export const ConfirmPurgeFileDialog = ({
         className="dockspace-dialog"
         open
         aria-modal="true"
+        onKeyDown={trapDialogTabKey}
         aria-label="Purge file now"
         onCancel={(event) => {
           event.preventDefault();
@@ -54,7 +55,8 @@ export const ConfirmPurgeFileDialog = ({
             <Button type="submit" variant="danger" disabled={isSubmitting}>
               {isSubmitting ? 'Purging...' : 'Purge now'}
             </Button>
-            <Button type="button" variant="secondary" onClick={onClose} disabled={isSubmitting}>
+            {/* Initial focus on Cancel: pressing Enter right after opening must not delete anything. */}
+            <Button type="button" variant="secondary" onClick={onClose} disabled={isSubmitting} autoFocus>
               Cancel
             </Button>
           </div>

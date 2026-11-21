@@ -1,7 +1,7 @@
 import type { FormEventHandler } from 'react';
 import { Alert } from '@/components/ui/Alert';
 import { Button } from '@/components/ui/Button';
-import { useDialogDismiss } from '@/components/files/useDialogDismiss';
+import { trapDialogTabKey, useDialogDismiss } from '@/components/files/useDialogDismiss';
 
 interface ConfirmFolderTrashDialogProps {
   errorMessage: string | null;
@@ -33,6 +33,7 @@ export const ConfirmFolderTrashDialog = ({
         className="dockspace-dialog"
         open
         aria-modal="true"
+        onKeyDown={trapDialogTabKey}
         aria-label="Move folder to trash"
         onCancel={(event) => {
           event.preventDefault();
@@ -50,7 +51,8 @@ export const ConfirmFolderTrashDialog = ({
             <Button type="submit" variant="danger" disabled={isSubmitting}>
               {isSubmitting ? 'Moving to trash...' : 'Move to trash'}
             </Button>
-            <Button type="button" variant="secondary" onClick={onClose} disabled={isSubmitting}>
+            {/* Initial focus on Cancel: pressing Enter right after opening must not delete anything. */}
+            <Button type="button" variant="secondary" onClick={onClose} disabled={isSubmitting} autoFocus>
               Cancel
             </Button>
           </div>

@@ -1,4 +1,4 @@
-import { useEffect, useRef, type MouseEventHandler } from 'react';
+import { useEffect, useRef, type KeyboardEventHandler, type MouseEventHandler } from 'react';
 
 interface UseDialogDismissOptions {
   isOpen: boolean;
@@ -63,6 +63,46 @@ export const resolveOpener = (active: Element | null): HTMLElement | null => {
   );
 
   return trigger ?? rowButton;
+};
+
+const TABBABLE_SELECTOR = [
+  'a[href]',
+  'button:not([disabled])',
+  'input:not([disabled]):not([type="hidden"])',
+  'select:not([disabled])',
+  'textarea:not([disabled])',
+  '[tabindex]:not([tabindex="-1"])'
+].join(', ');
+
+/**
+ * Keydown handler for a modal dialog: Tab and Shift+Tab wrap around the dialog's controls,
+ * so keyboard focus does not leave it for the page behind it.
+ */
+export const trapDialogTabKey: KeyboardEventHandler<HTMLElement> = (event) => {
+  if (event.key !== 'Tab' || event.altKey || event.ctrlKey || event.metaKey) {
+    return;
+  }
+
+  const dialog = event.currentTarget;
+  const tabbable = Array.from(dialog.querySelectorAll<HTMLElement>(TABBABLE_SELECTOR)).filter(
+    (element) => element.getAttribute('aria-hidden') !== 'true'
+  );
+  const first = tabbable[0];
+  const last = tabbable[tabbable.length - 1];
+  if (!first || !last) {
+    event.preventDefault();
+    return;
+  }
+
+  const active = document.activeElement;
+  const activeIndex = active instanceof HTMLElement ? tabbable.indexOf(active) : -1;
+  if (event.shiftKey && activeIndex <= 0) {
+    event.preventDefault();
+    last.focus();
+  } else if (!event.shiftKey && (activeIndex === -1 || activeIndex === tabbable.length - 1)) {
+    event.preventDefault();
+    first.focus();
+  }
 };
 
 export const focusIsLost = () => {

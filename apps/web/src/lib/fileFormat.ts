@@ -40,6 +40,29 @@ export const formatModifiedDate = (isoDate: string | undefined | null): string |
   return dateFormatter.format(date);
 };
 
+const dateTimeFormatter = new Intl.DateTimeFormat('en-US', {
+  month: 'short',
+  day: 'numeric',
+  year: 'numeric',
+  hour: 'numeric',
+  minute: '2-digit',
+  second: '2-digit'
+});
+
+/** Date and time to the second, e.g. "Nov 21, 2026, 10:05:32 AM". */
+export const formatDateTime = (isoDate: string | undefined | null): string | null => {
+  if (!isoDate) {
+    return null;
+  }
+
+  const date = new Date(isoDate);
+  if (Number.isNaN(date.getTime())) {
+    return null;
+  }
+
+  return dateTimeFormatter.format(date);
+};
+
 const TYPE_LABELS_BY_EXTENSION: Record<string, string> = {
   avif: 'AVIF image',
   bmp: 'BMP image',

@@ -6,6 +6,8 @@ import { useDialogDismiss } from '@/components/files/useDialogDismiss';
 interface ConfirmPurgeFileDialogProps {
   errorMessage: string | null;
   fullPath: string | null;
+  /** When the file was trashed, shown so two trashed copies of one path can be told apart. */
+  trashedAt?: string | null | undefined;
   isOpen: boolean;
   isSubmitting: boolean;
   onClose: () => void;
@@ -15,6 +17,7 @@ interface ConfirmPurgeFileDialogProps {
 export const ConfirmPurgeFileDialog = ({
   errorMessage,
   fullPath,
+  trashedAt = null,
   isOpen,
   isSubmitting,
   onClose,
@@ -42,7 +45,8 @@ export const ConfirmPurgeFileDialog = ({
         <h3 className="dockspace-dialog__title">Purge file now</h3>
         <form onSubmit={onSubmit}>
           <p className="auth-note">
-            This permanently removes <strong>{fullPath}</strong> from storage.
+            This permanently removes <strong>{fullPath}</strong>
+            {trashedAt ? ` (trashed ${trashedAt})` : ''} from storage.
           </p>
           <p className="auth-note">This action cannot be undone.</p>
           {errorMessage ? <Alert message={errorMessage} /> : null}

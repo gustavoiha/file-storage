@@ -94,6 +94,7 @@ describe('state-index list handlers', () => {
       JSON.stringify({
         items: [
           {
+            fileNodeId: 'file-1',
             fullPath: '/docs/report.txt',
             size: 123,
             deletedAt: '2026-02-01T00:00:00.000Z',
@@ -104,6 +105,32 @@ describe('state-index list handlers', () => {
       })
     );
     expect(listTrashedFileStateIndexMock).toHaveBeenCalledWith('user-1', 'dock-1');
+  });
+
+  it('lists each trashed copy of the same path with its own fileNodeId', async () => {
+    listTrashedFileStateIndexMock.mockResolvedValue(
+      ['file-old', 'file-new'].map((fileNodeId, index) => ({
+        PK: 'U#user-1#S#dock-1',
+        SK: `X#TRASH#2026-03-0${index + 1}T00:00:00.000Z#${fileNodeId}`,
+        type: 'FILE_STATE_INDEX',
+        state: 'TRASH',
+        fileNodeId,
+        trashedPath: '/docs/report.txt',
+        deletedAt: `2026-02-0${index + 1}T00:00:00.000Z`,
+        updatedAt: `2026-02-0${index + 1}T00:00:00.000Z`
+      }))
+    );
+
+    const { handler } = await import('../handlers/listTrash.js');
+    const response = await handler(baseEvent());
+    const { items } = JSON.parse(response.body ?? '{}') as {
+      items: Array<{ fileNodeId: string; fullPath: string }>;
+    };
+
+    expect(items.map((item) => [item.fileNodeId, item.fullPath])).toEqual([
+      ['file-old', '/docs/report.txt'],
+      ['file-new', '/docs/report.txt']
+    ]);
   });
 
   it('lists purged items from state index records', async () => {

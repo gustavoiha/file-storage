@@ -18,7 +18,7 @@ import { DropdownMenu } from '@/components/ui/DropdownMenu';
 import { useFileIconForPath } from '@/hooks/useFileIconForPath';
 import { useLongPress, type LongPressHandlers } from '@/hooks/useLongPress';
 import type { FileRecord, FolderRecord } from '@/lib/apiTypes';
-import { formatFileSize, formatModifiedDate, pluralize } from '@/lib/fileFormat';
+import { formatDateTime, formatFileSize, formatModifiedDate, pluralize } from '@/lib/fileFormat';
 import { positionMenuAtPoint, type MenuPoint } from '@/lib/menuPosition';
 
 interface FileListProps {
@@ -56,10 +56,12 @@ interface FileListProps {
   statusMessage?: string | null;
   actionLabel: string;
   actionLabelWhilePending?: string | undefined;
-  pendingActionPath?: string | null;
+  /** Flat list: row ids (see `fileRowId`) whose primary action is in progress. */
+  pendingActionFileIds?: readonly string[] | undefined;
   secondaryActionLabel?: string | undefined;
   secondaryActionLabelWhilePending?: string | undefined;
-  pendingSecondaryActionPath?: string | null;
+  /** Flat list: row ids (see `fileRowId`) whose secondary action is in progress. */
+  pendingSecondaryActionFileIds?: readonly string[] | undefined;
   secondaryActionVariant?: 'primary' | 'secondary' | 'danger' | undefined;
   onDownload?: ((file: FileRecord) => void) | undefined;
   onDownloadFolder?: ((folderPath: string) => void) | undefined;
@@ -70,8 +72,8 @@ interface FileListProps {
   onOpenFolder?: (folderPath: string) => void;
   onToggleFileSelection?: ((fullPath: string) => void) | undefined;
   onActionFolder?: ((folderPath: string) => void) | undefined;
-  onSecondaryAction?: ((fullPath: string) => void) | undefined;
-  onAction: (fullPath: string) => void;
+  onSecondaryAction?: ((fullPath: string, file: FileRecord) => void) | undefined;
+  onAction: (fullPath: string, file: FileRecord) => void;
 }
 
 interface FolderEntry {
@@ -122,25 +124,41 @@ const folderName = (folderPath: string): string => {
   return segments[segments.length - 1] ?? folderPath;
 };
 
+/**
+ * Identity of a file row. The trash can hold several files with the same path, so rows prefer
+ * the file node id and fall back to the path for records that have none.
+ */
+export const fileRowId = (file: Pick<FileRecord, 'fileNodeId' | 'fullPath'>): string =>
+  file.fileNodeId ?? file.fullPath;
+
+/** Trashed date and time, precise enough to tell two trashed copies of one path apart. */
+export const formatTrashedAt = (file: Pick<FileRecord, 'deletedAt'>): string | null =>
+  formatDateTime(file.deletedAt);
+
+const describeFlatFile = (file: FileRecord): string => {
+  const trashedAt = formatTrashedAt(file);
+  return trashedAt ? `${file.fullPath}, trashed ${trashedAt}` : file.fullPath;
+};
+
 interface FlatFileListProps {
   actionLabel: string;
   actionLabelWhilePending?: string | undefined;
   files: FileRecord[];
-  pendingActionPath?: string | null;
-  pendingSecondaryActionPath?: string | null;
+  pendingActionFileIds: readonly string[];
+  pendingSecondaryActionFileIds: readonly string[];
   secondaryActionLabel?: string | undefined;
   secondaryActionLabelWhilePending?: string | undefined;
   secondaryActionVariant?: 'primary' | 'secondary' | 'danger' | undefined;
-  onSecondaryAction?: ((fullPath: string) => void) | undefined;
-  onAction: (fullPath: string) => void;
+  onSecondaryAction?: ((fullPath: string, file: FileRecord) => void) | undefined;
+  onAction: (fullPath: string, file: FileRecord) => void;
 }
 
 const FlatFileList = ({
   actionLabel,
   actionLabelWhilePending,
   files,
-  pendingActionPath,
-  pendingSecondaryActionPath,
+  pendingActionFileIds,
+  pendingSecondaryActionFileIds,
   secondaryActionLabel,
   secondaryActionLabelWhilePending,
   secondaryActionVariant = 'secondary',
@@ -153,36 +171,50 @@ const FlatFileList = ({
 
   return (
     <ul className="resource-list">
-      {files.map((file) => (
-        <li key={file.fullPath} className="resource-list__item resource-list__item--spaced">
-          <div>
-            <strong>{file.fullPath}</strong>
-            {typeof file.size === 'number' ? <p>{file.size} bytes</p> : null}
-          </div>
-          <div className="resource-list__item-actions">
-            {onSecondaryAction && secondaryActionLabel ? (
+      {files.map((file) => {
+        const rowId = fileRowId(file);
+        const trashedAt = formatTrashedAt(file);
+        const fileDescription = describeFlatFile(file);
+        const isActionPending = pendingActionFileIds.includes(rowId);
+        const isSecondaryActionPending = pendingSecondaryActionFileIds.includes(rowId);
+        const currentActionLabel = isActionPending
+          ? (actionLabelWhilePending ?? actionLabel)
+          : actionLabel;
+        const currentSecondaryActionLabel =
+          isSecondaryActionPending && secondaryActionLabel
+            ? (secondaryActionLabelWhilePending ?? secondaryActionLabel)
+            : secondaryActionLabel;
+
+        return (
+          <li key={rowId} className="resource-list__item resource-list__item--spaced">
+            <div>
+              <strong>{file.fullPath}</strong>
+              {typeof file.size === 'number' ? <p>{file.size} bytes</p> : null}
+              {trashedAt ? <p>Trashed {trashedAt}</p> : null}
+            </div>
+            <div className="resource-list__item-actions">
+              {onSecondaryAction && currentSecondaryActionLabel ? (
+                <Button
+                  variant={secondaryActionVariant}
+                  aria-label={`${currentSecondaryActionLabel} ${fileDescription}`}
+                  onClick={() => onSecondaryAction(file.fullPath, file)}
+                  disabled={isSecondaryActionPending}
+                >
+                  {currentSecondaryActionLabel}
+                </Button>
+              ) : null}
               <Button
-                variant={secondaryActionVariant}
-                onClick={() => onSecondaryAction(file.fullPath)}
-                disabled={pendingSecondaryActionPath === file.fullPath}
+                variant="secondary"
+                aria-label={`${currentActionLabel} ${fileDescription}`}
+                onClick={() => onAction(file.fullPath, file)}
+                disabled={isActionPending}
               >
-                {pendingSecondaryActionPath === file.fullPath
-                  ? (secondaryActionLabelWhilePending ?? secondaryActionLabel)
-                  : secondaryActionLabel}
+                {currentActionLabel}
               </Button>
-            ) : null}
-            <Button
-              variant="secondary"
-              onClick={() => onAction(file.fullPath)}
-              disabled={pendingActionPath === file.fullPath}
-            >
-              {pendingActionPath === file.fullPath
-                ? (actionLabelWhilePending ?? actionLabel)
-                : actionLabel}
-            </Button>
-          </div>
-        </li>
-      ))}
+            </div>
+          </li>
+        );
+      })}
     </ul>
   );
 };
@@ -593,7 +625,7 @@ interface FileRowProps {
   onOpenFile?: ((file: FileRecord) => void) | undefined;
   onToggleSelection?: ((fullPath: string) => void) | undefined;
   onRename?: ((fullPath: string) => void) | undefined;
-  onAction: (fullPath: string) => void;
+  onAction: (fullPath: string, file: FileRecord) => void;
   renameActionLabel?: string | undefined;
 }
 
@@ -725,7 +757,7 @@ const FileRow = ({
               ) : null}
               <DropdownMenu.Button
                 className="dockspace-browser__file-actions-item"
-                onClick={() => onAction(file.fullPath)}
+                onClick={() => onAction(file.fullPath, file)}
               >
                 {actionLabel}
               </DropdownMenu.Button>
@@ -753,7 +785,7 @@ interface FolderModeListProps {
   onRename?: ((fullPath: string) => void) | undefined;
   onRenameFolder?: ((folderPath: string) => void) | undefined;
   onMoveFolder?: ((folderPath: string) => void) | undefined;
-  onAction: (fullPath: string) => void;
+  onAction: (fullPath: string, file: FileRecord) => void;
   onActionFolder?: ((folderPath: string) => void) | undefined;
   onOpenFolder: (folderPath: string) => void;
   pendingFolderPaths: string[];
@@ -1046,8 +1078,8 @@ export const FileList = ({
   onOpenFolder,
   onToggleFileSelection,
   pendingFolderPaths = [],
-  pendingActionPath = null,
-  pendingSecondaryActionPath = null,
+  pendingActionFileIds = [],
+  pendingSecondaryActionFileIds = [],
   pendingFolderTrashPaths = [],
   pendingUploadFiles = [],
   pendingUploadFolderPaths = [],
@@ -1071,8 +1103,8 @@ export const FileList = ({
         actionLabel={actionLabel}
         actionLabelWhilePending={actionLabelWhilePending}
         files={files}
-        pendingActionPath={pendingActionPath}
-        pendingSecondaryActionPath={pendingSecondaryActionPath}
+        pendingActionFileIds={pendingActionFileIds}
+        pendingSecondaryActionFileIds={pendingSecondaryActionFileIds}
         secondaryActionLabel={secondaryActionLabel}
         secondaryActionLabelWhilePending={secondaryActionLabelWhilePending}
         secondaryActionVariant={secondaryActionVariant}

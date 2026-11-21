@@ -448,6 +448,100 @@ describe('FileList', () => {
     expect(onRenameFolder).toHaveBeenCalledWith('/docs');
   });
 
+  describe('folder Info item (T-0015)', () => {
+    const docsFolder = {
+      folderNodeId: 'f_docs',
+      parentFolderNodeId: 'root',
+      fullPath: '/docs',
+      name: 'docs',
+      createdAt: '2026-01-01T00:00:00.000Z',
+      updatedAt: '2026-01-01T00:00:00.000Z'
+    };
+
+    const renderWithInfo = (props: { infoFolderPath?: string | null; isPhoneLayout?: boolean } = {}) => {
+      const onShowFolderInfo = vi.fn();
+      render(
+        <FileList
+          files={[]}
+          folders={[docsFolder]}
+          currentFolder="/"
+          actionLabel="Move to Trash"
+          folderRenameActionLabel="Rename"
+          folderDownloadActionLabel="Download"
+          folderMoveActionLabel="Move"
+          onRenameFolder={vi.fn()}
+          onDownloadFolder={vi.fn()}
+          onMoveFolder={vi.fn()}
+          onActionFolder={vi.fn()}
+          onShowFolderInfo={onShowFolderInfo}
+          onOpenFolder={vi.fn()}
+          onAction={vi.fn()}
+          infoFolderPath={props.infoFolderPath}
+          isPhoneLayout={props.isPhoneLayout}
+        />
+      );
+      return onShowFolderInfo;
+    };
+
+    it('shows Info first, then a separator, then the existing items, and calls back with the folder path', () => {
+      const onShowFolderInfo = renderWithInfo();
+
+      fireEvent.click(screen.getByRole('button', { name: 'Actions for docs' }));
+      const menu = screen.getByRole('menu', { name: 'Actions for docs' });
+      const items = within(menu).getAllByRole('menuitem').map((item) => item.textContent);
+      expect(items).toEqual(['Info', 'Rename', 'Download', 'Move', 'Move to Trash']);
+      const children = Array.from(menu.children);
+      expect(children[0]).toHaveTextContent('Info');
+      expect(children[1]).toHaveAttribute('role', 'separator');
+
+      fireEvent.click(within(menu).getByRole('menuitem', { name: 'Info' }));
+      expect(onShowFolderInfo).toHaveBeenCalledWith('/docs');
+      expect(screen.queryByRole('menu', { name: 'Actions for docs' })).not.toBeInTheDocument();
+    });
+
+    it('reaches Info from right-click and from Shift+F10 on phone', () => {
+      renderWithInfo({ isPhoneLayout: true });
+      const row = screen.getByRole('button', { name: /^docs/ });
+
+      row.focus();
+      fireEvent.keyDown(row, { key: 'F10', shiftKey: true });
+      expect(screen.getByRole('menuitem', { name: 'Info' })).toHaveFocus();
+      fireEvent.keyDown(document, { key: 'Escape' });
+
+      fireEvent.contextMenu(row, { clientX: 20, clientY: 30 });
+      expect(within(screen.getByRole('menu', { name: 'Actions for docs' })).getAllByRole('menuitem')[0]).toHaveTextContent(
+        'Info'
+      );
+    });
+
+    it('marks the folder whose info is shown', () => {
+      renderWithInfo({ infoFolderPath: '/docs' });
+
+      const row = screen.getByRole('button', { name: /^docs/ });
+      expect(row).toHaveAttribute('aria-current', 'true');
+      expect(row.closest('li')).toHaveClass('dockspace-browser__folder-item--info');
+    });
+
+    it('has no Info item and no mark when the page does not offer folder info', () => {
+      render(
+        <FileList
+          files={[]}
+          folders={[docsFolder]}
+          currentFolder="/"
+          actionLabel="Move to Trash"
+          folderRenameActionLabel="Rename"
+          onRenameFolder={vi.fn()}
+          onOpenFolder={vi.fn()}
+          onAction={vi.fn()}
+        />
+      );
+
+      expect(screen.getByRole('button', { name: /^docs/ })).not.toHaveAttribute('aria-current');
+      fireEvent.click(screen.getByRole('button', { name: 'Actions for docs' }));
+      expect(screen.queryByRole('menuitem', { name: 'Info' })).not.toBeInTheDocument();
+    });
+  });
+
   it('moves a folder to trash from folder actions menu', () => {
     const onAction = vi.fn();
     const onOpenFolder = vi.fn();

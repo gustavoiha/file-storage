@@ -8,6 +8,7 @@ import {
   type FormEvent
 } from 'react';
 import { ArrowLeft } from 'lucide-react';
+import { useQueryClient } from '@tanstack/react-query';
 import { useParams } from '@tanstack/react-router';
 import { RequireAuth } from '@/components/auth/RequireAuth';
 import { UnauthorizedNotice } from '@/components/auth/UnauthorizedNotice';
@@ -15,6 +16,12 @@ import { AddFolderDialog } from '@/components/files/AddFolderDialog';
 import { ConfirmFolderTrashDialog } from '@/components/files/ConfirmFolderTrashDialog';
 import { FileList } from '@/components/files/FileList';
 import { FilePreviewPanel } from '@/components/files/FilePreviewPanel';
+import { FolderInfoPanel, type FolderInfoTarget } from '@/components/files/FolderInfoPanel';
+import {
+  captureDetailPanelOpener,
+  resolveDetailPanelReturnTarget,
+  type DetailPanelOpener
+} from '@/components/files/detailPanelFocus';
 import {
   AncestorColumn,
   FolderBreadcrumb,
@@ -26,7 +33,11 @@ import { MoveFolderDialog } from '@/components/files/MoveFolderDialog';
 import { RenameFileDialog } from '@/components/files/RenameFileDialog';
 import { RenameFolderDialog } from '@/components/files/RenameFolderDialog';
 import { startRowRemovalFocus } from '@/components/files/rowRemovalFocus';
-import { findRowByPath } from '@/components/files/useDialogDismiss';
+import {
+  DIALOG_FOCUS_FALLBACK_ATTRIBUTE,
+  findRowByPath,
+  focusIsLost
+} from '@/components/files/useDialogDismiss';
 import {
   DockspaceFilesHeaderActions,
   DockspaceOptionsMenu,
@@ -244,12 +255,25 @@ export const DockspaceFilesPage = () => {
   const [isSelectionModeOn, setIsSelectionModeOn] = useState(false);
   const [pendingFolderTrashPaths, setPendingFolderTrashPaths] = useState<string[]>([]);
   const [previewFile, setPreviewFile] = useState<FileRecord | null>(null);
+  // Full path of the folder shown in the folder info panel. Only one detail panel shows at a time:
+  // opening a file preview closes the folder info, and opening folder info closes the preview.
+  const [infoFolderPath, setInfoFolderPath] = useState<string | null>(null);
+  // Bumped on every "Info" / "Folder info" choice, so focus moves into the panel even when it already shows that folder.
+  const [infoFocusRequest, setInfoFocusRequest] = useState(0);
   const [discoveredFoldersByNodeId, setDiscoveredFoldersByNodeId] = useState<
     Map<string, FolderDiscoveryNode>
   >(() => new Map([[ROOT_FOLDER.folderNodeId, createRootDiscoveryNode(ROOT_FOLDER.name)]]));
   const [loadingFolderNodeIds, setLoadingFolderNodeIds] = useState<Set<string>>(
     () => new Set()
   );
+  // Discovery requests in flight, checked synchronously: an effect can run again before the loading state re-renders.
+  const discoveringFolderNodeIdsRef = useRef(new Set<string>());
+  // Folders whose discovery request failed. The discovery effect skips them, so a failing listing is not requested
+  // again in a loop. Navigating, or a later successful load of that listing (e.g. the folder info's Try again), clears
+  // them; `discoveryRetryVersion` makes the effect run again after that.
+  const failedDiscoveryFolderNodeIdsRef = useRef(new Set<string>());
+  const [failedDiscoveryCount, setFailedDiscoveryCount] = useState(0);
+  const [discoveryRetryVersion, setDiscoveryRetryVersion] = useState(0);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const folderInputRef = useRef<HTMLInputElement>(null);
   const columnsRef = useRef<HTMLDivElement>(null);
@@ -257,6 +281,10 @@ export const DockspaceFilesPage = () => {
   // Row to focus when a file or folder dialog closes after a submit; undefined = back to the opener.
   const dialogReturnRowPathRef = useRef<string | undefined>(undefined);
   const phoneListScrollYRef = useRef(0);
+  const infoOpenerRef = useRef<DetailPanelOpener | null>(null);
+  const infoFocusTargetRef = useRef<HTMLButtonElement>(null);
+  const restoreFocusAfterInfoCloseRef = useRef(false);
+  const focusListAfterInfoOpenRef = useRef(false);
   const selectionStatusRef = useRef<HTMLParagraphElement>(null);
   const focusSelectionStatusRef = useRef(false);
   const isPhone = useMediaQuery(PHONE_LAYOUT_QUERY);
@@ -274,7 +302,10 @@ export const DockspaceFilesPage = () => {
 
   const dockspacesQuery = useDockspaces();
   const filesQuery = useFiles(dockspaceId, currentFolder.folderNodeId);
+  // The parent's listing (already loaded for the ancestor column / parent chips) holds the open folder's dates.
+  const parentFilesQuery = useFiles(dockspaceId, (parentFolder ?? currentFolder).folderNodeId);
   const discoverFolder = useDiscoverFolder(dockspaceId);
+  const queryClient = useQueryClient();
   const createFolder = useCreateFolder(dockspaceId);
   const moveFolder = useMoveFolder(dockspaceId);
   const moveFiles = useMoveFiles(dockspaceId, currentFolder.fullPath);
@@ -485,7 +516,11 @@ export const DockspaceFilesPage = () => {
 
   const discoverFolderChildren = useCallback(
     async (folderNodeId: string) => {
-      if (loadingFolderNodeIds.has(folderNodeId)) {
+      if (
+        loadingFolderNodeIds.has(folderNodeId) ||
+        discoveringFolderNodeIdsRef.current.has(folderNodeId) ||
+        failedDiscoveryFolderNodeIdsRef.current.has(folderNodeId)
+      ) {
         return;
       }
 
@@ -498,6 +533,7 @@ export const DockspaceFilesPage = () => {
         return;
       }
 
+      discoveringFolderNodeIdsRef.current.add(folderNodeId);
       setLoadingFolderNodeIds((previous) => {
         const next = new Set(previous);
         next.add(folderNodeId);
@@ -514,7 +550,12 @@ export const DockspaceFilesPage = () => {
             items: response.items
           })
         );
+      } catch {
+        // The listing shows its own error (e.g. in the folder info); remember the failure so it is not retried at once.
+        failedDiscoveryFolderNodeIdsRef.current.add(folderNodeId);
+        setFailedDiscoveryCount(failedDiscoveryFolderNodeIdsRef.current.size);
       } finally {
+        discoveringFolderNodeIdsRef.current.delete(folderNodeId);
         setLoadingFolderNodeIds((previous) => {
           const next = new Set(previous);
           next.delete(folderNodeId);
@@ -532,13 +573,20 @@ export const DockspaceFilesPage = () => {
   );
 
   /**
-   * Every change of the open folder goes through here. Navigating closes the preview, except when
+   * Every change of the open folder goes through here. Navigating closes the folder info and the preview, except when
    * a file in an ancestor column was clicked: then that folder opens and the file is previewed.
    */
   const changeFolderTrail = useCallback(
     (nextTrail: FolderTrailEntry[], nextPreviewFile: FileRecord | null = null) => {
       setFolderTrail(nextTrail.length ? nextTrail : [ROOT_FOLDER]);
       setPreviewFile(nextPreviewFile);
+      setInfoFolderPath(null);
+      // Navigating gives folders whose discovery failed one new attempt.
+      if (failedDiscoveryFolderNodeIdsRef.current.size) {
+        failedDiscoveryFolderNodeIdsRef.current.clear();
+        setFailedDiscoveryCount(0);
+        setDiscoveryRetryVersion((version) => version + 1);
+      }
     },
     []
   );
@@ -638,7 +686,11 @@ export const DockspaceFilesPage = () => {
 
     for (const folderNodeId of candidateNodeIds) {
       const node = discoveredFoldersByNodeId.get(folderNodeId);
-      if (!node || loadingFolderNodeIds.has(folderNodeId)) {
+      if (
+        !node ||
+        loadingFolderNodeIds.has(folderNodeId) ||
+        failedDiscoveryFolderNodeIdsRef.current.has(folderNodeId)
+      ) {
         continue;
       }
 
@@ -646,7 +698,40 @@ export const DockspaceFilesPage = () => {
         void discoverFolderChildren(folderNodeId);
       }
     }
-  }, [discoverFolderChildren, discoveredFoldersByNodeId, folderTrail, folders, loadingFolderNodeIds]);
+  }, [
+    discoverFolderChildren,
+    discoveredFoldersByNodeId,
+    discoveryRetryVersion,
+    folderTrail,
+    folders,
+    loadingFolderNodeIds
+  ]);
+
+  // A failed folder whose listing loads later (Try again, a refetch) can be discovered again.
+  useEffect(() => {
+    if (failedDiscoveryCount === 0) {
+      return undefined;
+    }
+
+    return queryClient.getQueryCache().subscribe((event) => {
+      if (event.type !== 'updated' || event.action.type !== 'success') {
+        return;
+      }
+
+      const [scope, , queryDockspaceId, folderNodeId] = event.query.queryKey;
+      if (
+        scope !== 'files' ||
+        queryDockspaceId !== dockspaceId ||
+        typeof folderNodeId !== 'string' ||
+        !failedDiscoveryFolderNodeIdsRef.current.delete(folderNodeId)
+      ) {
+        return;
+      }
+
+      setFailedDiscoveryCount(failedDiscoveryFolderNodeIdsRef.current.size);
+      setDiscoveryRetryVersion((version) => version + 1);
+    });
+  }, [dockspaceId, failedDiscoveryCount, queryClient]);
 
   const folderFileCounts = useMemo(() => {
     const counts = new Map<string, number>();
@@ -971,6 +1056,7 @@ export const DockspaceFilesPage = () => {
         phoneListScrollYRef.current = window.scrollY;
       }
 
+      setInfoFolderPath(null);
       setPreviewFile(file);
     },
     [isPhone, previewFile]
@@ -1027,7 +1113,161 @@ export const DockspaceFilesPage = () => {
     };
   }, [closePreview, visiblePreviewFile]);
 
-  const hasSidePreview = !isPhone && Boolean(visiblePreviewFile);
+  // Folder info shows the open folder or one of its subfolders. When that subfolder is renamed, moved
+  // or trashed (the open folder's listing no longer has it), the panel closes, like the preview.
+  const visibleInfoFolder = useMemo((): {
+    target: FolderInfoTarget;
+    locationLabel: string | null;
+    isOpenFolder: boolean;
+  } | null => {
+    if (!infoFolderPath) {
+      return null;
+    }
+
+    if (infoFolderPath === currentFolder.fullPath) {
+      const record = parentFolder
+        ? parentFilesQuery.data?.items.find((item) => item.childId === currentFolder.folderNodeId)
+        : undefined;
+      return {
+        target: {
+          folderNodeId: currentFolder.folderNodeId,
+          name: folderLabel(currentFolder),
+          createdAt: record?.createdAt,
+          updatedAt: record?.updatedAt
+        },
+        locationLabel: parentFolder ? folderTrail.slice(0, -1).map(folderLabel).join(' / ') : null,
+        isOpenFolder: true
+      };
+    }
+
+    const child = folders.find((folder) => folder.fullPath === infoFolderPath);
+    if (!child) {
+      return null;
+    }
+
+    return {
+      target: {
+        folderNodeId: child.folderNodeId,
+        name: child.name,
+        createdAt: child.createdAt,
+        updatedAt: child.updatedAt
+      },
+      locationLabel: folderTrail.map(folderLabel).join(' / '),
+      isOpenFolder: false
+    };
+  }, [
+    currentFolder,
+    folderLabel,
+    folderTrail,
+    folders,
+    infoFolderPath,
+    parentFilesQuery.data?.items,
+    parentFolder
+  ]);
+  const hasVisibleInfoFolder = Boolean(visibleInfoFolder);
+
+  useEffect(() => {
+    if (infoFolderPath && filesQuery.data && !visibleInfoFolder) {
+      setInfoFolderPath(null);
+    }
+  }, [filesQuery.data, infoFolderPath, visibleInfoFolder]);
+
+  const openFolderInfo = useCallback(
+    (folderPath: string) => {
+      // Read the opener while the menu item still holds focus (T-0009 pattern).
+      infoOpenerRef.current = captureDetailPanelOpener();
+      restoreFocusAfterInfoCloseRef.current = false;
+      if (isPhone && !infoFolderPath && !previewFile) {
+        phoneListScrollYRef.current = window.scrollY;
+      }
+
+      setPreviewFile(null);
+      setInfoFolderPath(folderPath);
+      setInfoFocusRequest((previous) => previous + 1);
+    },
+    [infoFolderPath, isPhone, previewFile]
+  );
+
+  const showOpenFolderInfo = useCallback(() => {
+    openFolderInfo(currentFolder.fullPath);
+  }, [currentFolder.fullPath, openFolderInfo]);
+
+  const closeFolderInfo = useCallback(() => {
+    restoreFocusAfterInfoCloseRef.current = true;
+    setInfoFolderPath(null);
+  }, []);
+
+  // Open the subfolder shown in the panel. Navigating closes the panel; focus goes to the new listing.
+  const openInfoFolder = useCallback(() => {
+    if (!infoFolderPath) {
+      return;
+    }
+
+    focusListAfterInfoOpenRef.current = true;
+    onOpenFolder(infoFolderPath);
+  }, [infoFolderPath, onOpenFolder]);
+
+  // Focus moves into the panel on open: its Close button (desktop) or back button (phone).
+  useEffect(() => {
+    if (infoFocusRequest > 0) {
+      infoFocusTargetRef.current?.focus();
+    }
+  }, [infoFocusRequest]);
+
+  // On close, focus returns to the opener. On phone the listing renders again first: restore its scroll,
+  // then focus the row (or the options trigger) without scrolling it.
+  useEffect(() => {
+    if (infoFolderPath || !restoreFocusAfterInfoCloseRef.current) {
+      return;
+    }
+
+    restoreFocusAfterInfoCloseRef.current = false;
+    const opener = infoOpenerRef.current;
+    infoOpenerRef.current = null;
+    if (isPhone) {
+      window.scrollTo(0, phoneListScrollYRef.current);
+    }
+
+    resolveDetailPanelReturnTarget(opener)?.focus({ preventScroll: isPhone });
+  }, [infoFolderPath, isPhone]);
+
+  useEffect(() => {
+    if (!focusListAfterInfoOpenRef.current) {
+      return;
+    }
+
+    focusListAfterInfoOpenRef.current = false;
+    if (focusIsLost()) {
+      document.querySelector<HTMLElement>(`[${DIALOG_FOCUS_FALLBACK_ATTRIBUTE}]`)?.focus();
+    }
+  }, [folderTrail]);
+
+  useEffect(() => {
+    if (!hasVisibleInfoFolder) {
+      return;
+    }
+
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key !== 'Escape' || event.defaultPrevented) {
+        return;
+      }
+
+      // Open dialogs and dropdown menus consume Escape first.
+      if (document.querySelector('dialog[open], [role="menu"]')) {
+        return;
+      }
+
+      event.preventDefault();
+      closeFolderInfo();
+    };
+
+    document.addEventListener('keydown', onKeyDown);
+    return () => {
+      document.removeEventListener('keydown', onKeyDown);
+    };
+  }, [closeFolderInfo, hasVisibleInfoFolder]);
+
+  const hasSidePreview = !isPhone && (Boolean(visiblePreviewFile) || hasVisibleInfoFolder);
 
   // Keep the current (last) column fully visible: when the trail changes, when the side preview
   // opens or closes, and whenever the strip itself is resized (window resize, preview width).
@@ -1352,6 +1592,7 @@ export const DockspaceFilesPage = () => {
       columnTitle={isPhone ? undefined : folderLabel(currentFolder)}
       folderFileCounts={folderFileCounts}
       previewedFilePath={visiblePreviewFile?.fullPath ?? null}
+      infoFolderPath={visibleInfoFolder && !visibleInfoFolder.isOpenFolder ? infoFolderPath : null}
       pendingFolderPaths={addFolderDialog.pendingFolderPaths}
       pendingFolderTrashPaths={pendingFolderTrashPaths}
       pendingUploadFiles={pendingUploadFiles}
@@ -1371,6 +1612,7 @@ export const DockspaceFilesPage = () => {
       onRename={openRenameFileDialog}
       onRenameFolder={openRenameFolderDialog}
       onMoveFolder={openMoveFolderDialog}
+      onShowFolderInfo={openFolderInfo}
       onOpenFile={openFilePreview}
       onDownload={onDownloadFile}
       onDownloadFolder={onDownloadFolder}
@@ -1408,6 +1650,17 @@ export const DockspaceFilesPage = () => {
           onClose={closePreview}
           onDownload={onDownloadFile}
         />
+      ) : visibleInfoFolder ? (
+        <FolderInfoPanel
+          dockspaceId={dockspaceId}
+          folder={visibleInfoFolder.target}
+          locationLabel={visibleInfoFolder.locationLabel}
+          variant="page"
+          backLabel={`Back to ${currentFolderLabel}`}
+          onOpen={visibleInfoFolder.isOpenFolder ? undefined : openInfoFolder}
+          onClose={closeFolderInfo}
+          focusTargetRef={infoFocusTargetRef}
+        />
       ) : (
         <>
           {parentFolder ? (
@@ -1432,6 +1685,7 @@ export const DockspaceFilesPage = () => {
               onUploadFiles={openFilePicker}
               onUploadFolder={openFolderPicker}
               onStartSelection={files.length > 0 && !selectionMode ? startSelectionMode : undefined}
+              onShowFolderInfo={showOpenFolderInfo}
             />
           </div>
           {parentFolder && !selectionMode ? (
@@ -1469,6 +1723,7 @@ export const DockspaceFilesPage = () => {
           onAddFolder={openAddFolderDialog}
           onUploadFiles={openFilePicker}
           onUploadFolder={openFolderPicker}
+          onShowFolderInfo={showOpenFolderInfo}
         />
       </div>
       <div className="dockspace-work">
@@ -1498,6 +1753,16 @@ export const DockspaceFilesPage = () => {
             variant="side"
             onClose={closePreview}
             onDownload={onDownloadFile}
+          />
+        ) : visibleInfoFolder ? (
+          <FolderInfoPanel
+            dockspaceId={dockspaceId}
+            folder={visibleInfoFolder.target}
+            locationLabel={visibleInfoFolder.locationLabel}
+            variant="side"
+            onOpen={visibleInfoFolder.isOpenFolder ? undefined : openInfoFolder}
+            onClose={closeFolderInfo}
+            focusTargetRef={infoFocusTargetRef}
           />
         ) : null}
       </div>

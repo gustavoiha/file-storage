@@ -36,6 +36,8 @@ interface FileListProps {
   folderDownloadActionLabel?: string | undefined;
   folderMoveActionLabel?: string | undefined;
   folderRenameActionLabel?: string | undefined;
+  /** Label of the folder row menu item that opens the folder info panel (default "Info"). */
+  folderInfoActionLabel?: string | undefined;
   renameActionLabel?: string | undefined;
   /** Folder name shown on its own in the current column header (desktop only). */
   columnTitle?: string | undefined;
@@ -43,6 +45,8 @@ interface FileListProps {
   folderFileCounts?: ReadonlyMap<string, number> | undefined;
   /** Full path of the file currently shown in the preview panel. */
   previewedFilePath?: string | null | undefined;
+  /** Full path of the folder currently shown in the folder info panel. */
+  infoFolderPath?: string | null | undefined;
   selectedFilePaths?: string[];
   selectionActions?: ReactNode;
   /**
@@ -78,6 +82,8 @@ interface FileListProps {
   onRename?: ((fullPath: string) => void) | undefined;
   onRenameFolder?: ((folderPath: string) => void) | undefined;
   onMoveFolder?: ((folderPath: string) => void) | undefined;
+  /** Shows "Info" first in each folder row menu; opens the folder info panel for that folder. */
+  onShowFolderInfo?: ((folderPath: string) => void) | undefined;
   onOpenFile?: ((file: FileRecord) => void) | undefined;
   onOpenFolder?: (folderPath: string) => void;
   onToggleFileSelection?: ((fullPath: string) => void) | undefined;
@@ -617,12 +623,15 @@ interface FolderRowProps {
   downloadActionLabel?: string | undefined;
   fileCount?: number | undefined;
   folderEntry: FolderEntry;
+  infoActionLabel?: string | undefined;
+  isInfoShown: boolean;
   isPhoneLayout: boolean;
   moveActionLabel?: string | undefined;
   onAction?: ((folderPath: string) => void) | undefined;
   onDownload?: ((folderPath: string) => void) | undefined;
   onMoveFolder?: ((folderPath: string) => void) | undefined;
   onRenameFolder?: ((folderPath: string) => void) | undefined;
+  onShowFolderInfo?: ((folderPath: string) => void) | undefined;
   onOpenFolder: (folderPath: string) => void;
   selectionMode: boolean;
   renameActionLabel?: string | undefined;
@@ -634,6 +643,8 @@ const FolderRow = ({
   downloadActionLabel,
   fileCount,
   folderEntry,
+  infoActionLabel = 'Info',
+  isInfoShown,
   isPhoneLayout,
   moveActionLabel,
   onAction,
@@ -641,14 +652,17 @@ const FolderRow = ({
   onMoveFolder,
   onOpenFolder,
   onRenameFolder,
+  onShowFolderInfo,
   selectionMode,
   renameActionLabel
 }: FolderRowProps) => {
+  const hasInfoAction = Boolean(onShowFolderInfo && infoActionLabel);
   const hasRenameAction = Boolean(onRenameFolder && renameActionLabel);
   const hasDownloadAction = Boolean(onDownload && downloadActionLabel);
   const hasMoveAction = Boolean(onMoveFolder && moveActionLabel);
   const hasTrashAction = Boolean(onAction);
-  const hasMenuActions = hasRenameAction || hasDownloadAction || hasMoveAction || hasTrashAction;
+  const hasOtherActions = hasRenameAction || hasDownloadAction || hasMoveAction || hasTrashAction;
+  const hasMenuActions = hasInfoAction || hasOtherActions;
   // On phone, selection mode is about files: folders can be neither opened nor acted on.
   const isInertForSelection = isPhoneLayout && selectionMode;
   const canOpenMenu = hasMenuActions && !isInertForSelection;
@@ -657,7 +671,9 @@ const FolderRow = ({
   return (
     <li
       ref={rowMenu.itemRef}
-      className="resource-list__item dockspace-browser__folder-item"
+      className={`resource-list__item dockspace-browser__folder-item${
+        isInfoShown ? ' dockspace-browser__folder-item--info' : ''
+      }`}
       onContextMenu={rowMenu.onContextMenu}
     >
       <div
@@ -669,6 +685,7 @@ const FolderRow = ({
           type="button"
           className="dockspace-browser__folder-button"
           data-row-path={folderEntry.fullPath}
+          aria-current={isInfoShown ? 'true' : undefined}
           aria-disabled={isInertForSelection ? 'true' : undefined}
           aria-describedby={isPhoneLayout && canOpenMenu ? actionsHintId : undefined}
           data-pressed={rowMenu.isPressed ? 'true' : undefined}
@@ -728,6 +745,17 @@ const FolderRow = ({
               style={rowMenu.menuStyle}
               data-return-focus={rowMenu.menuStyle ? 'row' : undefined}
             >
+              {hasInfoAction ? (
+                <>
+                  <DropdownMenu.Button
+                    className="dockspace-browser__file-actions-item"
+                    onClick={() => onShowFolderInfo?.(folderEntry.fullPath)}
+                  >
+                    {infoActionLabel}
+                  </DropdownMenu.Button>
+                  {hasOtherActions ? <DropdownMenu.Separator /> : null}
+                </>
+              ) : null}
               {hasRenameAction ? (
                 <DropdownMenu.Button
                   className="dockspace-browser__file-actions-item"
@@ -936,6 +964,7 @@ interface FolderModeListProps {
   folderDownloadActionLabel?: string | undefined;
   folderMoveActionLabel?: string | undefined;
   folderRenameActionLabel?: string | undefined;
+  folderInfoActionLabel?: string | undefined;
   folders: FolderRecord[];
   onDownload?: ((file: FileRecord) => void) | undefined;
   onDownloadFolder?: ((folderPath: string) => void) | undefined;
@@ -943,6 +972,7 @@ interface FolderModeListProps {
   onRename?: ((fullPath: string) => void) | undefined;
   onRenameFolder?: ((folderPath: string) => void) | undefined;
   onMoveFolder?: ((folderPath: string) => void) | undefined;
+  onShowFolderInfo?: ((folderPath: string) => void) | undefined;
   onAction: (fullPath: string, file: FileRecord) => void;
   onActionFolder?: ((folderPath: string) => void) | undefined;
   onOpenFolder: (folderPath: string) => void;
@@ -954,6 +984,7 @@ interface FolderModeListProps {
   columnTitle?: string | undefined;
   folderFileCounts?: ReadonlyMap<string, number> | undefined;
   previewedFilePath?: string | null | undefined;
+  infoFolderPath?: string | null | undefined;
   selectedFilePaths: string[];
   selectionActions?: ReactNode;
   selectionMode?: boolean | undefined;
@@ -971,6 +1002,7 @@ const FolderModeList = ({
   folderDownloadActionLabel,
   folderMoveActionLabel,
   folderRenameActionLabel,
+  folderInfoActionLabel,
   folders,
   onDownload,
   onDownloadFolder,
@@ -978,6 +1010,7 @@ const FolderModeList = ({
   onRename,
   onRenameFolder,
   onMoveFolder,
+  onShowFolderInfo,
   onAction,
   onActionFolder,
   onOpenFolder,
@@ -989,6 +1022,7 @@ const FolderModeList = ({
   columnTitle,
   folderFileCounts,
   previewedFilePath,
+  infoFolderPath,
   selectedFilePaths,
   selectionActions,
   selectionMode: selectionModeOverride,
@@ -1169,11 +1203,14 @@ const FolderModeList = ({
               downloadActionLabel={folderDownloadActionLabel}
               fileCount={folderFileCounts?.get(folderEntry.fullPath)}
               folderEntry={folderEntry}
+              infoActionLabel={folderInfoActionLabel}
+              isInfoShown={infoFolderPath === folderEntry.fullPath}
               moveActionLabel={folderMoveActionLabel}
               onAction={onActionFolder}
               onDownload={onDownloadFolder}
               onMoveFolder={onMoveFolder}
               onRenameFolder={onRenameFolder}
+              onShowFolderInfo={onShowFolderInfo}
               onOpenFolder={onOpenFolder}
               selectionMode={selectionMode}
               renameActionLabel={folderRenameActionLabel}
@@ -1225,6 +1262,7 @@ export const FileList = ({
   folderDownloadActionLabel,
   folderMoveActionLabel,
   folderRenameActionLabel,
+  folderInfoActionLabel,
   folders = [],
   onDownload,
   onDownloadFolder,
@@ -1232,6 +1270,7 @@ export const FileList = ({
   onRename,
   onRenameFolder,
   onMoveFolder,
+  onShowFolderInfo,
   onAction,
   onActionFolder,
   onDismissActionError,
@@ -1248,6 +1287,7 @@ export const FileList = ({
   columnTitle,
   folderFileCounts,
   previewedFilePath = null,
+  infoFolderPath = null,
   secondaryActionLabel,
   secondaryActionLabelWhilePending,
   secondaryActionVariant = 'secondary',
@@ -1288,6 +1328,7 @@ export const FileList = ({
       folderDownloadActionLabel={folderDownloadActionLabel}
       folderMoveActionLabel={folderMoveActionLabel}
       folderRenameActionLabel={folderRenameActionLabel}
+      folderInfoActionLabel={folderInfoActionLabel}
       folders={folders}
       onDownload={onDownload}
       onDownloadFolder={onDownloadFolder}
@@ -1295,6 +1336,7 @@ export const FileList = ({
       onRename={onRename}
       onRenameFolder={onRenameFolder}
       onMoveFolder={onMoveFolder}
+      onShowFolderInfo={onShowFolderInfo}
       onAction={onAction}
       onActionFolder={onActionFolder}
       onOpenFolder={onOpenFolder}
@@ -1306,6 +1348,7 @@ export const FileList = ({
       columnTitle={columnTitle}
       folderFileCounts={folderFileCounts}
       previewedFilePath={previewedFilePath}
+      infoFolderPath={infoFolderPath}
       selectedFilePaths={selectedFilePaths}
       selectionActions={selectionActions}
       selectionMode={selectionMode}

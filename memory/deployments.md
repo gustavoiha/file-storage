@@ -156,3 +156,15 @@ Recorded 2026-11-20 by the setup session from a `cdk diff` of origin/main 5678ad
 - Smoke check: https://dh0djlfa46gz6.cloudfront.net/login serves `index-BWvQ2uNY.js`, renders the sign-in form, `TrashPage-7FAjyFr6.js` is served (200), and the console shows no errors. Post-deploy `prod-deploy.sh diff` shows 0 stacks with differences.
 - Logs: $LOCAL/logs/prod-deploy-diff-pr-20261121T182726Z.log, prod-deploy-diff-20261121T182835Z.log, prod-deploy-infra-20261121T182925Z.log, prod-deploy-web-20261121T183029Z.log, prod-deploy-diff-20261121T183040Z.log.
 - Prod is now at origin/main `31619d2` for both infra and web.
+
+### 2026-11-21 — T-0016 — web
+- origin/main commit: `87a4c04` (PR #37 squash-merged). Run as `dockspace-prod-agent-deployer` via `prod-deploy.sh`.
+- Pre-deploy: PR #37 was MERGEABLE/CLEAN but did not contain `ac36267` (T-0017) and `31619d2` (T-0018). Merged locally onto origin/main `31619d2` it merged cleanly and passed typecheck, tests (web 209, backend 178) and the build. `prod-deploy.sh diff-pr 37` built its merge on a stale base (`3361fc4`), so it showed T-0018's three Lambdas (`restoreFileFn`, `purgeFileNowFn`, `listTrashFn`) as changed; PR #37 touches only `apps/web`. Main was `31619d2`, which prod already ran (`prod-deploy.sh diff` 0 stacks), so no drift.
+- Infra: not run. PR #37 is web-only; `prod-deploy.sh diff` at `87a4c04` shows 0 stacks with differences.
+- Web (`prod-deploy.sh web`): built and synced to the prod site bucket; invalidated `/*` on the prod distribution. Entry bundle `index-DzFzWiEJ.js`, files page chunk `DockspaceFilesPage-BZMtbb_L.js`.
+- Shipped: #37 `87a4c04` (T-0016).
+- Smoke check: https://dh0djlfa46gz6.cloudfront.net/login serves `index-DzFzWiEJ.js`, renders the sign-in form, `DockspaceFilesPage-BZMtbb_L.js` is served (200, JavaScript), and the console shows no errors.
+- Logs: $LOCAL/logs/prod-deploy-diff-pr-20261121T183246Z.log, prod-deploy-diff-20261121T183334Z.log, prod-deploy-web-20261121T183419Z.log, prod-deploy-diff-20261121T183429Z.log.
+- Prod is now at origin/main `87a4c04` for both infra and web.
+- Note: `diff-pr` may merge onto an older base than origin/main; confirm with `diff` before reading its stack changes as the PR's.
+

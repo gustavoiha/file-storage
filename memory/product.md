@@ -15,11 +15,11 @@ Dockspace: a self-hosted, single-tenant cloud file storage app on AWS (minimal G
 All open tasks have their own issues (#11-#16, sub-issues of request #5) since 2026-11-20. 2026-11-20 sweep: the permission and infra-hold blockers are resolved by the setup change (pre-approved prod-deploy.sh, gh pr merge for deployment, drift rules). T-0001, T-0002 and T-0006 have shipped. T-0003 and T-0004 ship with T-0001's deploy of main. Only T-0005 waits on the human (design pick).
 
 - T-0015 Folder info panel from the folder action menu (issue #33, request #31): round 1 options posted on #33; waits on the human's pick.
-- T-0016 Keep folder file counts current after moving files (issue #36, request #31, from T-0014 test round 1): pre-existing bug (folder-row counts stale after a move); dispatched to engineering 2026-11-21 (no design round); back in engineering after test round 1 (critical: source folder count double-subtracted).
 - T-0019 Trash page restore errors name the item that failed (issue #42, request #5, from T-0018 review round 1, finding C1): restore error is page-level, unnamed, and cleared by any other restore; new, held until T-0018 (PR #41) is merged because the code it changes exists only on that PR. AC 5 added from T-0018 test round 1: the restore error must be visible without scrolling.
 - T-0020 Confirmation dialogs take focus when they open (issue #43, request #5, from T-0018 test round 1, finding 3): pre-existing; the Purge and folder Move to Trash dialogs set no initial focus; new, held until T-0018 (PR #41, deploying) is merged because PR #41 changes the Purge dialog and the trash page focus handling. Next: dispatch T-0019 and T-0020 to engineering after that merge.
 
 ### Shipped
+- 2026-11-21 (prod at 87a4c04): T-0016 Keep folder file counts current after moving files (#36, PR #37): after a move (also a partly failed one) the target and source folder counts in the folder rows and the sidebar tree update from the move response without a reload or a full tree re-discovery; the open folder is recounted from its refetched listing only, so it is not counted twice.
 - 2026-11-21 (prod at 31619d2): T-0018 Trash page handles two trashed items with the same path separately (#39, PR #41): list trash returns each item's `fileNodeId`; purge and restore take it and act only on that trashed copy (path-only requests with several matches get a 409, no change); trash rows show the trashed date and time, pending labels and keys are per item, the Purge dialog names the copy, closes on success and shows the error on failure; restore errors are shown.
 - 2026-11-21 (prod at ac36267): T-0017 Visible keyboard focus on the current row in ancestor columns (#38, PR #40): the current (`aria-current`) row in a desktop ancestor column shows a 2px accent outline (inset) on `:focus-visible`, on top of its fill and accent left bar; no ring after a mouse click.
 - 2026-11-21 (prod at 3361fc4): T-0013 Show the row focus highlight only after keyboard use (#30, PR #34): file list rows show the inset ring and accent bottom border only for keyboard focus (`:has(:focus-visible)`), not after mouse or touch actions that move focus; browsers without `:has()` keep the `:focus-within` highlight.
@@ -58,7 +58,7 @@ All open tasks have their own issues (#11-#16, sub-issues of request #5) since 2
 | T-0013 | #30 | #5 | Show the row focus highlight only after keyboard use | done | Review judge |
 | T-0014 | #32 | #31 | Remove the folder and file counts from the current folder heading | done | Deployment |
 | T-0015 | #33 | #31 | Folder info panel from the folder action menu | awaiting-human | Design |
-| T-0016 | #36 | #31 | Keep folder file counts current after moving files | deploying | Engineering |
+| T-0016 | #36 | #31 | Keep folder file counts current after moving files | done | Engineering |
 | T-0017 | #38 | #5 | Visible keyboard focus on the current row in ancestor columns | done | Engineering |
 | T-0018 | #39 | #5 | Trash page handles two trashed items with the same path separately | done | Review judge |
 | T-0019 | #42 | #5 | Trash page restore errors name the item that failed | new | Review judge |

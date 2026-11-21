@@ -941,6 +941,106 @@ describe('DockspaceFilesPage', () => {
       await waitFor(() => expect(document.activeElement).not.toBe(document.body));
       expect(document.activeElement).toHaveAttribute('data-dialog-focus-fallback');
     });
+
+    describe('Move to Trash confirmation', () => {
+      const openTrashConfirmation = (folderName: string) => {
+        const trigger = screen.getByRole('button', { name: `Actions for ${folderName}` });
+        trigger.focus();
+        fireEvent.click(trigger);
+        activateMenuItem(`Actions for ${folderName}`, 'Move to Trash');
+        expect(screen.getByRole('dialog', { name: 'Move folder to trash' })).toBeInTheDocument();
+        return trigger;
+      };
+
+      const confirmWithKeyboard = () => {
+        const confirm = screen.getByRole('button', { name: 'Move to trash' });
+        confirm.focus();
+        fireEvent.click(confirm);
+      };
+
+      const currentList = () => {
+        const current = document.querySelector<HTMLElement>('.dockspace-column--current');
+        const list = current?.querySelector<HTMLElement>('ul.dockspace-browser__list') ?? null;
+        if (!list) {
+          throw new Error('No list in the current column');
+        }
+        return list;
+      };
+
+      it('focuses the file list of the current folder after the folder is trashed', async () => {
+        mockState.moveToTrash = vi.fn(async () => {
+          mockState.tree = {
+            ...DEFAULT_TREE,
+            root: [folder('d_docs', 'Documents'), file('f_readme', 'README.md')]
+          };
+          mockState.resultCache.clear();
+        });
+
+        renderPage();
+        const trigger = openTrashConfirmation('Travel');
+        confirmWithKeyboard();
+
+        await waitFor(() =>
+          expect(screen.queryByRole('dialog', { name: 'Move folder to trash' })).not.toBeInTheDocument()
+        );
+        expect(mockState.moveToTrash).toHaveBeenCalledWith({ fullPath: '/Travel', targetType: 'folder' });
+        expect(trigger.isConnected).toBe(false);
+        await waitFor(() => expect(document.activeElement).not.toBe(document.body));
+
+        const list = currentList();
+        expect(list).toHaveFocus();
+        expect(list).toHaveAttribute('data-dialog-focus-fallback');
+        expect(list).toHaveAttribute('tabindex', '-1');
+        // The next Tab starts from the list: the remaining rows are still there.
+        expect(within(list).getByRole('button', { name: /^Documents/ })).toBeInTheDocument();
+        expect(within(list).queryByRole('button', { name: /^Travel/ })).not.toBeInTheDocument();
+      });
+
+      it('focuses the empty list when the last folder is trashed', async () => {
+        mockState.tree = { root: [folder('f_docs', 'docs')] };
+        mockState.moveToTrash = vi.fn(async () => {
+          mockState.tree = { root: [] };
+          mockState.resultCache.clear();
+        });
+
+        renderPage();
+        openTrashConfirmation('docs');
+        confirmWithKeyboard();
+
+        await waitFor(() =>
+          expect(screen.queryByRole('dialog', { name: 'Move folder to trash' })).not.toBeInTheDocument()
+        );
+        await waitFor(() => expect(document.activeElement).not.toBe(document.body));
+        expect(currentList()).toHaveFocus();
+      });
+
+      it('returns focus to the row menu trigger when the confirmation is cancelled', async () => {
+        mockState.moveToTrash = vi.fn(async () => {});
+        renderPage();
+        const trigger = openTrashConfirmation('Travel');
+
+        fireEvent.click(screen.getByRole('button', { name: 'Cancel' }));
+
+        expect(screen.queryByRole('dialog', { name: 'Move folder to trash' })).not.toBeInTheDocument();
+        await waitFor(() => expect(trigger).toHaveFocus());
+        expect(mockState.moveToTrash).not.toHaveBeenCalled();
+      });
+
+      it('keeps focus in the dialog when moving to trash fails', async () => {
+        mockState.moveToTrash = vi.fn(async () => {
+          throw new Error('Failed to move folder to trash');
+        });
+
+        renderPage();
+        openTrashConfirmation('Travel');
+        confirmWithKeyboard();
+
+        await waitFor(() => expect(screen.getByText('Failed to move folder to trash')).toBeInTheDocument());
+        const dialog = screen.getByRole('dialog', { name: 'Move folder to trash' });
+        expect(dialog).toContainElement(document.activeElement as HTMLElement);
+        expect(currentList()).not.toHaveFocus();
+      });
+    });
   });
 
   it('renders unauthorized notice for 403', () => {

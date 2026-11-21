@@ -1,7 +1,7 @@
 import type { FormEventHandler } from 'react';
 import { Alert } from '@/components/ui/Alert';
 import { Button } from '@/components/ui/Button';
-import { useDialogDismiss } from '@/components/files/useDialogDismiss';
+import { useDialogDismiss, useDialogTabTrap } from '@/components/files/useDialogDismiss';
 
 interface ConfirmFolderTrashDialogProps {
   errorMessage: string | null;
@@ -22,6 +22,7 @@ export const ConfirmFolderTrashDialog = ({
 }: ConfirmFolderTrashDialogProps) => {
   const isDialogOpen = isOpen && Boolean(folderPath);
   const { onBackdropMouseDown } = useDialogDismiss({ isOpen: isDialogOpen, onClose });
+  const dialogRef = useDialogTabTrap<HTMLDialogElement>(isDialogOpen);
 
   if (!isDialogOpen || !folderPath) {
     return null;
@@ -30,6 +31,7 @@ export const ConfirmFolderTrashDialog = ({
   return (
     <div className="dockspace-dialog-backdrop" onMouseDown={onBackdropMouseDown}>
       <dialog
+        ref={dialogRef}
         className="dockspace-dialog"
         open
         aria-modal="true"
@@ -50,7 +52,8 @@ export const ConfirmFolderTrashDialog = ({
             <Button type="submit" variant="danger" disabled={isSubmitting}>
               {isSubmitting ? 'Moving to trash...' : 'Move to trash'}
             </Button>
-            <Button type="button" variant="secondary" onClick={onClose} disabled={isSubmitting}>
+            {/* Initial focus on Cancel: pressing Enter right after opening must not delete anything. */}
+            <Button type="button" variant="secondary" onClick={onClose} disabled={isSubmitting} autoFocus>
               Cancel
             </Button>
           </div>

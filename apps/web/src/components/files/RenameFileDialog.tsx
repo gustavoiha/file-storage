@@ -42,7 +42,7 @@ export const RenameFileDialog = ({
           onClose();
         }}
       >
-        <h3 className="dockspace-dialog__title">Rename file</h3>
+        <h2 className="dockspace-dialog__title">Rename file</h2>
         <form onSubmit={onSubmit}>
           <label className="ui-field" htmlFor="rename-file-name">
             <span className="ui-field__label">File name</span>

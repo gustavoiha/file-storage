@@ -156,7 +156,9 @@ describe.each(cases)('$name focus', ({ Harness, title, confirm }) => {
     rerender(<Harness isSubmitting />);
     moveFocusToBody();
     rerender(<Harness errorMessage="Something went wrong." />);
-    expect(document.body).toHaveFocus();
+    expect(cancel).toHaveFocus();
+    // Focus can still end up on body (e.g. the user clicked a non-focusable part of the dialog).
+    moveFocusToBody();
 
     await user.tab();
     expect(confirmButton).toHaveFocus();
@@ -164,6 +166,89 @@ describe.each(cases)('$name focus', ({ Harness, title, confirm }) => {
     moveFocusToBody();
     await user.tab({ shift: true });
     expect(cancel).toHaveFocus();
+  });
+
+  it('uses a level 2 heading for its title', () => {
+    render(<Harness />);
+    const { dialog } = openWithKeyboard();
+
+    expect(within(dialog).getByRole('heading', { name: title })).toHaveProperty('tagName', 'H2');
+  });
+
+  it('moves focus to Cancel after a failed submit, keeping the error announced', () => {
+    const { rerender } = render(<Harness />);
+    const { dialog } = openWithKeyboard();
+    within(dialog).getByRole('button', { name: confirm }).focus();
+
+    rerender(<Harness isSubmitting />);
+    moveFocusToBody();
+    rerender(<Harness errorMessage="Something went wrong." />);
+
+    expect(within(dialog).getByRole('button', { name: 'Cancel' })).toHaveFocus();
+    expect(within(dialog).getByRole('alert')).toHaveTextContent('Something went wrong.');
+  });
+
+  it('moves focus to Cancel when the error arrives after the submit ends', () => {
+    const { rerender } = render(<Harness />);
+    const { dialog } = openWithKeyboard();
+
+    rerender(<Harness isSubmitting />);
+    moveFocusToBody();
+    rerender(<Harness />);
+    expect(document.body).toHaveFocus();
+    rerender(<Harness errorMessage="Something went wrong." />);
+
+    expect(within(dialog).getByRole('button', { name: 'Cancel' })).toHaveFocus();
+  });
+
+  it('moves focus to Cancel when the error arrives before the submit ends', () => {
+    const { rerender } = render(<Harness />);
+    const { dialog } = openWithKeyboard();
+
+    rerender(<Harness isSubmitting />);
+    moveFocusToBody();
+    rerender(<Harness isSubmitting errorMessage="Something went wrong." />);
+    expect(document.body).toHaveFocus();
+    rerender(<Harness errorMessage="Something went wrong." />);
+
+    expect(within(dialog).getByRole('button', { name: 'Cancel' })).toHaveFocus();
+  });
+
+  it('leaves focus where it is after a failed submit when it was not lost', () => {
+    const { rerender } = render(<Harness />);
+    const { dialog } = openWithKeyboard();
+    const confirmButton = within(dialog).getByRole('button', { name: confirm });
+
+    rerender(<Harness isSubmitting />);
+    rerender(<Harness errorMessage="Something went wrong." />);
+    confirmButton.focus();
+    rerender(<Harness errorMessage="Something else went wrong." />);
+
+    expect(confirmButton).toHaveFocus();
+  });
+
+  it('does not move focus when an error is shown without a submit', () => {
+    const { rerender } = render(<Harness />);
+    openWithKeyboard();
+
+    moveFocusToBody();
+    rerender(<Harness errorMessage="Something went wrong." />);
+
+    expect(document.body).toHaveFocus();
+  });
+
+  it('returns focus to the opener when closed after a failed submit', async () => {
+    const { rerender } = render(<Harness />);
+    const { opener, dialog } = openWithKeyboard();
+
+    rerender(<Harness isSubmitting />);
+    moveFocusToBody();
+    rerender(<Harness errorMessage="Something went wrong." />);
+    fireEvent.keyDown(document, { key: 'Escape' });
+
+    expect(screen.queryByRole('dialog', { name: title })).not.toBeInTheDocument();
+    expect(dialog).not.toBeInTheDocument();
+    await waitFor(() => expect(opener).toHaveFocus());
   });
 
   it('pulls focus back into the dialog when Tab is pressed on the page behind', async () => {

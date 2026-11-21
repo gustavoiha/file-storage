@@ -147,7 +147,7 @@ export const FileViewerDialog = ({
         ) : (
           <>
             <header className="dockspace-file-viewer__header">
-              <h3 className="dockspace-dialog__title">File preview</h3>
+              <h2 className="dockspace-dialog__title">File preview</h2>
               <p className="dockspace-file-viewer__file-name">{fileName}</p>
             </header>
 

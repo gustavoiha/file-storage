@@ -52,7 +52,7 @@ export const MoveFolderDialog = ({
           onClose();
         }}
       >
-        <h3 className="dockspace-dialog__title">Move folder</h3>
+        <h2 className="dockspace-dialog__title">Move folder</h2>
         <form onSubmit={onSubmit}>
           <p className="dockspace-dialog__description">
             Source folder: <strong>{sourceFolderPath}</strong>

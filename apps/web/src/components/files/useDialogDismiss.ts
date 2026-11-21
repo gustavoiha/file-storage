@@ -65,6 +65,48 @@ export const resolveOpener = (active: Element | null): HTMLElement | null => {
   return trigger ?? rowButton;
 };
 
+interface OpenerRecord {
+  element: HTMLElement | null;
+  /** Path of the row the opener belongs to, when it is a row or a row's menu trigger. */
+  rowPath: string | null;
+  isMenuTrigger: boolean;
+}
+
+const MENU_TRIGGER_CLASS = 'dropdown-menu__trigger';
+
+const recordOpener = (element: HTMLElement | null): OpenerRecord => {
+  const rowPath = element?.getAttribute(ROW_PATH_ATTRIBUTE) ?? null;
+  if (!element || rowPath !== null) {
+    return { element, rowPath, isMenuTrigger: false };
+  }
+
+  if (element.classList.contains(MENU_TRIGGER_CLASS)) {
+    const row = element.closest('li')?.querySelector<HTMLElement>(`[${ROW_PATH_ATTRIBUTE}]`) ?? null;
+    return { element, rowPath: row?.getAttribute(ROW_PATH_ATTRIBUTE) ?? null, isMenuTrigger: true };
+  }
+
+  return { element, rowPath: null, isMenuTrigger: false };
+};
+
+/**
+ * The opener, or its replacement when its row was re-rendered as a new element while the
+ * dialog was open (e.g. a folder shown as a pending "Trashing..." row during a failed submit):
+ * the same row's menu trigger, or the row itself.
+ */
+const findOpener = ({ element, rowPath, isMenuTrigger }: OpenerRecord): HTMLElement | null => {
+  if (isFocusable(element) || rowPath === null) {
+    return element;
+  }
+
+  const row = findRowByPath(rowPath);
+  if (!isMenuTrigger) {
+    return row;
+  }
+
+  const trigger = row?.closest('li')?.querySelector<HTMLElement>(`.${MENU_TRIGGER_CLASS}`) ?? null;
+  return isFocusable(trigger) ? trigger : row;
+};
+
 const TABBABLE_SELECTOR = [
   'a[href]',
   'button:not([disabled])',
@@ -141,8 +183,52 @@ export const focusIsLost = () => {
   return !active || active === document.body;
 };
 
+interface UseFocusAfterFailedSubmitOptions {
+  isOpen: boolean;
+  isSubmitting: boolean;
+  errorMessage: string | null;
+}
+
+/**
+ * The focused submit button is disabled while a dialog submits, so focus falls to body. When the
+ * submit fails and the dialog stays open with its error, focus moves to the returned ref's element
+ * (Cancel). Success closes the dialog, and its focus is left to the dialog's close handling.
+ */
+export const useFocusAfterFailedSubmit = <T extends HTMLElement>({
+  isOpen,
+  isSubmitting,
+  errorMessage
+}: UseFocusAfterFailedSubmitOptions) => {
+  const targetRef = useRef<T>(null);
+  const wasSubmittingRef = useRef(false);
+
+  useEffect(() => {
+    if (!isOpen) {
+      wasSubmittingRef.current = false;
+      return;
+    }
+
+    if (isSubmitting) {
+      wasSubmittingRef.current = true;
+      return;
+    }
+
+    // The error and the end of the submit can arrive in separate renders, in either order.
+    if (!wasSubmittingRef.current || !errorMessage) {
+      return;
+    }
+
+    wasSubmittingRef.current = false;
+    if (focusIsLost() && isFocusable(targetRef.current)) {
+      targetRef.current.focus();
+    }
+  }, [isOpen, isSubmitting, errorMessage]);
+
+  return targetRef;
+};
+
 export const useDialogDismiss = ({ isOpen, onClose, getReturnFocusTarget }: UseDialogDismissOptions) => {
-  const openerRef = useRef<HTMLElement | null | undefined>(undefined);
+  const openerRef = useRef<OpenerRecord | undefined>(undefined);
   const wasOpenRef = useRef(isOpen);
   const getReturnFocusTargetRef = useRef(getReturnFocusTarget);
   getReturnFocusTargetRef.current = getReturnFocusTarget;
@@ -150,7 +236,7 @@ export const useDialogDismiss = ({ isOpen, onClose, getReturnFocusTarget }: UseD
   // Read the opener while rendering the opening update: by the time effects run,
   // the dialog's autofocused field already holds focus.
   if (isOpen && openerRef.current === undefined) {
-    openerRef.current = resolveOpener(document.activeElement);
+    openerRef.current = recordOpener(resolveOpener(document.activeElement));
   }
 
   useEffect(() => {
@@ -164,7 +250,7 @@ export const useDialogDismiss = ({ isOpen, onClose, getReturnFocusTarget }: UseD
     }
 
     wasOpenRef.current = false;
-    const opener = openerRef.current ?? null;
+    const openerRecord = openerRef.current;
     openerRef.current = undefined;
     const getTarget = getReturnFocusTargetRef.current;
 
@@ -189,6 +275,7 @@ export const useDialogDismiss = ({ isOpen, onClose, getReturnFocusTarget }: UseD
       }
 
       const fallback = document.querySelector<HTMLElement>(`[${DIALOG_FOCUS_FALLBACK_ATTRIBUTE}]`);
+      const opener = openerRecord ? findOpener(openerRecord) : null;
       const target = [opener, fallback].find(isFocusable);
       target?.focus();
     };

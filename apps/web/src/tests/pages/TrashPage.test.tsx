@@ -495,15 +495,133 @@ describe('TrashPage', () => {
       expect(document.activeElement).toBe(elsewhere);
     });
 
-    it('keeps focus on the row\'s Restore button after a failed restore', async () => {
-      restoreFileMock.mockRejectedValue(new Error('Restore failed'));
-      render(<TrashPage />);
+    describe('when the disabled Restore button drops focus to <body>', () => {
+      /**
+       * Browsers move focus from a button to <body> when it becomes disabled; jsdom keeps it there.
+       * Blur the focused element whenever it gains `disabled`, as the browser does. jsdom ignores
+       * blur() on a disabled element, so enable it for the blur.
+       */
+      let blurOnDisable: MutationObserver | undefined;
 
-      press(restoreButton(middle));
+      beforeEach(() => {
+        blurOnDisable = new MutationObserver(() => {
+          const active = document.activeElement;
+          if (active instanceof HTMLButtonElement && active.disabled) {
+            active.disabled = false;
+            active.blur();
+            active.disabled = true;
+          }
+        });
+        blurOnDisable.observe(document.body, {
+          attributes: true,
+          attributeFilter: ['disabled'],
+          subtree: true
+        });
+      });
 
-      expect(await screen.findByRole('alert')).toHaveTextContent('Restore failed');
-      expect(screen.getAllByRole('listitem')).toHaveLength(3);
-      expect(document.activeElement).toBe(restoreButton(middle));
+      afterEach(() => {
+        blurOnDisable?.disconnect();
+      });
+
+      it('puts focus back on the row\'s Restore button when the disabled button dropped it', async () => {
+        const restore = deferred();
+        restoreFileMock.mockImplementation(() => restore.promise);
+        render(<TrashPage />);
+
+        press(restoreButton(middle));
+        expect(screen.getByRole('button', { name: `Restoring... ${rowName(middle)}` })).toBeDisabled();
+        await waitFor(() => expect(document.activeElement).toBe(document.body));
+
+        await act(async () => {
+          restore.reject(new Error('Restore failed'));
+          await restore.promise.catch(() => {});
+        });
+
+        expect(screen.getByRole('alert')).toHaveTextContent('Restore failed');
+        expect(screen.getAllByRole('listitem')).toHaveLength(3);
+        expect(document.activeElement).toBe(restoreButton(middle));
+      });
+
+      it('leaves focus alone when the user moved it elsewhere while the restore ran', async () => {
+        const restore = deferred();
+        restoreFileMock.mockImplementation(() => restore.promise);
+        render(<TrashPage />);
+
+        press(restoreButton(middle));
+        await waitFor(() => expect(document.activeElement).toBe(document.body));
+        const elsewhere = purgeButton(first);
+        elsewhere.focus();
+
+        await act(async () => {
+          restore.reject(new Error('Restore failed'));
+          await restore.promise.catch(() => {});
+        });
+
+        expect(screen.getByRole('alert')).toHaveTextContent('Restore failed');
+        expect(document.activeElement).toBe(elsewhere);
+      });
+
+      it('puts focus back on the failed row only, while another row\'s restore still runs', async () => {
+        const middleRestore = deferred();
+        const lastRestore = deferred();
+        restoreFileMock.mockImplementation((target) =>
+          target.fileNodeId === middle.fileNodeId ? middleRestore.promise : lastRestore.promise
+        );
+        render(<TrashPage />);
+
+        press(restoreButton(last));
+        press(restoreButton(middle));
+        await waitFor(() => expect(document.activeElement).toBe(document.body));
+
+        await act(async () => {
+          middleRestore.reject(new Error('Middle failed'));
+          await middleRestore.promise.catch(() => {});
+        });
+
+        expect(screen.getByRole('alert')).toHaveTextContent('Middle failed');
+        expect(screen.getByRole('button', { name: `Restoring... ${rowName(last)}` })).toBeDisabled();
+        expect(document.activeElement).toBe(restoreButton(middle));
+
+        await act(async () => {
+          lastRestore.resolve();
+          await lastRestore.promise;
+        });
+        expect(document.activeElement).toBe(restoreButton(middle));
+      });
+
+      it('still moves focus to the next row\'s Restore button after a successful restore', async () => {
+        const restore = deferred();
+        restoreFileMock.mockImplementation(async (target) => {
+          await restore.promise;
+          await removeFromTrash(target);
+        });
+        render(<TrashPage />);
+
+        press(restoreButton(middle));
+        await waitFor(() => expect(document.activeElement).toBe(document.body));
+
+        await act(async () => {
+          restore.resolve();
+          await restore.promise;
+        });
+
+        await waitFor(() => expect(screen.getAllByRole('listitem')).toHaveLength(2));
+        expect(document.activeElement).toBe(restoreButton(last));
+      });
+
+      it('returns focus to the Restore button when the error is dismissed', async () => {
+        restoreFileMock.mockRejectedValue(new Error('Restore failed'));
+        render(<TrashPage />);
+
+        press(restoreButton(middle));
+        expect(await screen.findByRole('alert')).toHaveTextContent('Restore failed');
+        await waitFor(() => expect(document.activeElement).toBe(restoreButton(middle)));
+
+        press(screen.getByRole('button', { name: `Dismiss error for ${rowName(middle)}` }));
+
+        expect(screen.queryByRole('alert')).not.toBeInTheDocument();
+        expect(document.activeElement).toBe(restoreButton(middle));
+      });
     });
 
     it('moves focus to the next row\'s Restore button once the dialog closes after a purge', async () => {

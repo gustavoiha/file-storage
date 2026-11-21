@@ -17,6 +17,7 @@ All open tasks have their own issues (#11-#16, sub-issues of request #5) since 2
 - T-0015 Folder info panel from the folder action menu (issue #33, request #31): human picked option 2 (info in the right-hand file-preview panel) on 2026-11-21; in design-decision for the final spec.
 - T-0019 Trash page restore errors name the item that failed (issue #42, request #5, from T-0018 review round 1, finding C1): page-level, unnamed restore error cleared by any other restore; AC 5 (error visible without scrolling) from T-0018 test round 1. In engineering since 2026-11-21 (T-0018 merged).
 - T-0020 Confirmation dialogs take focus when they open (issue #43, request #5, from T-0018 test round 1, finding 3): the Purge and folder Move to Trash dialogs get initial focus on Cancel; in engineering since 2026-11-21 (T-0018 merged), in parallel with T-0019.
+- T-0021 Keep focus in the trash list after a restore or purge (issue #46, request #5, from T-0019 test round 1, finding 2): after a successful restore or purge on the trash page focus falls to body; move it to the next/previous row like T-0012. New; touches the purge success path T-0020 leaves unchanged.
 
 ### Shipped
 - 2026-11-21 (prod at 87a4c04): T-0016 Keep folder file counts current after moving files (#36, PR #37): after a move (also a partly failed one) the target and source folder counts in the folder rows and the sidebar tree update from the move response without a reload or a full tree re-discovery; the open folder is recounted from its refetched listing only, so it is not counted twice.
@@ -61,5 +62,6 @@ All open tasks have their own issues (#11-#16, sub-issues of request #5) since 2
 | T-0016 | #36 | #31 | Keep folder file counts current after moving files | done | Engineering |
 | T-0017 | #38 | #5 | Visible keyboard focus on the current row in ancestor columns | done | Engineering |
 | T-0018 | #39 | #5 | Trash page handles two trashed items with the same path separately | done | Review judge |
-| T-0019 | #42 | #5 | Trash page restore errors name the item that failed | filtering | Review judge |
+| T-0019 | #42 | #5 | Trash page restore errors name the item that failed | deploying | Review judge |
 | T-0020 | #43 | #5 | Confirmation dialogs take focus when they open | testing | Test filter |
+| T-0021 | #46 | #5 | Keep focus in the trash list after a restore or purge | new | Test filter |

@@ -15,11 +15,11 @@ Dockspace: a self-hosted, single-tenant cloud file storage app on AWS (minimal G
 All open tasks have their own issues (#11-#16, sub-issues of request #5) since 2026-11-20. 2026-11-20 sweep: the permission and infra-hold blockers are resolved by the setup change (pre-approved prod-deploy.sh, gh pr merge for deployment, drift rules). T-0001, T-0002 and T-0006 have shipped. T-0003 and T-0004 ship with T-0001's deploy of main. Only T-0005 waits on the human (design pick).
 
 - T-0015 Folder info panel from the folder action menu (issue #33, request #31): human picked option 2 (info in the right-hand file-preview panel) on 2026-11-21; in testing.
-- T-0020 Confirmation dialogs take focus when they open (issue #43, request #5, from T-0018 test round 1, finding 3): the Purge and folder Move to Trash dialogs get initial focus on Cancel; tested and in deploying (PR #44).
 - T-0021 Keep focus in the trash list after a restore or purge (issue #46, request #5, from T-0019 test round 1, finding 2): after a successful restore or purge on the trash page focus falls to body; move it to the next/previous row like T-0012. In engineering since 2026-11-21 (T-0019 merged); stays in `TrashPage.tsx`, rebase after T-0020's PR #44 merges.
 - T-0022 Confirmation dialogs keep focus after a failed purge or folder trash (issue #48, request #5, from T-0020 test round 1, findings 1-3): after a failed purge or folder trash focus goes to Cancel, a failed folder trash returns focus to the opener on close, and dialog titles stop skipping heading levels. New; builds on T-0020 (PR #44), so dispatch after it is merged.
 
 ### Shipped
+- 2026-11-21 (prod at 674d6f4): T-0020 Confirmation dialogs take focus when they open (#43, PR #44): the Purge and folder Move to Trash dialogs focus Cancel on open (Enter right away closes without deleting); Tab and Shift+Tab stay inside the dialog through a document-level trap, also while submitting and after a failed submit; Escape, Cancel and backdrop still return focus to the opener.
 - 2026-11-21 (prod at 9a46bcc): T-0019 Trash page restore errors name the item that failed (#42, PR #45): restore errors are kept per trashed copy and shown in that row (`Could not restore <path> (trashed <date, time>): <error>`), scroll into view, survive other rows' restores, and clear on retry, when the copy leaves the trash, or on Dismiss (focus returns to the row's Restore button).
 - 2026-11-21 (prod at 87a4c04): T-0016 Keep folder file counts current after moving files (#36, PR #37): after a move (also a partly failed one) the target and source folder counts in the folder rows and the sidebar tree update from the move response without a reload or a full tree re-discovery; the open folder is recounted from its refetched listing only, so it is not counted twice.
 - 2026-11-21 (prod at 31619d2): T-0018 Trash page handles two trashed items with the same path separately (#39, PR #41): list trash returns each item's `fileNodeId`; purge and restore take it and act only on that trashed copy (path-only requests with several matches get a 409, no change); trash rows show the trashed date and time, pending labels and keys are per item, the Purge dialog names the copy, closes on success and shows the error on failure; restore errors are shown.
@@ -64,6 +64,6 @@ All open tasks have their own issues (#11-#16, sub-issues of request #5) since 2
 | T-0017 | #38 | #5 | Visible keyboard focus on the current row in ancestor columns | done | Engineering |
 | T-0018 | #39 | #5 | Trash page handles two trashed items with the same path separately | done | Review judge |
 | T-0019 | #42 | #5 | Trash page restore errors name the item that failed | done | Review judge |
-| T-0020 | #43 | #5 | Confirmation dialogs take focus when they open | deploying | Test filter |
+| T-0020 | #43 | #5 | Confirmation dialogs take focus when they open | done | Test filter |
 | T-0021 | #46 | #5 | Keep focus in the trash list after a restore or purge | engineering | Test filter |
 | T-0022 | #48 | #5 | Confirmation dialogs keep focus after a failed purge or folder trash | new | Test filter |

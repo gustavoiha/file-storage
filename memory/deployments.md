@@ -177,3 +177,13 @@ Recorded 2026-11-20 by the setup session from a `cdk diff` of origin/main 5678ad
 - Smoke check: https://dh0djlfa46gz6.cloudfront.net/login serves `index-B4pimDT9.js`, renders the sign-in form, `TrashPage-CrYRMJJo.js` is served (200, JavaScript), the `FileList` chunk contains `Dismiss error for`, and the console shows no errors.
 - Logs: $LOCAL/logs/prod-deploy-diff-pr-20261121T190714Z.log, prod-deploy-diff-20261121T190746Z.log, prod-deploy-web-20261121T190838Z.log, prod-deploy-diff-20261121T190850Z.log.
 - Prod is now at origin/main `9a46bcc` for both infra and web.
+
+### 2026-11-21 — T-0020 — web
+- origin/main commit: `674d6f4` (PR #44 squash-merged). Run as `dockspace-prod-agent-deployer` via `prod-deploy.sh`.
+- Pre-deploy: PR #44 at `a3e364d` was MERGEABLE/CLEAN but did not contain `9a46bcc` (T-0019). Merged locally onto origin/main `9a46bcc` it merged cleanly and passed typecheck, tests (web 235, backend 178) and the build. Web only (`ConfirmPurgeFileDialog.tsx`, `ConfirmFolderTrashDialog.tsx`, `useDialogDismiss.ts`, tests). `prod-deploy.sh diff-pr 44` showed 0 stacks with differences. Main was `9a46bcc`, which prod already ran (`prod-deploy.sh diff` 0 stacks), so no drift.
+- Infra: not run. Post-deploy `prod-deploy.sh diff` at `674d6f4` shows 0 stacks with differences.
+- Web (`prod-deploy.sh web`): built and synced to the prod site bucket; invalidated `/*` on the prod distribution. Entry bundle `index-BPT6BQD3.js`, `useDialogDismiss-StCBgzEp.js`, `TrashPage-D2xlTdeL.js`, `DockspaceFilesPage-BtjBii7l.js`, stylesheet `index-0veNX-bE.css`.
+- Shipped: #44 `674d6f4` (T-0020).
+- Smoke check: https://dh0djlfa46gz6.cloudfront.net/login serves `index-BPT6BQD3.js`, renders the sign-in form, `useDialogDismiss-StCBgzEp.js` is served (200, JavaScript), and the console shows no errors.
+- Logs: $LOCAL/logs/prod-deploy-diff-pr-20261121T191612Z.log, prod-deploy-diff-20261121T191640Z.log, prod-deploy-web-20261121T191728Z.log, prod-deploy-diff-20261121T191738Z.log.
+- Prod is now at origin/main `674d6f4` for both infra and web.

@@ -42,4 +42,4 @@ All open tasks have their own issues (#11-#16, sub-issues of request #5) since 2
 | T-0007 | #18 | #5 | Arrow-key navigation in dropdown menus | done | Engineering |
 | T-0008 | #20 | #5 | Desktop right-click menu takes keyboard focus | done | Engineering |
 | T-0009 | #21 | #5 | Return focus after closing file and folder dialogs | done | Engineering |
-| T-0010 | #24 | #5 | Visible focus on the file list after a dialog closes | testing | Testing |
+| T-0010 | #24 | #5 | Visible focus on the file list after a dialog closes | filtering | Filtering |

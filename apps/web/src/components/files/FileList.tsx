@@ -18,6 +18,7 @@ import { Button } from '@/components/ui/Button';
 import { DropdownMenu } from '@/components/ui/DropdownMenu';
 import { useFileIconForPath } from '@/hooks/useFileIconForPath';
 import { useLongPress, type LongPressHandlers } from '@/hooks/useLongPress';
+import { focusIsLost, isFocusable } from '@/components/files/useDialogDismiss';
 import type { FileRecord, FolderRecord } from '@/lib/apiTypes';
 import { formatDateTime, formatFileSize, formatModifiedDate, pluralize } from '@/lib/fileFormat';
 import { positionMenuAtPoint, type MenuPoint } from '@/lib/menuPosition';
@@ -63,6 +64,10 @@ interface FileListProps {
   actionErrorMessages?: ReadonlyMap<string, string> | undefined;
   /** Flat list: dismisses the error shown in a row (called with its row id). */
   onDismissActionError?: ((rowId: string) => void) | undefined;
+  /**
+   * Flat list: a row whose action succeeded and that is leaving the list (see `FlatRowFocusRequest`).
+   */
+  focusAfterRemoval?: FlatRowFocusRequest | null | undefined;
   secondaryActionLabel?: string | undefined;
   secondaryActionLabelWhilePending?: string | undefined;
   /** Flat list: row ids (see `fileRowId`) whose secondary action is in progress. */
@@ -145,6 +150,24 @@ const describeFlatFile = (file: FileRecord): string => {
   return trashedAt ? `${file.fullPath}, trashed ${trashedAt}` : file.fullPath;
 };
 
+/**
+ * Asks the flat list to keep keyboard focus nearby once a row leaves it (restored, purged). When
+ * the row is gone and focus fell to <body>, focus moves to the next row's action button, else the
+ * previous row's, else the list itself (or its empty message). Pass a new object per request.
+ */
+export interface FlatRowFocusRequest {
+  rowId: string;
+}
+
+/** Rows after the removed one in order, then the rows before it, nearest first. */
+const neighbourRowIds = (order: readonly string[], rowId: string): string[] => {
+  const index = order.indexOf(rowId);
+  if (index < 0) {
+    return [];
+  }
+  return [...order.slice(index + 1), ...order.slice(0, index).reverse()];
+};
+
 interface FlatRowErrorProps {
   fileDescription: string;
   message: string;
@@ -192,6 +215,7 @@ interface FlatFileListProps {
   onSecondaryAction?: ((fullPath: string, file: FileRecord) => void) | undefined;
   onAction: (fullPath: string, file: FileRecord) => void;
   onDismissActionError?: ((rowId: string) => void) | undefined;
+  focusAfterRemoval?: FlatRowFocusRequest | null | undefined;
 }
 
 const FlatFileList = ({
@@ -199,6 +223,7 @@ const FlatFileList = ({
   actionLabel,
   actionLabelWhilePending,
   files,
+  focusAfterRemoval,
   pendingActionFileIds,
   pendingSecondaryActionFileIds,
   secondaryActionLabel,
@@ -225,12 +250,68 @@ const FlatFileList = ({
     onDismissActionError?.(rowId);
   };
 
+  const listRef = useRef<HTMLUListElement>(null);
+  const emptyMessageRef = useRef<HTMLParagraphElement>(null);
+  // Row order of the last commit, and for each row that left the list the order it last had:
+  // the row can be gone before the success that asks for focus arrives, or only after it.
+  const previousRowIdsRef = useRef<readonly string[]>([]);
+  const removedRowOrdersRef = useRef(new Map<string, readonly string[]>());
+  const handledFocusRequestRef = useRef<FlatRowFocusRequest | null>(null);
+
+  useLayoutEffect(() => {
+    const rowIds = files.map(fileRowId);
+    const currentRowIds = new Set(rowIds);
+    const previousRowIds = previousRowIdsRef.current;
+    const removedRowOrders = removedRowOrdersRef.current;
+    for (const rowId of previousRowIds) {
+      if (!currentRowIds.has(rowId)) {
+        removedRowOrders.set(rowId, previousRowIds);
+      }
+    }
+    for (const rowId of rowIds) {
+      removedRowOrders.delete(rowId);
+    }
+    previousRowIdsRef.current = rowIds;
+
+    const request = focusAfterRemoval;
+    if (!request || handledFocusRequestRef.current === request || currentRowIds.has(request.rowId)) {
+      return;
+    }
+
+    handledFocusRequestRef.current = request;
+    const order = removedRowOrders.get(request.rowId) ?? [];
+    removedRowOrders.delete(request.rowId);
+    // Leave focus alone if the user already moved it somewhere else while the action ran.
+    if (!focusIsLost()) {
+      return;
+    }
+
+    const target = neighbourRowIds(order, request.rowId)
+      .map((rowId) => actionButtonsRef.current.get(rowId))
+      .find(isFocusable);
+    (target ?? listRef.current ?? emptyMessageRef.current)?.focus();
+  }, [files, focusAfterRemoval]);
+
   if (!files.length) {
-    return <p>No files found.</p>;
+    return (
+      <p
+        ref={emptyMessageRef}
+        className="flat-file-list__empty"
+        tabIndex={-1}
+        data-dialog-focus-fallback=""
+      >
+        No files found.
+      </p>
+    );
   }
 
   return (
-    <ul className="resource-list">
+    <ul
+      ref={listRef}
+      className="resource-list flat-file-list"
+      tabIndex={-1}
+      data-dialog-focus-fallback=""
+    >
       {files.map((file) => {
         const rowId = fileRowId(file);
         const trashedAt = formatTrashedAt(file);
@@ -1154,6 +1235,7 @@ export const FileList = ({
   onAction,
   onActionFolder,
   onDismissActionError,
+  focusAfterRemoval,
   onOpenFolder,
   onToggleFileSelection,
   pendingFolderPaths = [],
@@ -1191,6 +1273,7 @@ export const FileList = ({
         onSecondaryAction={onSecondaryAction}
         onAction={onAction}
         onDismissActionError={onDismissActionError}
+        focusAfterRemoval={focusAfterRemoval}
       />
     );
   }

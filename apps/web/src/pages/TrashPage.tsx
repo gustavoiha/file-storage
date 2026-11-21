@@ -2,7 +2,12 @@ import { useCallback, useMemo, useState, type FormEvent } from 'react';
 import { Link, useParams } from '@tanstack/react-router';
 import { RequireAuth } from '@/components/auth/RequireAuth';
 import { ConfirmPurgeFileDialog } from '@/components/files/ConfirmPurgeFileDialog';
-import { FileList, fileRowId, formatTrashedAt } from '@/components/files/FileList';
+import {
+  FileList,
+  fileRowId,
+  formatTrashedAt,
+  type FlatRowFocusRequest
+} from '@/components/files/FileList';
 import { Card } from '@/components/ui/Card';
 import { Page } from '@/components/ui/Page';
 import { usePurgeFileNow, useRestoreFile, useTrash } from '@/hooks/useFiles';
@@ -50,6 +55,8 @@ export const TrashPage = () => {
   );
   const [purgeTarget, setPurgeTarget] = useState<FileRecord | null>(null);
   const [purgeErrorMessage, setPurgeErrorMessage] = useState<string | null>(null);
+  // A restored or purged row leaves the list: focus then moves to a neighbouring row, not <body>.
+  const [focusAfterRemoval, setFocusAfterRemoval] = useState<FlatRowFocusRequest | null>(null);
 
   const onRestore = useCallback(
     (_fullPath: string, file: FileRecord) => {
@@ -59,6 +66,7 @@ export const TrashPage = () => {
       void (async () => {
         try {
           await restoreMutation.mutateAsync(trashedFileTarget(file));
+          setFocusAfterRemoval({ rowId });
         } catch (error) {
           setRestoreErrors((previous) =>
             new Map(previous).set(rowId, {
@@ -115,10 +123,13 @@ export const TrashPage = () => {
       }
 
       setPurgeErrorMessage(null);
+      const rowId = fileRowId(purgeTarget);
       void (async () => {
         try {
           await purgeMutation.mutateAsync(trashedFileTarget(purgeTarget));
+          // Same update as the dialog closing, so focus moves once the dialog is gone.
           setPurgeTarget(null);
+          setFocusAfterRemoval({ rowId });
         } catch (error) {
           setPurgeErrorMessage(error instanceof Error ? error.message : 'Failed to purge file.');
         }
@@ -143,6 +154,7 @@ export const TrashPage = () => {
               files={trashedFiles ?? []}
               actionErrorMessages={visibleRestoreErrors}
               onDismissActionError={dismissRestoreError}
+              focusAfterRemoval={focusAfterRemoval}
               actionLabel="Restore"
               actionLabelWhilePending="Restoring..."
               pendingActionFileIds={pendingRestoreIds}

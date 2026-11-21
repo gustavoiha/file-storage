@@ -710,6 +710,21 @@
   border-top: 1px solid var(--border);
 }
 
+/*
+ * The list takes focus when a dialog closes and its opener is gone (data-dialog-focus-fallback).
+ * Keyboard focus ring (WCAG 2.4.7): the same 2px accent outline as other controls, drawn inside
+ * the list so scrolling columns and the phone layout do not clip it. A mouse click on the list
+ * (tabindex -1) shows no ring.
+ */
+.dockspace-browser__list:focus {
+  outline: none;
+}
+
+.dockspace-browser__list:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: -2px;
+}
+
 .dockspace-browser__list .resource-list__item {
   border: 0;
   border-radius: 0;

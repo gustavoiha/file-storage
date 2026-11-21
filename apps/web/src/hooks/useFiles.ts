@@ -15,7 +15,8 @@ import {
   renameFile,
   renameFolder,
   restoreFile,
-  uploadFile
+  uploadFile,
+  type TrashedFileTarget
 } from '@/lib/dockspaceApi';
 
 const ROOT_FOLDER_NODE_ID = 'root';
@@ -316,7 +317,7 @@ export const useRestoreFile = (dockspaceId: string) => {
   const userId = session?.userId ?? '';
 
   return useMutation({
-    mutationFn: (fullPath: string) => restoreFile(dockspaceId, fullPath),
+    mutationFn: (target: TrashedFileTarget) => restoreFile(dockspaceId, target),
     onSuccess: async () => {
       if (!userId) {
         return;
@@ -341,7 +342,7 @@ export const usePurgeFileNow = (dockspaceId: string) => {
   const userId = session?.userId ?? '';
 
   return useMutation({
-    mutationFn: (fullPath: string) => purgeFileNow(dockspaceId, fullPath),
+    mutationFn: (target: TrashedFileTarget) => purgeFileNow(dockspaceId, target),
     onSuccess: async () => {
       if (!userId) {
         return;

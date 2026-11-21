@@ -6,14 +6,19 @@ import { normalizeFullPath, splitFullPath } from '../domain/path.js';
 import {
   ensureFolderNodeIdByPath,
   findDirectoryFileByName,
-  findTrashedFileByFullPath,
   markFileNodePurged,
   restoreFileNodeFromTrash
 } from '../lib/repository.js';
 import { clearTrashTag, objectExists, objectHasAnyVersion } from '../lib/s3.js';
+import {
+  AMBIGUOUS_TRASHED_FILE_ERROR,
+  fileNodeIdFromFileNode,
+  resolveTrashedFileTarget
+} from '../lib/trashedFileTarget.js';
 
 const bodySchema = z.object({
-  fullPath: z.string().trim().min(2)
+  fullPath: z.string().trim().min(2),
+  fileNodeId: z.string().trim().min(1).max(200).optional()
 });
 
 export const handler = async (event: APIGatewayProxyEventV2) => {
@@ -31,11 +36,21 @@ export const handler = async (event: APIGatewayProxyEventV2) => {
     }
 
     const fullPath = normalizeFullPath(parsed.data.fullPath);
-    const file = await findTrashedFileByFullPath(userId, dockspaceId, fullPath);
-
-    if (!file) {
+    const target = await resolveTrashedFileTarget({
+      userId,
+      dockspaceId,
+      fullPath,
+      fileNodeId: parsed.data.fileNodeId
+    });
+    if (target.status === 'ambiguous') {
+      return jsonResponse(409, { error: AMBIGUOUS_TRASHED_FILE_ERROR, state: 'TRASH' });
+    }
+    if (target.status === 'not-found') {
       return jsonResponse(404, { error: 'Trashed file not found' });
     }
+
+    const file = target.fileNode;
+    const fileNodeId = fileNodeIdFromFileNode(file);
 
     const objectKey = file.s3Key;
     const now = new Date().toISOString();
@@ -59,7 +74,7 @@ export const handler = async (event: APIGatewayProxyEventV2) => {
     const parentFolderNodeId = await ensureFolderNodeIdByPath(userId, dockspaceId, folderPath, now);
     const conflicting = await findDirectoryFileByName(userId, dockspaceId, parentFolderNodeId, fileName);
 
-    if (conflicting && conflicting.childId !== file.SK.slice(2)) {
+    if (conflicting && conflicting.childId !== fileNodeId) {
       return jsonResponse(409, {
         error: 'Cannot restore because a file with this name already exists in the folder'
       });
@@ -77,6 +92,7 @@ export const handler = async (event: APIGatewayProxyEventV2) => {
 
     return jsonResponse(200, {
       fullPath,
+      fileNodeId,
       state: 'ACTIVE'
     });
   } catch (error) {

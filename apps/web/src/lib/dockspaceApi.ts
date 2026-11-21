@@ -645,24 +645,37 @@ export const renameFile = async (
   });
 };
 
-export const restoreFile = async (dockspaceId: string, fullPath: string): Promise<void> => {
+/**
+ * One trashed file. The same path can be in the trash more than once, so requests send the file
+ * node id too; without it the backend refuses a path shared by several trashed files.
+ */
+export interface TrashedFileTarget {
+  fullPath: string;
+  fileNodeId?: string | undefined;
+}
+
+const trashedFileTargetBody = ({ fullPath, fileNodeId }: TrashedFileTarget): string =>
+  JSON.stringify(fileNodeId ? { fullPath, fileNodeId } : { fullPath });
+
+export const restoreFile = async (dockspaceId: string, target: TrashedFileTarget): Promise<void> => {
   await apiRequest(`/dockspaces/${dockspaceId}/files/restore`, {
     method: 'POST',
-    body: JSON.stringify({ fullPath })
+    body: trashedFileTargetBody(target)
   });
 };
 
 export interface PurgeFileNowResponse {
   fullPath: string;
+  fileNodeId?: string;
   state: 'PURGED';
   purgedAt: string;
 }
 
 export const purgeFileNow = async (
   dockspaceId: string,
-  fullPath: string
+  target: TrashedFileTarget
 ): Promise<PurgeFileNowResponse> =>
   apiRequest<PurgeFileNowResponse>(`/dockspaces/${dockspaceId}/files/purge`, {
     method: 'POST',
-    body: JSON.stringify({ fullPath })
+    body: trashedFileTargetBody(target)
   });

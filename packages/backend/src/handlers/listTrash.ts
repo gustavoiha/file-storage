@@ -18,6 +18,7 @@ export const handler = async (event: APIGatewayProxyEventV2) => {
     const items = stateItems
       .filter((item) => Boolean(item.trashedPath))
       .map((item) => ({
+        fileNodeId: item.fileNodeId,
         fullPath: normalizeFullPath(item.trashedPath ?? '/'),
         size: item.size,
         deletedAt: item.deletedAt,

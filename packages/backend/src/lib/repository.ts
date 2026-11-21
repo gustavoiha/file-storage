@@ -1858,13 +1858,18 @@ export const fullPathForTrashedFileNode = async (
   return fullPathFromFileNode(userId, dockspaceId, fileNode);
 };
 
-export const findTrashedFileByFullPath = async (
+/**
+ * Every trashed file whose trashed path is `fullPath`. The same path can be in the trash more than
+ * once (a file trashed, re-created, trashed again), so callers must not assume a single match.
+ */
+export const findTrashedFilesByFullPath = async (
   userId: string,
   dockspaceId: string,
   fullPath: string
-): Promise<FileNodeItem | null> => {
+): Promise<FileNodeItem[]> => {
   const normalizedFullPath = normalizeFullPath(fullPath);
   const stateItems = await listTrashedFileStateIndex(userId, dockspaceId);
+  const matches: FileNodeItem[] = [];
 
   for (const stateItem of stateItems) {
     if (!stateItem.trashedPath || normalizeFullPath(stateItem.trashedPath) !== normalizedFullPath) {
@@ -1873,11 +1878,11 @@ export const findTrashedFileByFullPath = async (
 
     const fileNode = await getFileNodeById(userId, dockspaceId, stateItem.fileNodeId);
     if (fileNode && fileStateFromNode(fileNode) === 'TRASH') {
-      return fileNode;
+      matches.push(fileNode);
     }
   }
 
-  return null;
+  return matches;
 };
 
 export const listActiveFilesInFolder = async (

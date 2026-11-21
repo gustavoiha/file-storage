@@ -1,6 +1,7 @@
 import { act, cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { FileList } from '@/components/files/FileList';
+import { formatDateTime } from '@/lib/fileFormat';
 
 afterEach(() => {
   cleanup();
@@ -28,8 +29,63 @@ describe('FileList', () => {
       />
     );
 
-    fireEvent.click(screen.getByRole('button', { name: 'Purge now' }));
-    expect(onSecondaryAction).toHaveBeenCalledWith('/x.txt');
+    fireEvent.click(screen.getByRole('button', { name: 'Purge now /x.txt' }));
+    expect(onSecondaryAction).toHaveBeenCalledWith(
+      '/x.txt',
+      expect.objectContaining({ fullPath: '/x.txt' })
+    );
+  });
+
+  it('keeps two trashed files with the same path apart in flat mode', () => {
+    const onAction = vi.fn();
+    const onSecondaryAction = vi.fn();
+    const olderCopy = {
+      fileNodeId: 'file-old',
+      fullPath: '/docs/report.txt',
+      size: 1,
+      deletedAt: '2026-01-10T09:00:00.000Z',
+      state: 'TRASH' as const
+    };
+    const newerCopy = {
+      fileNodeId: 'file-new',
+      fullPath: '/docs/report.txt',
+      size: 2,
+      deletedAt: '2026-02-10T09:00:00.000Z',
+      state: 'TRASH' as const
+    };
+    const olderName = `/docs/report.txt, trashed ${formatDateTime(olderCopy.deletedAt)}`;
+    const newerName = `/docs/report.txt, trashed ${formatDateTime(newerCopy.deletedAt)}`;
+    const consoleError = vi.spyOn(console, 'error').mockImplementation(() => {});
+
+    render(
+      <FileList
+        files={[olderCopy, newerCopy]}
+        actionLabel="Restore"
+        actionLabelWhilePending="Restoring..."
+        pendingActionFileIds={['file-new']}
+        secondaryActionLabel="Purge now"
+        secondaryActionLabelWhilePending="Purging..."
+        pendingSecondaryActionFileIds={['file-old']}
+        onSecondaryAction={onSecondaryAction}
+        onAction={onAction}
+      />
+    );
+
+    // Distinct React keys: React warns about duplicate keys through console.error.
+    expect(consoleError).not.toHaveBeenCalled();
+    consoleError.mockRestore();
+
+    expect(screen.getAllByRole('listitem')).toHaveLength(2);
+    expect(screen.getByText(`Trashed ${formatDateTime(olderCopy.deletedAt)}`)).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: `Purging... ${olderName}` })).toBeDisabled();
+    expect(screen.getByRole('button', { name: `Restore ${olderName}` })).toBeEnabled();
+    expect(screen.getByRole('button', { name: `Purge now ${newerName}` })).toBeEnabled();
+    expect(screen.getByRole('button', { name: `Restoring... ${newerName}` })).toBeDisabled();
+
+    fireEvent.click(screen.getByRole('button', { name: `Restore ${olderName}` }));
+    expect(onAction).toHaveBeenCalledWith('/docs/report.txt', olderCopy);
+    fireEvent.click(screen.getByRole('button', { name: `Purge now ${newerName}` }));
+    expect(onSecondaryAction).toHaveBeenCalledWith('/docs/report.txt', newerCopy);
   });
 
   it('calls action', () => {
@@ -56,7 +112,7 @@ describe('FileList', () => {
 
     fireEvent.click(screen.getByRole('button', { name: /actions for x.txt/i }));
     fireEvent.click(screen.getByRole('menuitem', { name: /trash/i }));
-    expect(onAction).toHaveBeenCalledWith('/x.txt');
+    expect(onAction).toHaveBeenCalledWith('/x.txt', expect.objectContaining({ fullPath: '/x.txt' }));
   });
 
   it('opens file viewer callback when clicking a file row', () => {
@@ -184,7 +240,7 @@ describe('FileList', () => {
     fireEvent.contextMenu(screen.getByText('x.txt'));
     fireEvent.click(screen.getByRole('menuitem', { name: /trash/i }));
 
-    expect(onAction).toHaveBeenCalledWith('/x.txt');
+    expect(onAction).toHaveBeenCalledWith('/x.txt', expect.objectContaining({ fullPath: '/x.txt' }));
   });
 
   describe('status region', () => {

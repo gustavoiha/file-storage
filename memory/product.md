@@ -15,6 +15,7 @@ Dockspace: a self-hosted, single-tenant cloud file storage app on AWS (minimal G
 All open tasks have their own issues (#11-#16, sub-issues of request #5) since 2026-11-20. 2026-11-20 sweep: the permission and infra-hold blockers are resolved by the setup change (pre-approved prod-deploy.sh, gh pr merge for deployment, drift rules). T-0001, T-0002 and T-0006 have shipped. T-0003 and T-0004 ship with T-0001's deploy of main. Only T-0005 waits on the human (design pick).
 
 - T-0010 Visible focus on the file list after a dialog closes (issue #24, from T-0009 testing, PR #25): reviews approved; testing was blocked by an expired dev SSO session, resolved 2026-11-21 by the agent-specific dev profile in test-deploy.sh. Re-dispatched to testing.
+- T-0011 Status line confirms Move to Trash and drops stale messages (issue #26, from T-0010 testing): new, the stale status message after trashing a folder.
 
 ### Shipped
 - 2026-11-20 (prod at b8f2339): T-0009 Return focus after closing file and folder dialogs (#21, PR #23): Rename, Move and Add folder dialogs return focus to the opener (menu trigger or row) on Escape, Cancel or backdrop; after submit focus goes to the changed row or the file list.
@@ -42,4 +43,5 @@ All open tasks have their own issues (#11-#16, sub-issues of request #5) since 2
 | T-0007 | #18 | #5 | Arrow-key navigation in dropdown menus | done | Engineering |
 | T-0008 | #20 | #5 | Desktop right-click menu takes keyboard focus | done | Engineering |
 | T-0009 | #21 | #5 | Return focus after closing file and folder dialogs | done | Engineering |
-| T-0010 | #24 | #5 | Visible focus on the file list after a dialog closes | filtering | Filtering |
+| T-0010 | #24 | #5 | Visible focus on the file list after a dialog closes | deploying | Filtering |
+| T-0011 | #26 | #5 | Status line confirms Move to Trash and drops stale messages | new | PM |

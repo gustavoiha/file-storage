@@ -8,6 +8,7 @@ import {
   type FormEvent
 } from 'react';
 import { ArrowLeft } from 'lucide-react';
+import { useQueryClient } from '@tanstack/react-query';
 import { useParams } from '@tanstack/react-router';
 import { RequireAuth } from '@/components/auth/RequireAuth';
 import { UnauthorizedNotice } from '@/components/auth/UnauthorizedNotice';
@@ -265,6 +266,14 @@ export const DockspaceFilesPage = () => {
   const [loadingFolderNodeIds, setLoadingFolderNodeIds] = useState<Set<string>>(
     () => new Set()
   );
+  // Discovery requests in flight, checked synchronously: an effect can run again before the loading state re-renders.
+  const discoveringFolderNodeIdsRef = useRef(new Set<string>());
+  // Folders whose discovery request failed. The discovery effect skips them, so a failing listing is not requested
+  // again in a loop. Navigating, or a later successful load of that listing (e.g. the folder info's Try again), clears
+  // them; `discoveryRetryVersion` makes the effect run again after that.
+  const failedDiscoveryFolderNodeIdsRef = useRef(new Set<string>());
+  const [failedDiscoveryCount, setFailedDiscoveryCount] = useState(0);
+  const [discoveryRetryVersion, setDiscoveryRetryVersion] = useState(0);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const folderInputRef = useRef<HTMLInputElement>(null);
   const columnsRef = useRef<HTMLDivElement>(null);
@@ -296,6 +305,7 @@ export const DockspaceFilesPage = () => {
   // The parent's listing (already loaded for the ancestor column / parent chips) holds the open folder's dates.
   const parentFilesQuery = useFiles(dockspaceId, (parentFolder ?? currentFolder).folderNodeId);
   const discoverFolder = useDiscoverFolder(dockspaceId);
+  const queryClient = useQueryClient();
   const createFolder = useCreateFolder(dockspaceId);
   const moveFolder = useMoveFolder(dockspaceId);
   const moveFiles = useMoveFiles(dockspaceId, currentFolder.fullPath);
@@ -506,7 +516,11 @@ export const DockspaceFilesPage = () => {
 
   const discoverFolderChildren = useCallback(
     async (folderNodeId: string) => {
-      if (loadingFolderNodeIds.has(folderNodeId)) {
+      if (
+        loadingFolderNodeIds.has(folderNodeId) ||
+        discoveringFolderNodeIdsRef.current.has(folderNodeId) ||
+        failedDiscoveryFolderNodeIdsRef.current.has(folderNodeId)
+      ) {
         return;
       }
 
@@ -519,6 +533,7 @@ export const DockspaceFilesPage = () => {
         return;
       }
 
+      discoveringFolderNodeIdsRef.current.add(folderNodeId);
       setLoadingFolderNodeIds((previous) => {
         const next = new Set(previous);
         next.add(folderNodeId);
@@ -535,7 +550,12 @@ export const DockspaceFilesPage = () => {
             items: response.items
           })
         );
+      } catch {
+        // The listing shows its own error (e.g. in the folder info); remember the failure so it is not retried at once.
+        failedDiscoveryFolderNodeIdsRef.current.add(folderNodeId);
+        setFailedDiscoveryCount(failedDiscoveryFolderNodeIdsRef.current.size);
       } finally {
+        discoveringFolderNodeIdsRef.current.delete(folderNodeId);
         setLoadingFolderNodeIds((previous) => {
           const next = new Set(previous);
           next.delete(folderNodeId);
@@ -561,6 +581,12 @@ export const DockspaceFilesPage = () => {
       setFolderTrail(nextTrail.length ? nextTrail : [ROOT_FOLDER]);
       setPreviewFile(nextPreviewFile);
       setInfoFolderPath(null);
+      // Navigating gives folders whose discovery failed one new attempt.
+      if (failedDiscoveryFolderNodeIdsRef.current.size) {
+        failedDiscoveryFolderNodeIdsRef.current.clear();
+        setFailedDiscoveryCount(0);
+        setDiscoveryRetryVersion((version) => version + 1);
+      }
     },
     []
   );
@@ -660,7 +686,11 @@ export const DockspaceFilesPage = () => {
 
     for (const folderNodeId of candidateNodeIds) {
       const node = discoveredFoldersByNodeId.get(folderNodeId);
-      if (!node || loadingFolderNodeIds.has(folderNodeId)) {
+      if (
+        !node ||
+        loadingFolderNodeIds.has(folderNodeId) ||
+        failedDiscoveryFolderNodeIdsRef.current.has(folderNodeId)
+      ) {
         continue;
       }
 
@@ -668,7 +698,40 @@ export const DockspaceFilesPage = () => {
         void discoverFolderChildren(folderNodeId);
       }
     }
-  }, [discoverFolderChildren, discoveredFoldersByNodeId, folderTrail, folders, loadingFolderNodeIds]);
+  }, [
+    discoverFolderChildren,
+    discoveredFoldersByNodeId,
+    discoveryRetryVersion,
+    folderTrail,
+    folders,
+    loadingFolderNodeIds
+  ]);
+
+  // A failed folder whose listing loads later (Try again, a refetch) can be discovered again.
+  useEffect(() => {
+    if (failedDiscoveryCount === 0) {
+      return undefined;
+    }
+
+    return queryClient.getQueryCache().subscribe((event) => {
+      if (event.type !== 'updated' || event.action.type !== 'success') {
+        return;
+      }
+
+      const [scope, , queryDockspaceId, folderNodeId] = event.query.queryKey;
+      if (
+        scope !== 'files' ||
+        queryDockspaceId !== dockspaceId ||
+        typeof folderNodeId !== 'string' ||
+        !failedDiscoveryFolderNodeIdsRef.current.delete(folderNodeId)
+      ) {
+        return;
+      }
+
+      setFailedDiscoveryCount(failedDiscoveryFolderNodeIdsRef.current.size);
+      setDiscoveryRetryVersion((version) => version + 1);
+    });
+  }, [dockspaceId, failedDiscoveryCount, queryClient]);
 
   const folderFileCounts = useMemo(() => {
     const counts = new Map<string, number>();

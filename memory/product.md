@@ -14,11 +14,11 @@ Dockspace: a self-hosted, single-tenant cloud file storage app on AWS (minimal G
 ### In progress / next
 All open tasks have their own issues (#11-#16, sub-issues of request #5) since 2026-11-20. 2026-11-20 sweep: the permission and infra-hold blockers are resolved by the setup change (pre-approved prod-deploy.sh, gh pr merge for deployment, drift rules). T-0001, T-0002 and T-0006 have shipped. T-0003 and T-0004 ship with T-0001's deploy of main. Only T-0005 waits on the human (design pick).
 
-- T-0015 Folder info panel from the folder action menu (issue #33, request #31): human picked option 2 (info in the right-hand file-preview panel) on 2026-11-21; test round 1 found the discovery request loop on failed listings (fixed in round 2); test round 2 found Try again in the error state dropping focus to body, back in engineering.
-- T-0024 Failed folder listing shows the error without the empty state (issue #52, request #31, from T-0015 test round 2, finding 2): a folder whose listing fails shows the error plus "This folder is empty" / "Upload your first files"; show only the error with a retry. New; pre-existing, touches the same page as T-0015 (PR #47), so dispatch after it is merged (PR #47 still open on 2026-11-21).
+- T-0024 Failed folder listing shows the error without the empty state (issue #52, request #31, from T-0015 test round 2, finding 2): a folder whose listing fails shows the error plus "This folder is empty" / "Upload your first files"; show only the error with a retry. New; pre-existing, touches the same page as T-0015 (PR #47), so dispatch after it is merged (PR #47 merged and live on 2026-11-21).
 - T-0023 Trash page keeps focus on the row after a failed restore (issue #50, request #5, from T-0021 test round 1, finding 1): after a failed inline Restore focus falls to body because the button is disabled during the request; put it back on the row's Restore (or Dismiss). In engineering since 2026-11-21 (T-0021, PR #49, merged and live).
 
 ### Shipped
+- 2026-11-21 (prod at 133d212): T-0015 Folder info panel from the folder action menu (#33, PR #47): "Info" first in every folder row menu and "Folder info" in Dockspace / Folder options open a panel in the file-preview slot (full page on phone) with subfolder and file counts (correct plurals), files size, created / modified dates and location; loading and error states with Try again; focus moves in on open and back to the opener on close.
 - 2026-11-21 (prod at 7803b6f): T-0022 Confirmation dialogs keep focus after a failed purge or folder trash (#48, PR #51): after a failed purge or folder Move to Trash, focus moves to Cancel (visible ring for keyboard users); closing after a failed folder trash returns focus to the folder's Actions trigger or row; all dialog titles are `h2` (no axe `heading-order` violation).
 - 2026-11-21 (prod at 4a9ea0b): T-0021 Keep focus in the trash list after a restore or purge (#46, PR #49): after a successful Restore, or a Purge confirmed in its dialog, focus moves to the next row's Restore button, else the previous row's, else the trash list or the empty-trash message (keyboard-only 2px accent ring). Never `body`.
 - 2026-11-21 (prod at 674d6f4): T-0020 Confirmation dialogs take focus when they open (#43, PR #44): the Purge and folder Move to Trash dialogs focus Cancel on open (Enter right away closes without deleting); Tab and Shift+Tab stay inside the dialog through a document-level trap, also while submitting and after a failed submit; Escape, Cancel and backdrop still return focus to the opener.
@@ -61,7 +61,7 @@ All open tasks have their own issues (#11-#16, sub-issues of request #5) since 2
 | T-0012 | #28 | #5 | Keep focus in the file list after a file is moved to the trash | done | Deployment |
 | T-0013 | #30 | #5 | Show the row focus highlight only after keyboard use | done | Review judge |
 | T-0014 | #32 | #31 | Remove the folder and file counts from the current folder heading | done | Deployment |
-| T-0015 | #33 | #31 | Folder info panel from the folder action menu | deploying | Design |
+| T-0015 | #33 | #31 | Folder info panel from the folder action menu | done | Design |
 | T-0016 | #36 | #31 | Keep folder file counts current after moving files | done | Engineering |
 | T-0017 | #38 | #5 | Visible keyboard focus on the current row in ancestor columns | done | Engineering |
 | T-0018 | #39 | #5 | Trash page handles two trashed items with the same path separately | done | Review judge |

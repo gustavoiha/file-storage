@@ -735,7 +735,9 @@ describe('DockspaceFilesPage', () => {
       fireEvent.click(screen.getByRole('button', { name: 'Folder options' }));
       const menu = screen.getByRole('menu', { name: 'Folder options' });
       const items = within(menu).getAllByRole('menuitem');
-      expect(items[0]).toHaveTextContent('Select items');
+      // Folder info comes first (T-0015), then Select items.
+      expect(items[0]).toHaveTextContent('Folder info');
+      expect(items[1]).toHaveTextContent('Select items');
       fireEvent.click(within(menu).getByRole('menuitem', { name: 'Select items' }));
 
       expect(screen.queryByRole('menu', { name: 'Folder options' })).not.toBeInTheDocument();
@@ -1674,6 +1676,316 @@ describe('DockspaceFilesPage', () => {
         expect(screen.getByRole('status')).toHaveTextContent(/^Failed to move file to trash\.$/)
       );
       expect(screen.queryByText(/moved to trash\./)).not.toBeInTheDocument();
+    });
+  });
+
+  describe('folder info panel (T-0015)', () => {
+    const infoPanel = (name: string) => screen.queryByRole('complementary', { name: `Info for ${name}` });
+    const contentsOf = (panel: HTMLElement) => within(panel).getByRole('list', { name: 'Contents' });
+
+    // Keyboard activation: the menu item holds focus when it is chosen.
+    const chooseMenuItem = (menuName: string, itemName: string) => {
+      const item = within(screen.getByRole('menu', { name: menuName })).getByRole('menuitem', { name: itemName });
+      item.focus();
+      fireEvent.click(item);
+    };
+
+    const openInfoFromTrigger = (folderName: string) => {
+      const trigger = screen.getByRole('button', { name: `Actions for ${folderName}` });
+      trigger.focus();
+      fireEvent.click(trigger);
+      chooseMenuItem(`Actions for ${folderName}`, 'Info');
+      return trigger;
+    };
+
+    it('opens from the folder row menu in the side panel, with counts, dates and location', () => {
+      renderPage();
+
+      const trigger = screen.getByRole('button', { name: 'Actions for Travel' });
+      fireEvent.click(trigger);
+      const menu = screen.getByRole('menu', { name: 'Actions for Travel' });
+      expect(within(menu).getAllByRole('menuitem')[0]).toHaveTextContent('Info');
+      expect(menu.children[1]).toHaveAttribute('role', 'separator');
+      chooseMenuItem('Actions for Travel', 'Info');
+
+      const panel = infoPanel('Travel') as HTMLElement;
+      expect(panel).toBeInTheDocument();
+      expect(panel).toHaveClass('dockspace-preview--side');
+      expect(within(panel).getByRole('heading', { level: 2, name: 'Travel' })).toBeInTheDocument();
+      expect(within(contentsOf(panel)).getByText('2 folders')).toBeInTheDocument();
+      expect(within(contentsOf(panel)).getByText('1 file')).toBeInTheDocument();
+      expect(within(panel).getAllByText('Sep 15, 2025')).toHaveLength(2);
+      expect(within(panel).getByText('My Dockspace')).toBeInTheDocument();
+      expect(within(panel).getByRole('button', { name: 'Close folder info' })).toHaveFocus();
+      expect(screen.getAllByRole('heading', { level: 1 })).toHaveLength(1);
+
+      const row = screen.getByRole('button', { name: /^Travel/ });
+      expect(row).toHaveAttribute('aria-current', 'true');
+      expect(screen.getByRole('button', { name: /^Documents/ })).not.toHaveAttribute('aria-current');
+    });
+
+    it('counts empty, folders-only and files-only folders with singular and plural', () => {
+      mockState.tree = {
+        ...DEFAULT_TREE,
+        root: [
+          folder('d_docs', 'Documents'),
+          folder('d_travel', 'Travel'),
+          folder('d_archive', 'Archive'),
+          file('f_readme', 'README.md')
+        ],
+        d_docs: [],
+        d_archive: [folder('d_2023', '2023', 'd_archive')],
+        d_2023: []
+      };
+      renderPage();
+
+      openInfoFromTrigger('Documents');
+      let panel = infoPanel('Documents') as HTMLElement;
+      expect(within(contentsOf(panel)).getByText('0 folders')).toBeInTheDocument();
+      expect(within(contentsOf(panel)).getByText('0 files')).toBeInTheDocument();
+      expect(within(panel).queryByText('Files size')).not.toBeInTheDocument();
+
+      // Info on another folder swaps the panel content.
+      openInfoFromTrigger('Archive');
+      expect(infoPanel('Documents')).not.toBeInTheDocument();
+      panel = infoPanel('Archive') as HTMLElement;
+      expect(within(contentsOf(panel)).getByText('1 folder')).toBeInTheDocument();
+      expect(within(contentsOf(panel)).getByText('0 files')).toBeInTheDocument();
+
+      openFolderInCurrentColumn('Travel');
+      openInfoFromTrigger('Japan 2024');
+      panel = infoPanel('Japan 2024') as HTMLElement;
+      expect(within(contentsOf(panel)).getByText('0 folders')).toBeInTheDocument();
+      expect(within(contentsOf(panel)).getByText('1 file')).toBeInTheDocument();
+      expect(within(panel).getByText('My Dockspace / Travel')).toBeInTheDocument();
+    });
+
+    it('shows the direct files size when the listing has sizes', () => {
+      mockState.tree = {
+        ...DEFAULT_TREE,
+        d_japan: [
+          { ...file('f_tokyo', 'tokyo.jpg', 'd_japan'), size: 3 * 1024 * 1024 },
+          { ...file('f_kyoto', 'kyoto.jpg', 'd_japan'), size: 1024 * 1024 }
+        ]
+      };
+      renderPage();
+      openFolderInCurrentColumn('Travel');
+
+      openInfoFromTrigger('Japan 2024');
+      const panel = infoPanel('Japan 2024') as HTMLElement;
+      expect(within(panel).getByText('Files size')).toBeInTheDocument();
+      expect(within(panel).getByText(/4\.0 MB/)).toBeInTheDocument();
+    });
+
+    it('closes with Escape and returns focus to the row menu trigger', async () => {
+      renderPage();
+      const trigger = openInfoFromTrigger('Travel');
+
+      fireEvent.keyDown(document, { key: 'Escape' });
+
+      expect(infoPanel('Travel')).not.toBeInTheDocument();
+      await waitFor(() => expect(trigger).toHaveFocus());
+    });
+
+    it('closes with the Close button and returns focus to the row menu trigger', async () => {
+      renderPage();
+      const trigger = openInfoFromTrigger('Travel');
+
+      fireEvent.click(screen.getByRole('button', { name: 'Close folder info' }));
+
+      expect(infoPanel('Travel')).not.toBeInTheDocument();
+      await waitFor(() => expect(trigger).toHaveFocus());
+    });
+
+    it('returns focus to the row when the menu was opened from the row', async () => {
+      renderPage();
+      const row = screen.getByRole('button', { name: /^Travel/ });
+      row.focus();
+      fireEvent.contextMenu(row, { clientX: 40, clientY: 120 });
+      chooseMenuItem('Actions for Travel', 'Info');
+      expect(screen.getByRole('button', { name: 'Close folder info' })).toHaveFocus();
+
+      fireEvent.keyDown(document, { key: 'Escape' });
+
+      expect(infoPanel('Travel')).not.toBeInTheDocument();
+      await waitFor(() => expect(row).toHaveFocus());
+    });
+
+    it('lets an open menu consume Escape before the folder info', () => {
+      renderPage();
+      openInfoFromTrigger('Travel');
+
+      fireEvent.click(screen.getByRole('button', { name: 'Actions for Documents' }));
+      fireEvent.keyDown(document, { key: 'Escape' });
+
+      expect(screen.queryByRole('menu', { name: 'Actions for Documents' })).not.toBeInTheDocument();
+      expect(infoPanel('Travel')).toBeInTheDocument();
+    });
+
+    it('opens Folder info for the open folder from Dockspace options and returns focus to its trigger', async () => {
+      renderPage();
+      const options = screen.getByRole('button', { name: 'Dockspace options' });
+      options.focus();
+      fireEvent.click(options);
+      const menu = screen.getByRole('menu', { name: 'Dockspace options' });
+      expect(within(menu).getAllByRole('menuitem').map((item) => item.textContent)).toEqual([
+        'Folder info',
+        'Trash',
+        'Detailed usage'
+      ]);
+      expect(menu.children[1]).toHaveAttribute('role', 'separator');
+      chooseMenuItem('Dockspace options', 'Folder info');
+
+      // The root: dockspace name, no Location, no dates, no Open.
+      const panel = infoPanel('My Dockspace') as HTMLElement;
+      expect(within(contentsOf(panel)).getByText('2 folders')).toBeInTheDocument();
+      expect(within(contentsOf(panel)).getByText('1 file')).toBeInTheDocument();
+      expect(within(panel).queryByText('Location')).not.toBeInTheDocument();
+      expect(within(panel).queryByText('Created')).not.toBeInTheDocument();
+      expect(within(panel).queryByRole('button', { name: 'Open' })).not.toBeInTheDocument();
+      expect(within(panel).getByRole('button', { name: 'Close folder info' })).toHaveFocus();
+
+      fireEvent.click(within(panel).getByRole('button', { name: 'Close folder info' }));
+      await waitFor(() => expect(options).toHaveFocus());
+    });
+
+    it('shows the open folder its location and dates from the parent listing', () => {
+      renderPage();
+      openFolderInCurrentColumn('Travel');
+      openFolderInCurrentColumn('Lisbon 2025');
+
+      fireEvent.click(screen.getByRole('button', { name: 'Dockspace options' }));
+      chooseMenuItem('Dockspace options', 'Folder info');
+
+      const panel = infoPanel('Lisbon 2025') as HTMLElement;
+      expect(within(panel).getByText('My Dockspace / Travel')).toBeInTheDocument();
+      expect(within(panel).getAllByText('Sep 15, 2025')).toHaveLength(2);
+      expect(within(contentsOf(panel)).getByText('1 folder')).toBeInTheDocument();
+      expect(within(contentsOf(panel)).getByText('2 files')).toBeInTheDocument();
+      // The open folder's own row is in the parent column; no row in the current column is marked.
+      expect(
+        document.querySelector('.dockspace-column--current .dockspace-browser__folder-button[aria-current]')
+      ).toBeNull();
+    });
+
+    it('shows one detail panel at a time: a file preview swaps the folder info out and back', () => {
+      renderPage();
+      openFolderInCurrentColumn('Travel');
+      openFolderInCurrentColumn('Lisbon 2025');
+      openInfoFromTrigger('Day trips');
+      expect(infoPanel('Day trips')).toBeInTheDocument();
+
+      fireEvent.click(fileRow('/Travel/Lisbon 2025/IMG_4821.jpg'));
+      expect(infoPanel('Day trips')).not.toBeInTheDocument();
+      expect(screen.getByRole('complementary', { name: 'File preview' })).toBeInTheDocument();
+      expect(screen.getAllByRole('complementary')).toHaveLength(1);
+
+      openInfoFromTrigger('Day trips');
+      expect(screen.queryByRole('complementary', { name: 'File preview' })).not.toBeInTheDocument();
+      expect(infoPanel('Day trips')).toBeInTheDocument();
+      expect(screen.getAllByRole('complementary')).toHaveLength(1);
+    });
+
+    it('opens the folder with Open, which closes the panel and focuses the new listing', async () => {
+      renderPage();
+      openFolderInCurrentColumn('Travel');
+      openInfoFromTrigger('Lisbon 2025');
+
+      fireEvent.click(within(infoPanel('Lisbon 2025') as HTMLElement).getByRole('button', { name: 'Open' }));
+
+      expect(infoPanel('Lisbon 2025')).not.toBeInTheDocument();
+      expect(screen.getByRole('heading', { level: 1, name: 'Lisbon 2025' })).toBeInTheDocument();
+      await waitFor(() =>
+        expect(document.activeElement).toBe(
+          document.querySelector('.dockspace-column--current [data-dialog-focus-fallback]')
+        )
+      );
+    });
+
+    it('closes when navigating to another folder', () => {
+      renderPage();
+      openFolderInCurrentColumn('Travel');
+      openInfoFromTrigger('Japan 2024');
+      expect(infoPanel('Japan 2024')).toBeInTheDocument();
+
+      fireEvent.click(within(screen.getByRole('navigation', { name: 'Folder path' })).getByRole('button', { name: /My Dockspace/ }));
+
+      expect(infoPanel('Japan 2024')).not.toBeInTheDocument();
+    });
+
+    it('closes when the folder leaves the open folder (renamed, moved or trashed)', () => {
+      renderPage();
+      openInfoFromTrigger('Documents');
+      expect(infoPanel('Documents')).toBeInTheDocument();
+
+      act(() => {
+        reloadListing('root', [folder('d_travel', 'Travel'), file('f_readme', 'README.md')]);
+      });
+
+      expect(infoPanel('Documents')).not.toBeInTheDocument();
+    });
+
+    describe('phone', () => {
+      let scrollTo: ReturnType<typeof vi.spyOn>;
+
+      beforeEach(() => {
+        mockState.isPhone = true;
+        scrollTo = vi.spyOn(window, 'scrollTo').mockImplementation(() => {});
+      });
+
+      afterEach(() => {
+        scrollTo.mockRestore();
+      });
+
+      it('opens as a full page from Shift+F10 on a folder row and returns focus to the row on back', async () => {
+        renderPage();
+        openFolderInCurrentColumn('Travel');
+        const row = screen.getByRole('button', { name: /^Lisbon 2025/ });
+        row.focus();
+        fireEvent.keyDown(row, { key: 'F10', shiftKey: true });
+        const menu = screen.getByRole('menu', { name: 'Actions for Lisbon 2025' });
+        const info = within(menu).getByRole('menuitem', { name: 'Info' });
+        expect(info).toHaveFocus();
+        fireEvent.click(info);
+
+        const panel = infoPanel('Lisbon 2025') as HTMLElement;
+        expect(panel).toHaveClass('dockspace-preview--page');
+        expect(within(panel).getByRole('heading', { level: 1, name: 'Lisbon 2025' })).toBeInTheDocument();
+        expect(screen.getAllByRole('heading', { level: 1 })).toHaveLength(1);
+        expect(within(panel).queryByRole('button', { name: 'Close folder info' })).not.toBeInTheDocument();
+        expect(within(panel).getByRole('button', { name: 'Open' })).toBeInTheDocument();
+        expect(within(contentsOf(panel)).getByText('1 folder')).toBeInTheDocument();
+        const back = within(panel).getByRole('button', { name: 'Back to Travel' });
+        expect(back).toHaveFocus();
+        // The listing is replaced, like the phone file preview.
+        expect(screen.queryByRole('button', { name: /^Japan 2024/ })).not.toBeInTheDocument();
+
+        fireEvent.click(back);
+
+        expect(infoPanel('Lisbon 2025')).not.toBeInTheDocument();
+        // The list scroll position saved on open is restored before the row takes focus.
+        expect(scrollTo).toHaveBeenCalledWith(0, 0);
+        await waitFor(() => expect(screen.getByRole('button', { name: /^Lisbon 2025/ })).toHaveFocus());
+      });
+
+      it('opens Folder info first in Folder options and returns focus to its trigger on back', async () => {
+        renderPage();
+        openFolderInCurrentColumn('Travel');
+        const options = screen.getByRole('button', { name: 'Folder options' });
+        options.focus();
+        fireEvent.click(options);
+        chooseMenuItem('Folder options', 'Folder info');
+
+        const panel = infoPanel('Travel') as HTMLElement;
+        expect(within(panel).getByRole('heading', { level: 1, name: 'Travel' })).toBeInTheDocument();
+        expect(within(panel).queryByRole('button', { name: 'Open' })).not.toBeInTheDocument();
+        expect(within(panel).getByText('My Dockspace')).toBeInTheDocument();
+
+        fireEvent.keyDown(document, { key: 'Escape' });
+
+        expect(infoPanel('Travel')).not.toBeInTheDocument();
+        await waitFor(() => expect(screen.getByRole('button', { name: 'Folder options' })).toHaveFocus());
+      });
     });
   });
 });

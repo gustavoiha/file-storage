@@ -2797,6 +2797,33 @@ button.dockspace-crumbs__crumb:focus-visible {
   color: #9bcfff;
 }
 
+/* The folder shown in the folder info panel: same highlight as the previewed file. Lower specificity
+   than the keyboard focus rule (:has(:focus-visible)), so a focused row still shows its focus ring. */
+.dockspace-browser__list .dockspace-browser__folder-item--info,
+.dockspace-browser__list .dockspace-browser__folder-item--info:hover {
+  background: rgba(77, 168, 255, 0.18);
+  box-shadow: inset 3px 0 0 var(--accent);
+}
+
+.dockspace-browser__folder-item--info .dockspace-browser__folder-icon {
+  color: #9bcfff;
+}
+
+/* Keyboard focus on that row keeps both the accent edge and the focus ring (also while hovered). */
+.dockspace-browser__list .dockspace-browser__folder-item--info:has(:focus-visible) {
+  background: rgba(77, 168, 255, 0.18);
+  border-bottom-color: var(--accent-soft);
+  box-shadow: inset 3px 0 0 var(--accent), inset 0 0 0 1px rgba(47, 121, 201, 0.55);
+}
+
+@supports not selector(:has(*)) {
+  .dockspace-browser__list .dockspace-browser__folder-item--info:focus-within {
+    background: rgba(77, 168, 255, 0.18);
+    border-bottom-color: var(--accent-soft);
+    box-shadow: inset 3px 0 0 var(--accent), inset 0 0 0 1px rgba(47, 121, 201, 0.55);
+  }
+}
+
 /* Preview column */
 .dockspace-preview {
   display: flex;
@@ -2911,6 +2938,96 @@ button.dockspace-crumbs__crumb:focus-visible {
   border-radius: 4px;
   padding: 0 0.3rem;
   background: var(--bg-soft);
+}
+
+/* Folder info panel (T-0015): uses the preview column frame. */
+.dockspace-folder-info__label {
+  margin: 0;
+  font-size: 0.74rem;
+  text-transform: uppercase;
+  letter-spacing: 0.07em;
+  color: var(--text-muted);
+  font-weight: 600;
+}
+
+.dockspace-folder-info__stats {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0.6rem;
+}
+
+.dockspace-folder-info__stat {
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: rgba(5, 8, 15, 0.62);
+  padding: 0.8rem 0.85rem;
+  display: grid;
+  gap: 0.1rem;
+  min-width: 0;
+}
+
+.dockspace-folder-info__stat-icon {
+  color: #9bcfff;
+  margin-bottom: 0.35rem;
+}
+
+.dockspace-folder-info__stat-number {
+  font-size: 1.7rem;
+  font-weight: 700;
+  line-height: 1.1;
+  min-height: 1.9rem;
+}
+
+.dockspace-folder-info__stat-caption,
+.dockspace-folder-info__muted {
+  color: var(--text-muted);
+}
+
+.dockspace-folder-info__stat-caption {
+  font-size: 0.84rem;
+}
+
+.dockspace-folder-info__skeleton {
+  display: inline-block;
+  width: 1.6rem;
+  height: 1.5rem;
+  border-radius: 4px;
+  vertical-align: middle;
+  background: linear-gradient(90deg, rgba(255, 255, 255, 0.06), rgba(255, 255, 255, 0.14), rgba(255, 255, 255, 0.06));
+}
+
+.dockspace-folder-info__skeleton--bar {
+  width: 4rem;
+  height: 0.8rem;
+}
+
+.dockspace-folder-info__status {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+}
+
+.dockspace-folder-info__error {
+  margin: 0;
+  display: flex;
+  align-items: flex-start;
+  gap: 0.5rem;
+  font-size: 0.86rem;
+}
+
+.dockspace-folder-info__error-icon {
+  flex-shrink: 0;
+  margin-top: 0.1rem;
+}
+
+.dockspace-preview__meta .dockspace-folder-info__truncate {
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  overflow-wrap: normal;
 }
 
 /* Uploads card */

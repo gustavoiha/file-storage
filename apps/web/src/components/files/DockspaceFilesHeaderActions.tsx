@@ -50,8 +50,10 @@ interface DockspaceOptionsMenuProps {
   onAddFolder: () => void;
   onUploadFiles: () => void;
   onUploadFolder: () => void;
-  /** Phone only: shows "Select items" first, which turns on selection mode. Omit to hide it. */
+  /** Phone only: shows "Select items", which turns on selection mode. Omit to hide it. */
   onStartSelection?: (() => void) | undefined;
+  /** Shows "Folder info" first, which opens the folder info panel for the open folder. Omit to hide it. */
+  onShowFolderInfo?: (() => void) | undefined;
 }
 
 export const DockspaceOptionsMenu = ({
@@ -60,7 +62,8 @@ export const DockspaceOptionsMenu = ({
   onAddFolder,
   onUploadFiles,
   onUploadFolder,
-  onStartSelection
+  onStartSelection,
+  onShowFolderInfo
 }: DockspaceOptionsMenuProps) => {
   const [isOpen, setIsOpen] = useState(false);
   const label = variant === 'phone' ? 'Folder options' : 'Dockspace options';
@@ -71,6 +74,17 @@ export const DockspaceOptionsMenu = ({
         ⋯
       </DropdownMenu.Trigger>
       <DropdownMenu.Content className="dockspace-page-menu__dropdown" label={label}>
+        {onShowFolderInfo ? (
+          <>
+            <DropdownMenu.Button
+              className="dockspace-page-menu__item dockspace-page-menu__item--button"
+              onClick={onShowFolderInfo}
+            >
+              Folder info
+            </DropdownMenu.Button>
+            <DropdownMenu.Separator />
+          </>
+        ) : null}
         {variant === 'phone' && onStartSelection ? (
           <>
             <DropdownMenu.Button
@@ -125,6 +139,7 @@ interface DockspaceFilesHeaderActionsProps {
   onAddFolder: () => void;
   onUploadFiles: () => void;
   onUploadFolder: () => void;
+  onShowFolderInfo?: (() => void) | undefined;
 }
 
 /** Right side of the desktop folder bar: New folder, Upload, and the dockspace options menu. */
@@ -132,7 +147,8 @@ export const DockspaceFilesHeaderActions = ({
   dockspaceId,
   onAddFolder,
   onUploadFiles,
-  onUploadFolder
+  onUploadFolder,
+  onShowFolderInfo
 }: DockspaceFilesHeaderActionsProps) => (
   <div className="dockspace-folder-bar__actions">
     <Button type="button" variant="secondary" onClick={onAddFolder}>
@@ -146,6 +162,7 @@ export const DockspaceFilesHeaderActions = ({
       onAddFolder={onAddFolder}
       onUploadFiles={onUploadFiles}
       onUploadFolder={onUploadFolder}
+      onShowFolderInfo={onShowFolderInfo}
     />
   </div>
 );

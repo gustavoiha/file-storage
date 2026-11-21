@@ -609,7 +609,15 @@ export const DockspaceFilesPage = () => {
 
   const onMoveToTrash = useCallback(
     (fullPath: string) => {
-      void moveToTrash.mutateAsync({ fullPath, targetType: 'file' });
+      setMoveFilesSummary(null);
+      void (async () => {
+        try {
+          await moveToTrash.mutateAsync({ fullPath, targetType: 'file' });
+          setMoveFilesSummary('File moved to trash.');
+        } catch {
+          setMoveFilesSummary('Failed to move file to trash.');
+        }
+      })();
     },
     [moveToTrash]
   );
@@ -846,6 +854,7 @@ export const DockspaceFilesPage = () => {
       }
 
       const folderPath = trashFolderDialogPath;
+      setMoveFilesSummary(null);
       setTrashFolderDialogError(null);
       setIsTrashingFolder(true);
       setPendingFolderTrashPaths((previous) =>
@@ -855,6 +864,7 @@ export const DockspaceFilesPage = () => {
       void (async () => {
         try {
           await moveToTrash.mutateAsync({ fullPath: folderPath, targetType: 'folder' });
+          setMoveFilesSummary('Folder moved to trash.');
           setTrashFolderDialogPath(null);
         } catch (error) {
           setTrashFolderDialogError(

@@ -187,6 +187,45 @@ describe('FileList', () => {
     expect(onAction).toHaveBeenCalledWith('/x.txt');
   });
 
+  describe('status region', () => {
+    const renderList = (statusMessage?: string | null) => (
+      <FileList
+        files={[{ fullPath: '/x.txt', size: 1, state: 'ACTIVE' }]}
+        folders={[]}
+        currentFolder="/"
+        pendingFolderPaths={[]}
+        actionLabel="Trash"
+        onOpenFolder={vi.fn()}
+        onAction={vi.fn()}
+        {...(statusMessage === undefined ? {} : { statusMessage })}
+      />
+    );
+
+    it('keeps an empty status region mounted and only changes its text', () => {
+      const { container, rerender } = render(renderList(null));
+
+      const region = screen.getByRole('status');
+      expect(region).toBeEmptyDOMElement();
+      expect(container.querySelector('.dockspace-browser__sticky')).toHaveClass('dockspace-browser__sticky--empty');
+
+      rerender(renderList('Folder moved to trash.'));
+      expect(screen.getByRole('status')).toBe(region);
+      expect(region).toHaveTextContent(/^Folder moved to trash\.$/);
+      expect(container.querySelector('.dockspace-browser__sticky')).not.toHaveClass(
+        'dockspace-browser__sticky--empty'
+      );
+
+      rerender(renderList(null));
+      expect(screen.getByRole('status')).toBe(region);
+      expect(region).toBeEmptyDOMElement();
+    });
+
+    it('renders no status region when the page does not pass a status message', () => {
+      render(renderList());
+      expect(screen.queryByRole('status')).not.toBeInTheDocument();
+    });
+  });
+
   it('toggles file selection when selection mode is active', () => {
     const onAction = vi.fn();
     const onOpenFolder = vi.fn();

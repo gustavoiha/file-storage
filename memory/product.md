@@ -46,4 +46,4 @@ All open tasks have their own issues (#11-#16, sub-issues of request #5) since 2
 | T-0009 | #21 | #5 | Return focus after closing file and folder dialogs | done | Engineering |
 | T-0010 | #24 | #5 | Visible focus on the file list after a dialog closes | done | Deployment |
 | T-0011 | #26 | #5 | Status line confirms Move to Trash and drops stale messages | done | Deployment |
-| T-0012 | #28 | #5 | Keep focus in the file list after a file is moved to the trash | engineering | Engineering |
+| T-0012 | #28 | #5 | Keep focus in the file list after a file is moved to the trash | review | Engineering |

@@ -14,12 +14,12 @@ Dockspace: a self-hosted, single-tenant cloud file storage app on AWS (minimal G
 ### In progress / next
 All open tasks have their own issues (#11-#16, sub-issues of request #5) since 2026-11-20. 2026-11-20 sweep: the permission and infra-hold blockers are resolved by the setup change (pre-approved prod-deploy.sh, gh pr merge for deployment, drift rules). T-0001, T-0002 and T-0006 have shipped. T-0003 and T-0004 ship with T-0001's deploy of main. Only T-0005 waits on the human (design pick).
 
-- T-0012 Keep focus in the file list after a file is moved to the trash (issue #28, from T-0011 testing): dispatched to engineering 2026-11-21 (no design round: follows the T-0009/T-0010 focus pattern). T-0011 (PR #27) has merged (main `f0a598a`): rebase on it.
 - T-0013 Show the row focus highlight only after keyboard use (issue #30, from T-0012 review round 1, C1): dispatched to engineering 2026-11-21 (no design round: same highlight, keyboard-only via `:focus-visible`). Rebase on PR #29 (T-0012) once it merges.
 - T-0014 Remove the folder and file counts from the current folder heading (issue #32, request #31): dispatched to engineering 2026-11-21 (no design round: pure removal).
 - T-0015 Folder info panel from the folder action menu (issue #33, request #31): dispatched to design 2026-11-21 (new panel; shows the counts removed in T-0014).
 
 ### Shipped
+- 2026-11-21 (prod at c02881e): T-0012 Keep focus in the file list after a file is moved to the trash (#28, PR #29): after Move to Trash on a file from any row menu, focus goes to the next row, else the previous row, else the file list fallback; on a failed trash it returns to the menu trigger or the row. Never `body`.
 - 2026-11-21 (prod at f0a598a): T-0011 Status line confirms Move to Trash (#26, PR #27): folder and file Move to Trash clear the old move message and show "Folder moved to trash." / "File moved to trash." ("Failed to move file to trash." on a failed file trash); the `role="status"` region stays mounted so the confirmation is announced.
 - 2026-11-21 (prod at 9ac7afb): T-0010 Visible focus on the file list after a dialog closes (#24, PR #25): the file list fallback shows the 2px accent ring on `:focus-visible` after Move to Trash or a move out of the current folder; no ring for mouse users.
 - 2026-11-20 (prod at b8f2339): T-0009 Return focus after closing file and folder dialogs (#21, PR #23): Rename, Move and Add folder dialogs return focus to the opener (menu trigger or row) on Escape, Cancel or backdrop; after submit focus goes to the changed row or the file list.
@@ -49,7 +49,7 @@ All open tasks have their own issues (#11-#16, sub-issues of request #5) since 2
 | T-0009 | #21 | #5 | Return focus after closing file and folder dialogs | done | Engineering |
 | T-0010 | #24 | #5 | Visible focus on the file list after a dialog closes | done | Deployment |
 | T-0011 | #26 | #5 | Status line confirms Move to Trash and drops stale messages | done | Deployment |
-| T-0012 | #28 | #5 | Keep focus in the file list after a file is moved to the trash | deploying | Engineering |
+| T-0012 | #28 | #5 | Keep focus in the file list after a file is moved to the trash | done | Deployment |
 | T-0013 | #30 | #5 | Show the row focus highlight only after keyboard use | review | Review judge |
 | T-0014 | #32 | #31 | Remove the folder and file counts from the current folder heading | testing | Engineering |
 | T-0015 | #33 | #31 | Folder info panel from the folder action menu | design | Design |

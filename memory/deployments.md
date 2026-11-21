@@ -106,3 +106,13 @@ Recorded 2026-11-20 by the setup session from a `cdk diff` of origin/main 5678ad
 - Smoke check: https://dh0djlfa46gz6.cloudfront.net/login serves `index-Dh9Ljnvn.js`, renders the sign-in form, the served stylesheet contains `.dockspace-browser__sticky--empty`, and the console shows no errors.
 - Logs: $LOCAL/logs/prod-deploy-diff-pr-20261121T171947Z.log, prod-deploy-web-20261121T172031Z.log, prod-deploy-diff-20261121T172043Z.log.
 - Prod is now at origin/main `f0a598a` for both infra and web.
+
+### 2026-11-21 — T-0012 — web
+- origin/main commit: `c02881e` (PR #29 squash-merged). Run as `dockspace-prod-agent-deployer` via `prod-deploy.sh`.
+- Pre-deploy: PR #29 was MERGEABLE/CLEAN and already contained origin/main `f0a598a` (merge commit on the branch), so the tested head `0aff983` is what landed. `prod-deploy.sh diff-pr 29` showed 0 stacks with differences. Main was `f0a598a`, which prod already ran, so no drift.
+- Infra: not run. PR #29 is web-only; `prod-deploy.sh diff` at `c02881e` shows 0 stacks with differences.
+- Web (`prod-deploy.sh web`): built and synced to the prod site bucket; invalidated `/*` on the prod distribution. Entry bundle `index-BSsp0ftS.js`, files page chunk `DockspaceFilesPage-IalVSyLi.js`.
+- Shipped: #29 `c02881e` (T-0012).
+- Smoke check: https://dh0djlfa46gz6.cloudfront.net/login serves `index-BSsp0ftS.js`, renders the sign-in form, the new files page chunk is served (200), and the console shows no errors.
+- Logs: $LOCAL/logs/prod-deploy-diff-pr-20261121T173711Z.log, prod-deploy-diff-20261121T173739Z.log, prod-deploy-web-20261121T173830Z.log, prod-deploy-diff-20261121T173841Z.log.
+- Prod is now at origin/main `c02881e` for both infra and web.

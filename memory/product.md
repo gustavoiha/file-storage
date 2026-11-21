@@ -54,4 +54,4 @@ All open tasks have their own issues (#11-#16, sub-issues of request #5) since 2
 | T-0013 | #30 | #5 | Show the row focus highlight only after keyboard use | testing | Review judge |
 | T-0014 | #32 | #31 | Remove the folder and file counts from the current folder heading | done | Deployment |
 | T-0015 | #33 | #31 | Folder info panel from the folder action menu | awaiting-human | Design |
-| T-0016 | #36 | #31 | Keep folder file counts current after moving files | review | Engineering |
+| T-0016 | #36 | #31 | Keep folder file counts current after moving files | testing | Engineering |

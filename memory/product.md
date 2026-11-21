@@ -14,8 +14,8 @@ Dockspace: a self-hosted, single-tenant cloud file storage app on AWS (minimal G
 ### In progress / next
 All open tasks have their own issues (#11-#16, sub-issues of request #5) since 2026-11-20. 2026-11-20 sweep: the permission and infra-hold blockers are resolved by the setup change (pre-approved prod-deploy.sh, gh pr merge for deployment, drift rules). T-0001, T-0002 and T-0006 have shipped. T-0003 and T-0004 ship with T-0001's deploy of main. Only T-0005 waits on the human (design pick).
 
-- T-0011 Status line confirms Move to Trash and drops stale messages (issue #26, from T-0010 testing): dispatched to engineering 2026-11-21 (no design round: reuses the existing status line).
-- T-0012 Keep focus in the file list after a file is moved to the trash (issue #28, from T-0011 testing): new, waiting for PM dispatch.
+- T-0011 Status line confirms Move to Trash and drops stale messages (issue #26, from T-0010 testing): in the deploying stage (PR #27 open).
+- T-0012 Keep focus in the file list after a file is moved to the trash (issue #28, from T-0011 testing): dispatched to engineering 2026-11-21 (no design round: follows the T-0009/T-0010 focus pattern). Rebase on main after T-0011 (PR #27) merges.
 
 ### Shipped
 - 2026-11-21 (prod at 9ac7afb): T-0010 Visible focus on the file list after a dialog closes (#24, PR #25): the file list fallback shows the 2px accent ring on `:focus-visible` after Move to Trash or a move out of the current folder; no ring for mouse users.
@@ -46,4 +46,4 @@ All open tasks have their own issues (#11-#16, sub-issues of request #5) since 2
 | T-0009 | #21 | #5 | Return focus after closing file and folder dialogs | done | Engineering |
 | T-0010 | #24 | #5 | Visible focus on the file list after a dialog closes | done | Deployment |
 | T-0011 | #26 | #5 | Status line confirms Move to Trash and drops stale messages | deploying | Engineering |
-| T-0012 | #28 | #5 | Keep focus in the file list after a file is moved to the trash | new | PM |
+| T-0012 | #28 | #5 | Keep focus in the file list after a file is moved to the trash | engineering | Engineering |

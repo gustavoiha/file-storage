@@ -144,6 +144,47 @@ const parentFolderPathFromPath = (fullPath: string): string => {
   return `/${segments.slice(0, -1).join('/')}`;
 };
 
+/**
+ * Adjusts the known direct file counts of the source and destination folders after files were moved,
+ * from the move response alone. Folders not discovered yet keep their unknown count (their discovery
+ * returns current data), and entries that stayed in the same folder change nothing.
+ */
+const applyFileMovesToDiscoveredFolders = (
+  previous: Map<string, FolderDiscoveryNode>,
+  moved: ReadonlyArray<{ from: string; to: string }>
+): Map<string, FolderDiscoveryNode> => {
+  const countDeltaByFolderPath = new Map<string, number>();
+  for (const entry of moved) {
+    const sourceFolderPath = parentFolderPathFromPath(entry.from);
+    const destinationFolderPath = parentFolderPathFromPath(entry.to);
+    if (sourceFolderPath === destinationFolderPath) {
+      continue;
+    }
+
+    countDeltaByFolderPath.set(sourceFolderPath, (countDeltaByFolderPath.get(sourceFolderPath) ?? 0) - 1);
+    countDeltaByFolderPath.set(
+      destinationFolderPath,
+      (countDeltaByFolderPath.get(destinationFolderPath) ?? 0) + 1
+    );
+  }
+
+  if (!countDeltaByFolderPath.size) {
+    return previous;
+  }
+
+  const next = new Map(previous);
+  for (const [folderNodeId, node] of previous) {
+    const delta = countDeltaByFolderPath.get(node.fullPath);
+    if (!delta || node.directFileCount === null) {
+      continue;
+    }
+
+    next.set(folderNodeId, { ...node, directFileCount: Math.max(0, node.directFileCount + delta) });
+  }
+
+  return next;
+};
+
 const isSameOrDescendantPath = (path: string, maybeAncestorPath: string): boolean =>
   path === maybeAncestorPath || path.startsWith(`${maybeAncestorPath}/`);
 
@@ -713,6 +754,11 @@ export const DockspaceFilesPage = () => {
             sourcePaths: selectedFilePaths,
             targetFolderPath: moveFilesDialogDestinationPath
           });
+
+          // Folder rows show counts from the one-time discovery: update the affected folders here.
+          setDiscoveredFoldersByNodeId((previous) =>
+            applyFileMovesToDiscoveredFolders(previous, response.moved)
+          );
 
           const movedCount = response.moved.length;
           const failedCount = response.failed.length;

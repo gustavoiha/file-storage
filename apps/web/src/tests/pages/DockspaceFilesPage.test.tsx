@@ -399,6 +399,116 @@ describe('DockspaceFilesPage', () => {
     expect(screen.queryByRole('region', { name: 'Uploads' })).not.toBeInTheDocument();
   });
 
+  describe('folder file counts after moving files', () => {
+    const folderRow = (columnName: string, folderName: string, count: string) =>
+      within(column(columnName)).getByRole('button', {
+        name: new RegExp(`^${folderName}.*${count}`)
+      });
+
+    const openCrumb = (name: string) =>
+      fireEvent.click(
+        within(screen.getByRole('navigation', { name: 'Folder path' })).getByRole('button', { name })
+      );
+
+    const moveSelectedFilesTo = async (destinationPath: string) => {
+      fireEvent.click(screen.getByRole('button', { name: 'Move' }));
+      const dialog = await screen.findByRole('dialog', { name: 'Move files' });
+      fireEvent.change(within(dialog).getByLabelText('Destination folder'), {
+        target: { value: destinationPath }
+      });
+      fireEvent.click(within(dialog).getByRole('button', { name: 'Move' }));
+    };
+
+    it('updates the destination and source folder counts after a successful move', async () => {
+      mockState.moveFiles.mockResolvedValueOnce({
+        targetFolderPath: '/Travel/Japan 2024',
+        moved: [{ from: '/Travel/packing-list.txt', to: '/Travel/Japan 2024/packing-list.txt' }],
+        failed: []
+      } as never);
+      renderPage();
+      await waitFor(() => expect(folderRow('My Dockspace', 'Travel', '1 file')).toBeInTheDocument());
+
+      openFolderInCurrentColumn('Travel');
+      await waitFor(() => expect(folderRow('Travel', 'Japan 2024', '1 file')).toBeInTheDocument());
+      expect(folderRow('Travel', 'Lisbon 2025', '2 files')).toBeInTheDocument();
+
+      fireEvent.click(screen.getByRole('checkbox', { name: 'Select packing-list.txt' }));
+      await moveSelectedFilesTo('/Travel/Japan 2024');
+
+      await waitFor(() => expect(folderRow('Travel', 'Japan 2024', '2 files')).toBeInTheDocument());
+      expect(folderRow('Travel', 'Lisbon 2025', '2 files')).toBeInTheDocument();
+      expect(mockState.moveFiles).toHaveBeenCalledWith({
+        sourcePaths: ['/Travel/packing-list.txt'],
+        targetFolderPath: '/Travel/Japan 2024'
+      });
+
+      // The source folder's row, shown in its parent folder, drops the moved file too.
+      openCrumb('My Dockspace');
+      await waitFor(() => expect(folderRow('My Dockspace', 'Travel', '0 files')).toBeInTheDocument());
+      expect(folderRow('My Dockspace', 'Documents', '0 files')).toBeInTheDocument();
+    });
+
+    it('counts only the files that moved when part of the move fails', async () => {
+      mockState.moveFiles.mockResolvedValueOnce({
+        targetFolderPath: '/Travel/Lisbon 2025/Day trips',
+        moved: [
+          { from: '/Travel/Lisbon 2025/IMG_4821.jpg', to: '/Travel/Lisbon 2025/Day trips/IMG_4821.jpg' }
+        ],
+        failed: [
+          {
+            from: '/Travel/Lisbon 2025/IMG_4826.jpg',
+            code: 'CONFLICT',
+            error: 'A file with this name already exists in the destination folder'
+          }
+        ]
+      } as never);
+      renderPage();
+
+      openFolderInCurrentColumn('Travel');
+      await waitFor(() => expect(folderRow('Travel', 'Lisbon 2025', '2 files')).toBeInTheDocument());
+      openFolderInCurrentColumn('Lisbon 2025');
+      await waitFor(() =>
+        expect(folderRow('Lisbon 2025', 'Day trips', '0 files')).toBeInTheDocument()
+      );
+
+      fireEvent.click(screen.getByRole('checkbox', { name: 'Select IMG_4821.jpg' }));
+      fireEvent.click(screen.getByRole('checkbox', { name: 'Select IMG_4826.jpg' }));
+      await moveSelectedFilesTo('/Travel/Lisbon 2025/Day trips');
+
+      await waitFor(() => expect(folderRow('Lisbon 2025', 'Day trips', '1 file')).toBeInTheDocument());
+      expect(
+        within(screen.getByRole('dialog', { name: 'Move files' })).getByText(
+          'A file with this name already exists in the destination folder'
+        )
+      ).toBeInTheDocument();
+
+      fireEvent.click(
+        within(screen.getByRole('dialog', { name: 'Move files' })).getByRole('button', { name: 'Cancel' })
+      );
+      openCrumb('Travel');
+      await waitFor(() => expect(folderRow('Travel', 'Lisbon 2025', '1 file')).toBeInTheDocument());
+      expect(folderRow('Travel', 'Japan 2024', '1 file')).toBeInTheDocument();
+    });
+
+    it('leaves the counts as they are when the files stay in their folder', async () => {
+      mockState.moveFiles.mockResolvedValueOnce({
+        targetFolderPath: '/Travel',
+        moved: [{ from: '/Travel/packing-list.txt', to: '/Travel/packing-list.txt' }],
+        failed: []
+      } as never);
+      renderPage();
+      await waitFor(() => expect(folderRow('My Dockspace', 'Travel', '1 file')).toBeInTheDocument());
+
+      openFolderInCurrentColumn('Travel');
+      fireEvent.click(screen.getByRole('checkbox', { name: 'Select packing-list.txt' }));
+      await moveSelectedFilesTo('/Travel');
+      await waitFor(() => expect(screen.getByText('1 file moved.')).toBeInTheDocument());
+
+      openCrumb('My Dockspace');
+      await waitFor(() => expect(folderRow('My Dockspace', 'Travel', '1 file')).toBeInTheDocument());
+    });
+  });
+
   describe('file sizes from the folder listing', () => {
     const SIZED_TREE: Record<string, DirectoryChildRecord[]> = {
       ...DEFAULT_TREE,

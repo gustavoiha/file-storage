@@ -22,7 +22,8 @@ const deferred = (): Deferred => {
 };
 
 const { trashState, restoreFileMock, purgeFileNowMock } = vi.hoisted(() => ({
-  trashState: { items: [] as FileRecord[] },
+  // refetchBeforePurgeResolves: false models the trash refetch landing after the dialog closed.
+  trashState: { items: [] as FileRecord[], refetchBeforePurgeResolves: true },
   restoreFileMock: vi.fn<(target: TrashedFileTarget) => Promise<void>>(async () => {}),
   purgeFileNowMock: vi.fn<(target: TrashedFileTarget) => Promise<void>>(async () => {})
 }));
@@ -39,7 +40,8 @@ vi.mock('@/components/auth/RequireAuth', () => ({
 vi.mock('@/hooks/useFiles', async () => {
   const React = await import('react');
   // Mirrors react-query: isPending is true while the mutation runs, and a successful purge
-  // removes the purged copy from the trash list before mutateAsync resolves.
+  // removes the purged copy from the trash list before mutateAsync resolves (unless a test
+  // sets trashState.refetchBeforePurgeResolves = false and removes it itself, later).
   const useMutationMock = (
     fn: (target: TrashedFileTarget) => Promise<void>,
     onSuccess?: (target: TrashedFileTarget) => void
@@ -64,6 +66,9 @@ vi.mock('@/hooks/useFiles', async () => {
     useRestoreFile: () => useMutationMock(restoreFileMock),
     usePurgeFileNow: () =>
       useMutationMock(purgeFileNowMock, (target) => {
+        if (!trashState.refetchBeforePurgeResolves) {
+          return;
+        }
         trashState.items = trashState.items.filter(
           (item) => item.fileNodeId !== target.fileNodeId
         );
@@ -91,6 +96,7 @@ const newerName = `/docs/report.txt, trashed ${formatDateTime(newerCopy.deletedA
 describe('TrashPage', () => {
   beforeEach(() => {
     trashState.items = [olderCopy, newerCopy];
+    trashState.refetchBeforePurgeResolves = true;
     restoreFileMock.mockReset();
     restoreFileMock.mockImplementation(async () => {});
     purgeFileNowMock.mockReset();
@@ -480,6 +486,33 @@ describe('TrashPage', () => {
       press(within(dialog).getByRole('button', { name: 'Purge now' }));
 
       await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull());
+      expect(screen.getAllByRole('listitem')).toHaveLength(2);
+      expect(document.activeElement).toBe(restoreButton(last));
+
+      await flushDialogFocusRestore();
+      expect(document.activeElement).toBe(restoreButton(last));
+    });
+
+    it('moves focus once the row leaves the list, when the list updates after the purge dialog closed', async () => {
+      trashState.refetchBeforePurgeResolves = false;
+      const { rerender } = render(<TrashPage />);
+
+      const opener = purgeButton(middle);
+      press(opener);
+      press(
+        within(screen.getByRole('dialog', { name: 'Purge file now' })).getByRole('button', {
+          name: 'Purge now'
+        })
+      );
+
+      await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull());
+      await flushDialogFocusRestore();
+      // The row is still listed: the dialog hands focus back to its opener.
+      expect(screen.getAllByRole('listitem')).toHaveLength(3);
+      expect(document.activeElement).toBe(opener);
+
+      trashState.items = [first, last];
+      rerender(<TrashPage />);
       expect(screen.getAllByRole('listitem')).toHaveLength(2);
       expect(document.activeElement).toBe(restoreButton(last));
 

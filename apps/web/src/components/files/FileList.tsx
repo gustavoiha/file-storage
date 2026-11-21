@@ -13,6 +13,7 @@ import {
   type RefObject
 } from 'react';
 import { ChevronRight, Folder } from 'lucide-react';
+import { Alert } from '@/components/ui/Alert';
 import { Button } from '@/components/ui/Button';
 import { DropdownMenu } from '@/components/ui/DropdownMenu';
 import { useFileIconForPath } from '@/hooks/useFileIconForPath';
@@ -58,6 +59,10 @@ interface FileListProps {
   actionLabelWhilePending?: string | undefined;
   /** Flat list: row ids (see `fileRowId`) whose primary action is in progress. */
   pendingActionFileIds?: readonly string[] | undefined;
+  /** Flat list: error messages shown inside their own row, keyed by row id (see `fileRowId`). */
+  actionErrorMessages?: ReadonlyMap<string, string> | undefined;
+  /** Flat list: dismisses the error shown in a row (called with its row id). */
+  onDismissActionError?: ((rowId: string) => void) | undefined;
   secondaryActionLabel?: string | undefined;
   secondaryActionLabelWhilePending?: string | undefined;
   /** Flat list: row ids (see `fileRowId`) whose secondary action is in progress. */
@@ -140,7 +145,42 @@ const describeFlatFile = (file: FileRecord): string => {
   return trashedAt ? `${file.fullPath}, trashed ${trashedAt}` : file.fullPath;
 };
 
+interface FlatRowErrorProps {
+  fileDescription: string;
+  message: string;
+  onDismiss?: (() => void) | undefined;
+}
+
+/**
+ * Error shown inside the row it belongs to, so it is next to the button that caused it. On a long
+ * list the row can sit at the bottom of the viewport, so the error scrolls itself into view.
+ */
+const FlatRowError = ({ fileDescription, message, onDismiss }: FlatRowErrorProps) => {
+  const errorRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    errorRef.current?.scrollIntoView?.({ block: 'nearest' });
+  }, [message]);
+
+  return (
+    <div ref={errorRef} className="resource-list__item-error">
+      <Alert message={message} />
+      {onDismiss ? (
+        <Button
+          variant="secondary"
+          size="sm"
+          aria-label={`Dismiss error for ${fileDescription}`}
+          onClick={onDismiss}
+        >
+          Dismiss
+        </Button>
+      ) : null}
+    </div>
+  );
+};
+
 interface FlatFileListProps {
+  actionErrorMessages?: ReadonlyMap<string, string> | undefined;
   actionLabel: string;
   actionLabelWhilePending?: string | undefined;
   files: FileRecord[];
@@ -151,9 +191,11 @@ interface FlatFileListProps {
   secondaryActionVariant?: 'primary' | 'secondary' | 'danger' | undefined;
   onSecondaryAction?: ((fullPath: string, file: FileRecord) => void) | undefined;
   onAction: (fullPath: string, file: FileRecord) => void;
+  onDismissActionError?: ((rowId: string) => void) | undefined;
 }
 
 const FlatFileList = ({
+  actionErrorMessages,
   actionLabel,
   actionLabelWhilePending,
   files,
@@ -163,7 +205,8 @@ const FlatFileList = ({
   secondaryActionLabelWhilePending,
   secondaryActionVariant = 'secondary',
   onSecondaryAction,
-  onAction
+  onAction,
+  onDismissActionError
 }: FlatFileListProps) => {
   if (!files.length) {
     return <p>No files found.</p>;
@@ -177,6 +220,7 @@ const FlatFileList = ({
         const fileDescription = describeFlatFile(file);
         const isActionPending = pendingActionFileIds.includes(rowId);
         const isSecondaryActionPending = pendingSecondaryActionFileIds.includes(rowId);
+        const actionErrorMessage = actionErrorMessages?.get(rowId);
         const currentActionLabel = isActionPending
           ? (actionLabelWhilePending ?? actionLabel)
           : actionLabel;
@@ -186,7 +230,15 @@ const FlatFileList = ({
             : secondaryActionLabel;
 
         return (
-          <li key={rowId} className="resource-list__item resource-list__item--spaced">
+          <li
+            key={rowId}
+            className={[
+              'resource-list__item resource-list__item--spaced',
+              actionErrorMessage ? 'resource-list__item--has-error' : ''
+            ]
+              .filter(Boolean)
+              .join(' ')}
+          >
             <div>
               <strong>{file.fullPath}</strong>
               {typeof file.size === 'number' ? <p>{file.size} bytes</p> : null}
@@ -212,6 +264,13 @@ const FlatFileList = ({
                 {currentActionLabel}
               </Button>
             </div>
+            {actionErrorMessage ? (
+              <FlatRowError
+                fileDescription={fileDescription}
+                message={actionErrorMessage}
+                onDismiss={onDismissActionError ? () => onDismissActionError(rowId) : undefined}
+              />
+            ) : null}
           </li>
         );
       })}
@@ -1057,6 +1116,7 @@ const FolderModeList = ({
 };
 
 export const FileList = ({
+  actionErrorMessages,
   actionLabel,
   actionLabelWhilePending,
   currentFolder = '/',
@@ -1075,6 +1135,7 @@ export const FileList = ({
   onMoveFolder,
   onAction,
   onActionFolder,
+  onDismissActionError,
   onOpenFolder,
   onToggleFileSelection,
   pendingFolderPaths = [],
@@ -1100,6 +1161,7 @@ export const FileList = ({
   if (!onOpenFolder) {
     return (
       <FlatFileList
+        actionErrorMessages={actionErrorMessages}
         actionLabel={actionLabel}
         actionLabelWhilePending={actionLabelWhilePending}
         files={files}
@@ -1110,6 +1172,7 @@ export const FileList = ({
         secondaryActionVariant={secondaryActionVariant}
         onSecondaryAction={onSecondaryAction}
         onAction={onAction}
+        onDismissActionError={onDismissActionError}
       />
     );
   }

@@ -399,7 +399,7 @@ To attach the new file-read CloudFront distribution to the app stack, set these 
 You can generate keys locally with:
 
 ```bash
-/Users/gustavoiha/Personal/file-storage/infra/cdk/scripts/generate-cloudfront-keypair.sh
+./infra/cdk/scripts/generate-cloudfront-keypair.sh
 ```
 
 ### Web App (`apps/web/.env.<env>`)

@@ -1,0 +1,137 @@
+{
+  "_readme": [
+    "Per-role Bash permissions for the agent-team workflow. This file is the single place to edit them.",
+    "Each workflow agent runs as a custom agent named agent-team-<role> (.claude/agents/). The PreToolUse hook",
+    ".claude/skills/agent-team/scripts/permission-gate.mjs reads this file on every Bash call from those agents:",
+    "  - a command matching a pattern in globalDeny or the role's deny list is blocked (the agent is told to ask the human);",
+    "  - allAgents.allow: read-only commands every agent-team role may run without a prompt (never 'reserved');",
+    "  - a command that matches ANOTHER role's allow list but not this role's is blocked (it is reserved for that role);",
+    "  - a command whose every part matches the role's allow list is approved without a prompt;",
+    "  - anything else goes through the normal permission flow (auto mode's check).",
+    "Patterns use Claude Code rule syntax: Bash(exact command), Bash(prefix *) for a prefix, or * anywhere as a wildcard.",
+    "$SKILL expands to the absolute path of .claude/skills/agent-team.",
+    "After editing, run: node .claude/skills/agent-team/scripts/sync-permissions.mjs",
+    "(it copies the union of allow lists into .claude/settings.local.json so auto mode honours them; the hook then",
+    "keeps each command limited to its own roles). Decisions are logged to .agent-local/logs/permission-gate.log."
+  ],
+  "globalDeny": [
+    "Bash(*--profile file-storage-dev *)",
+    "Bash(*--profile file-storage-dev)",
+    "Bash(*--profile file-storage-prod *)",
+    "Bash(*--profile file-storage-prod)",
+    "Bash(*AWS_PROFILE=file-storage-dev *)",
+    "Bash(*AWS_PROFILE=file-storage-dev)",
+    "Bash(*AWS_PROFILE=file-storage-prod *)",
+    "Bash(*AWS_PROFILE=file-storage-prod)",
+    "Bash(*cdk destroy*)",
+    "Bash(gh pr merge *--admin*)",
+    "Bash(gh project delete*)",
+    "Bash(gh repo delete*)",
+    "Bash(git push --force*)",
+    "Bash(git push -f*)"
+  ],
+  "allAgents": {
+    "allow": [
+      "Bash(git status)",
+      "Bash(git status *)",
+      "Bash(git log *)",
+      "Bash(git show *)",
+      "Bash(git diff *)",
+      "Bash(git fetch *)",
+      "Bash(git -C * status*)",
+      "Bash(git -C * log *)",
+      "Bash(git -C * show *)",
+      "Bash(git -C * diff *)",
+      "Bash(git -C * fetch *)",
+      "Bash(gh pr view *)",
+      "Bash(gh pr diff *)",
+      "Bash(gh pr list *)",
+      "Bash(gh pr checks *)",
+      "Bash(gh issue view *)",
+      "Bash(gh issue list *)"
+    ]
+  },
+  "roles": {
+    "watcher": {
+      "allow": [
+        "Bash($SKILL/scripts/poll-github.sh 100)"
+      ],
+      "deny": []
+    },
+    "pm": {
+      "allow": [
+        "Bash($SKILL/scripts/memory-sync.sh *)",
+        "Bash($SKILL/scripts/github-project.sh *)",
+        "Bash($SKILL/scripts/poll-github.sh ack *)"
+      ],
+      "deny": []
+    },
+    "design": {
+      "allow": [
+        "Bash($SKILL/scripts/memory-sync.sh *)",
+        "Bash($SKILL/scripts/github-project.sh stage *)",
+        "Bash(node $SKILL/scripts/screenshot.mjs *)"
+      ],
+      "deny": []
+    },
+    "engineering": {
+      "allow": [
+        "Bash($SKILL/scripts/memory-sync.sh *)",
+        "Bash($SKILL/scripts/github-project.sh stage *)",
+        "Bash(node $SKILL/scripts/screenshot.mjs *)"
+      ],
+      "deny": []
+    },
+    "code-reviewer": {
+      "allow": [
+        "Bash($SKILL/scripts/memory-sync.sh *)",
+        "Bash($SKILL/scripts/github-project.sh stage *)"
+      ],
+      "deny": []
+    },
+    "testing": {
+      "allow": [
+        "Bash($SKILL/scripts/memory-sync.sh *)",
+        "Bash($SKILL/scripts/github-project.sh stage *)",
+        "Bash($SKILL/scripts/test-deploy.sh *)",
+        "Bash(node $SKILL/scripts/screenshot.mjs *)"
+      ],
+      "deny": []
+    },
+    "test-filter": {
+      "allow": [
+        "Bash($SKILL/scripts/memory-sync.sh *)",
+        "Bash($SKILL/scripts/github-project.sh stage *)",
+        "Bash($SKILL/scripts/github-project.sh task-issue *)"
+      ],
+      "deny": []
+    },
+    "deployment": {
+      "allow": [
+        "Bash($SKILL/scripts/memory-sync.sh *)",
+        "Bash($SKILL/scripts/github-project.sh stage *)",
+        "Bash($SKILL/scripts/prod-deploy.sh diff)",
+        "Bash($SKILL/scripts/prod-deploy.sh diff-pr *)",
+        "Bash($SKILL/scripts/prod-deploy.sh infra)",
+        "Bash($SKILL/scripts/prod-deploy.sh web)",
+        "Bash(gh pr merge *)"
+      ],
+      "deny": []
+    },
+    "security-reviewer": {
+      "allow": [
+        "Bash($SKILL/scripts/memory-sync.sh *)",
+        "Bash($SKILL/scripts/github-project.sh stage *)"
+      ],
+      "deny": []
+    },
+    "review-judge": {
+      "allow": [
+        "Bash($SKILL/scripts/memory-sync.sh *)",
+        "Bash($SKILL/scripts/github-project.sh stage *)",
+        "Bash($SKILL/scripts/github-project.sh task-issue *)"
+      ],
+      "deny": []
+    }
+  }
+}

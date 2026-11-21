@@ -62,4 +62,4 @@ All open tasks have their own issues (#11-#16, sub-issues of request #5) since 2
 | T-0017 | #38 | #5 | Visible keyboard focus on the current row in ancestor columns | done | Engineering |
 | T-0018 | #39 | #5 | Trash page handles two trashed items with the same path separately | done | Review judge |
 | T-0019 | #42 | #5 | Trash page restore errors name the item that failed | testing | Review judge |
-| T-0020 | #43 | #5 | Confirmation dialogs take focus when they open | review | Test filter |
+| T-0020 | #43 | #5 | Confirmation dialogs take focus when they open | testing | Test filter |

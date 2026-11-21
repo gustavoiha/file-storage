@@ -1,7 +1,7 @@
 import type { FormEventHandler } from 'react';
 import { Alert } from '@/components/ui/Alert';
 import { Button } from '@/components/ui/Button';
-import { trapDialogTabKey, useDialogDismiss } from '@/components/files/useDialogDismiss';
+import { useDialogDismiss, useDialogTabTrap } from '@/components/files/useDialogDismiss';
 
 interface ConfirmFolderTrashDialogProps {
   errorMessage: string | null;
@@ -22,6 +22,7 @@ export const ConfirmFolderTrashDialog = ({
 }: ConfirmFolderTrashDialogProps) => {
   const isDialogOpen = isOpen && Boolean(folderPath);
   const { onBackdropMouseDown } = useDialogDismiss({ isOpen: isDialogOpen, onClose });
+  const dialogRef = useDialogTabTrap<HTMLDialogElement>(isDialogOpen);
 
   if (!isDialogOpen || !folderPath) {
     return null;
@@ -30,10 +31,10 @@ export const ConfirmFolderTrashDialog = ({
   return (
     <div className="dockspace-dialog-backdrop" onMouseDown={onBackdropMouseDown}>
       <dialog
+        ref={dialogRef}
         className="dockspace-dialog"
         open
         aria-modal="true"
-        onKeyDown={trapDialogTabKey}
         aria-label="Move folder to trash"
         onCancel={(event) => {
           event.preventDefault();

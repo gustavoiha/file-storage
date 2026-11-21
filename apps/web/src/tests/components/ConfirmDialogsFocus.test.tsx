@@ -1,18 +1,23 @@
 import { useState, type FormEventHandler } from 'react';
-import { act, cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
+import { cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { ConfirmFolderTrashDialog } from '@/components/files/ConfirmFolderTrashDialog';
 import { ConfirmPurgeFileDialog } from '@/components/files/ConfirmPurgeFileDialog';
 
 interface HarnessProps {
+  errorMessage?: string | null;
   isSubmitting?: boolean;
   onSubmit?: FormEventHandler<HTMLFormElement>;
 }
 
 const preventSubmit: FormEventHandler<HTMLFormElement> = (event) => event.preventDefault();
 
-const PurgeHarness = ({ isSubmitting = false, onSubmit = preventSubmit }: HarnessProps) => {
+const PurgeHarness = ({
+  errorMessage = null,
+  isSubmitting = false,
+  onSubmit = preventSubmit
+}: HarnessProps) => {
   const [target, setTarget] = useState<string | null>(null);
   return (
     <>
@@ -21,7 +26,7 @@ const PurgeHarness = ({ isSubmitting = false, onSubmit = preventSubmit }: Harnes
       </button>
       <button type="button">Behind</button>
       <ConfirmPurgeFileDialog
-        errorMessage={null}
+        errorMessage={errorMessage}
         fullPath={target}
         isOpen={Boolean(target)}
         isSubmitting={isSubmitting}
@@ -32,7 +37,11 @@ const PurgeHarness = ({ isSubmitting = false, onSubmit = preventSubmit }: Harnes
   );
 };
 
-const FolderTrashHarness = ({ isSubmitting = false, onSubmit = preventSubmit }: HarnessProps) => {
+const FolderTrashHarness = ({
+  errorMessage = null,
+  isSubmitting = false,
+  onSubmit = preventSubmit
+}: HarnessProps) => {
   const [target, setTarget] = useState<string | null>(null);
   return (
     <>
@@ -41,7 +50,7 @@ const FolderTrashHarness = ({ isSubmitting = false, onSubmit = preventSubmit }: 
       </button>
       <button type="button">Behind</button>
       <ConfirmFolderTrashDialog
-        errorMessage={null}
+        errorMessage={errorMessage}
         folderPath={target}
         isOpen={Boolean(target)}
         isSubmitting={isSubmitting}
@@ -112,18 +121,73 @@ describe.each(cases)('$name focus', ({ Harness, title, confirm }) => {
     expect(cancel).toHaveFocus();
   });
 
-  it('keeps focus from leaving on Tab while both buttons are disabled', () => {
-    render(<Harness isSubmitting />);
+  // A browser moves focus from a button to body when the button is disabled. jsdom keeps it on
+  // the disabled button (and will not blur it), so move it to body through a removed element.
+  // Tab keydown then targets body, not the dialog.
+  const moveFocusToBody = () => {
+    const placeholder = document.createElement('input');
+    document.body.append(placeholder);
+    placeholder.focus();
+    placeholder.remove();
+    expect(document.body).toHaveFocus();
+  };
+
+  it('keeps Tab and Shift+Tab from leaving while submitting', async () => {
+    const user = userEvent.setup();
+    const { rerender } = render(<Harness />);
+    openWithKeyboard();
+
+    rerender(<Harness isSubmitting />);
+    moveFocusToBody();
+
+    await user.tab();
+    expect(document.body).toHaveFocus();
+    await user.tab({ shift: true });
+    expect(document.body).toHaveFocus();
+  });
+
+  it('keeps Tab and Shift+Tab inside the dialog after a failed submit', async () => {
+    const user = userEvent.setup();
+    const { rerender } = render(<Harness />);
     const { dialog } = openWithKeyboard();
     const cancel = within(dialog).getByRole('button', { name: 'Cancel' });
-    cancel.focus();
+    const confirmButton = within(dialog).getByRole('button', { name: confirm });
 
-    const event = new KeyboardEvent('keydown', { key: 'Tab', bubbles: true, cancelable: true });
-    act(() => {
-      cancel.dispatchEvent(event);
-    });
+    rerender(<Harness isSubmitting />);
+    moveFocusToBody();
+    rerender(<Harness errorMessage="Something went wrong." />);
+    expect(document.body).toHaveFocus();
 
-    expect(event.defaultPrevented).toBe(true);
+    await user.tab();
+    expect(confirmButton).toHaveFocus();
+
+    moveFocusToBody();
+    await user.tab({ shift: true });
+    expect(cancel).toHaveFocus();
+  });
+
+  it('pulls focus back into the dialog when Tab is pressed on the page behind', async () => {
+    const user = userEvent.setup();
+    render(<Harness />);
+    const { opener, dialog } = openWithKeyboard();
+
+    // The next control after the opener in page order is outside the dialog.
+    opener.focus();
+    await user.tab();
+
+    expect(within(dialog).getByRole('button', { name: confirm })).toHaveFocus();
+  });
+
+  it('stops trapping Tab once the dialog closes', async () => {
+    const user = userEvent.setup();
+    render(<Harness />);
+    const { opener, dialog } = openWithKeyboard();
+
+    fireEvent.click(within(dialog).getByRole('button', { name: 'Cancel' }));
+    await waitFor(() => expect(opener).toHaveFocus());
+    await user.tab();
+
+    expect(screen.getByRole('button', { name: 'Behind' })).toHaveFocus();
   });
 
   it('returns focus to the opener after Escape', async () => {

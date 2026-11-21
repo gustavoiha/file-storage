@@ -1,7 +1,7 @@
 import type { FormEventHandler } from 'react';
 import { Alert } from '@/components/ui/Alert';
 import { Button } from '@/components/ui/Button';
-import { trapDialogTabKey, useDialogDismiss } from '@/components/files/useDialogDismiss';
+import { useDialogDismiss, useDialogTabTrap } from '@/components/files/useDialogDismiss';
 
 interface ConfirmPurgeFileDialogProps {
   errorMessage: string | null;
@@ -25,6 +25,7 @@ export const ConfirmPurgeFileDialog = ({
 }: ConfirmPurgeFileDialogProps) => {
   const isDialogOpen = isOpen && Boolean(fullPath);
   const { onBackdropMouseDown } = useDialogDismiss({ isOpen: isDialogOpen, onClose });
+  const dialogRef = useDialogTabTrap<HTMLDialogElement>(isDialogOpen);
 
   if (!isDialogOpen || !fullPath) {
     return null;
@@ -33,10 +34,10 @@ export const ConfirmPurgeFileDialog = ({
   return (
     <div className="dockspace-dialog-backdrop" onMouseDown={onBackdropMouseDown}>
       <dialog
+        ref={dialogRef}
         className="dockspace-dialog"
         open
         aria-modal="true"
-        onKeyDown={trapDialogTabKey}
         aria-label="Purge file now"
         onCancel={(event) => {
           event.preventDefault();

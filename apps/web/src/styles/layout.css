@@ -2625,6 +2625,17 @@ button.dockspace-crumbs__crumb:focus-visible {
   box-shadow: inset 3px 0 0 var(--accent);
 }
 
+/*
+ * Keyboard focus on the current row (WCAG 2.4.7). The [aria-current] rule above has the same
+ * specificity as :focus-visible and replaces its ring, so the current row gets its own: the same
+ * 2px accent outline as other controls, drawn inside the row, on top of the accent left bar.
+ * The accent is at least 3:1 against the current-row fill (WCAG 1.4.11). Mouse clicks show no ring.
+ */
+.dockspace-column__row[aria-current]:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: -2px;
+}
+
 .dockspace-column__icon,
 .dockspace-column__chevron {
   color: var(--text-muted);

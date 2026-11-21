@@ -15,8 +15,8 @@ Dockspace: a self-hosted, single-tenant cloud file storage app on AWS (minimal G
 All open tasks have their own issues (#11-#16, sub-issues of request #5) since 2026-11-20. 2026-11-20 sweep: the permission and infra-hold blockers are resolved by the setup change (pre-approved prod-deploy.sh, gh pr merge for deployment, drift rules). T-0001, T-0002 and T-0006 have shipped. T-0003 and T-0004 ship with T-0001's deploy of main. Only T-0005 waits on the human (design pick).
 
 - T-0015 Folder info panel from the folder action menu (issue #33, request #31): human picked option 2 (info in the right-hand file-preview panel) on 2026-11-21; test round 1 found the discovery request loop on failed listings, back in engineering.
-- T-0021 Keep focus in the trash list after a restore or purge (issue #46, request #5, from T-0019 test round 1, finding 2): after a successful restore or purge on the trash page focus falls to body; move it to the next/previous row like T-0012. In engineering since 2026-11-21 (T-0019 merged); stays in `TrashPage.tsx`, rebase after T-0020's PR #44 merges.
-- T-0022 Confirmation dialogs keep focus after a failed purge or folder trash (issue #48, request #5, from T-0020 test round 1, findings 1-3): after a failed purge or folder trash focus goes to Cancel, a failed folder trash returns focus to the opener on close, and dialog titles stop skipping heading levels. New; builds on T-0020 (PR #44), so dispatch after it is merged.
+- T-0021 Keep focus in the trash list after a restore or purge (issue #46, request #5, from T-0019 test round 1, finding 2): after a successful restore or purge on the trash page focus falls to body; move it to the next/previous row like T-0012. Tested and passed; deploying (PR #49).
+- T-0022 Confirmation dialogs keep focus after a failed purge or folder trash (issue #48, request #5, from T-0020 test round 1, findings 1-3): after a failed purge or folder trash focus goes to Cancel, a failed folder trash returns focus to the opener on close, and dialog titles stop skipping heading levels. In engineering since 2026-11-21 (T-0020, PR #44, merged and live).
 - T-0023 Trash page keeps focus on the row after a failed restore (issue #50, request #5, from T-0021 test round 1, finding 1): after a failed inline Restore focus falls to body because the button is disabled during the request; put it back on the row's Restore (or Dismiss). New; builds on T-0021 (PR #49), so dispatch after it is merged.
 
 ### Shipped
@@ -67,5 +67,5 @@ All open tasks have their own issues (#11-#16, sub-issues of request #5) since 2
 | T-0019 | #42 | #5 | Trash page restore errors name the item that failed | done | Review judge |
 | T-0020 | #43 | #5 | Confirmation dialogs take focus when they open | done | Test filter |
 | T-0021 | #46 | #5 | Keep focus in the trash list after a restore or purge | deploying | Test filter |
-| T-0022 | #48 | #5 | Confirmation dialogs keep focus after a failed purge or folder trash | new | Test filter |
+| T-0022 | #48 | #5 | Confirmation dialogs keep focus after a failed purge or folder trash | engineering | Engineering |
 | T-0023 | #50 | #5 | Trash page keeps focus on the row after a failed restore | new | Test filter |

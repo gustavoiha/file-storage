@@ -57,6 +57,9 @@ export const TrashPage = () => {
   const [purgeErrorMessage, setPurgeErrorMessage] = useState<string | null>(null);
   // A restored or purged row leaves the list: focus then moves to a neighbouring row, not <body>.
   const [focusAfterRemoval, setFocusAfterRemoval] = useState<FlatRowFocusRequest | null>(null);
+  // A failed restore leaves the row in place, but its disabled Restore button dropped focus to <body>.
+  const [focusAfterRestoreFailure, setFocusAfterRestoreFailure] =
+    useState<FlatRowFocusRequest | null>(null);
 
   const onRestore = useCallback(
     (_fullPath: string, file: FileRecord) => {
@@ -74,6 +77,7 @@ export const TrashPage = () => {
               message: restoreErrorMessage(file, error)
             })
           );
+          setFocusAfterRestoreFailure({ rowId });
         } finally {
           setPendingRestoreIds((previous) => previous.filter((id) => id !== rowId));
         }
@@ -155,6 +159,7 @@ export const TrashPage = () => {
               actionErrorMessages={visibleRestoreErrors}
               onDismissActionError={dismissRestoreError}
               focusAfterRemoval={focusAfterRemoval}
+              focusAfterFailure={focusAfterRestoreFailure}
               actionLabel="Restore"
               actionLabelWhilePending="Restoring..."
               pendingActionFileIds={pendingRestoreIds}

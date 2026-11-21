@@ -68,6 +68,10 @@ interface FileListProps {
    * Flat list: a row whose action succeeded and that is leaving the list (see `FlatRowFocusRequest`).
    */
   focusAfterRemoval?: FlatRowFocusRequest | null | undefined;
+  /**
+   * Flat list: a row whose action failed and that stays in the list (see `FlatRowFocusRequest`).
+   */
+  focusAfterFailure?: FlatRowFocusRequest | null | undefined;
   secondaryActionLabel?: string | undefined;
   secondaryActionLabelWhilePending?: string | undefined;
   /** Flat list: row ids (see `fileRowId`) whose secondary action is in progress. */
@@ -151,9 +155,14 @@ const describeFlatFile = (file: FileRecord): string => {
 };
 
 /**
- * Asks the flat list to keep keyboard focus nearby once a row leaves it (restored, purged). When
- * the row is gone and focus fell to <body>, focus moves to the next row's action button, else the
- * previous row's, else the list itself (or its empty message). Pass a new object per request.
+ * Asks the flat list to keep keyboard focus with a row after its action. Pass a new object per
+ * request. In both cases focus only moves if it fell to <body>.
+ * - `focusAfterRemoval`: the row leaves the list (restored, purged). Once it is gone, focus moves
+ *   to the next row's action button, else the previous row's, else the list itself (or its empty
+ *   message).
+ * - `focusAfterFailure`: the row's action failed and the row stays. Its action button was disabled
+ *   while the action ran, so the browser dropped focus from it; focus goes back to that button
+ *   once it is enabled again.
  */
 export interface FlatRowFocusRequest {
   rowId: string;
@@ -216,6 +225,7 @@ interface FlatFileListProps {
   onAction: (fullPath: string, file: FileRecord) => void;
   onDismissActionError?: ((rowId: string) => void) | undefined;
   focusAfterRemoval?: FlatRowFocusRequest | null | undefined;
+  focusAfterFailure?: FlatRowFocusRequest | null | undefined;
 }
 
 const FlatFileList = ({
@@ -223,6 +233,7 @@ const FlatFileList = ({
   actionLabel,
   actionLabelWhilePending,
   files,
+  focusAfterFailure,
   focusAfterRemoval,
   pendingActionFileIds,
   pendingSecondaryActionFileIds,
@@ -291,6 +302,27 @@ const FlatFileList = ({
       .find(isFocusable);
     (target ?? listRef.current ?? emptyMessageRef.current)?.focus();
   }, [files, focusAfterRemoval]);
+
+  const handledFailureFocusRequestRef = useRef<FlatRowFocusRequest | null>(null);
+
+  useLayoutEffect(() => {
+    const request = focusAfterFailure;
+    if (!request || handledFailureFocusRequestRef.current === request) {
+      return;
+    }
+
+    const actionButton = actionButtonsRef.current.get(request.rowId);
+    // Still disabled: the failure is committed before the pending state clears. Try again then.
+    if (actionButton?.disabled) {
+      return;
+    }
+
+    handledFailureFocusRequestRef.current = request;
+    // Leave focus alone if the user already moved it somewhere else while the action ran.
+    if (isFocusable(actionButton) && focusIsLost()) {
+      actionButton.focus();
+    }
+  }, [files, focusAfterFailure, pendingActionFileIds]);
 
   if (!files.length) {
     return (
@@ -1236,6 +1268,7 @@ export const FileList = ({
   onActionFolder,
   onDismissActionError,
   focusAfterRemoval,
+  focusAfterFailure,
   onOpenFolder,
   onToggleFileSelection,
   pendingFolderPaths = [],
@@ -1274,6 +1307,7 @@ export const FileList = ({
         onAction={onAction}
         onDismissActionError={onDismissActionError}
         focusAfterRemoval={focusAfterRemoval}
+        focusAfterFailure={focusAfterFailure}
       />
     );
   }

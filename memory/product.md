@@ -17,6 +17,7 @@ All open tasks have their own issues (#11-#16, sub-issues of request #5) since 2
 - T-0015 Folder info panel from the folder action menu (issue #33, request #31): human picked option 2 (info in the right-hand file-preview panel) on 2026-11-21; test round 1 found the discovery request loop on failed listings, back in engineering.
 - T-0021 Keep focus in the trash list after a restore or purge (issue #46, request #5, from T-0019 test round 1, finding 2): after a successful restore or purge on the trash page focus falls to body; move it to the next/previous row like T-0012. In engineering since 2026-11-21 (T-0019 merged); stays in `TrashPage.tsx`, rebase after T-0020's PR #44 merges.
 - T-0022 Confirmation dialogs keep focus after a failed purge or folder trash (issue #48, request #5, from T-0020 test round 1, findings 1-3): after a failed purge or folder trash focus goes to Cancel, a failed folder trash returns focus to the opener on close, and dialog titles stop skipping heading levels. New; builds on T-0020 (PR #44), so dispatch after it is merged.
+- T-0023 Trash page keeps focus on the row after a failed restore (issue #50, request #5, from T-0021 test round 1, finding 1): after a failed inline Restore focus falls to body because the button is disabled during the request; put it back on the row's Restore (or Dismiss). New; builds on T-0021 (PR #49), so dispatch after it is merged.
 
 ### Shipped
 - 2026-11-21 (prod at 674d6f4): T-0020 Confirmation dialogs take focus when they open (#43, PR #44): the Purge and folder Move to Trash dialogs focus Cancel on open (Enter right away closes without deleting); Tab and Shift+Tab stay inside the dialog through a document-level trap, also while submitting and after a failed submit; Escape, Cancel and backdrop still return focus to the opener.
@@ -65,5 +66,6 @@ All open tasks have their own issues (#11-#16, sub-issues of request #5) since 2
 | T-0018 | #39 | #5 | Trash page handles two trashed items with the same path separately | done | Review judge |
 | T-0019 | #42 | #5 | Trash page restore errors name the item that failed | done | Review judge |
 | T-0020 | #43 | #5 | Confirmation dialogs take focus when they open | done | Test filter |
-| T-0021 | #46 | #5 | Keep focus in the trash list after a restore or purge | filtering | Test filter |
+| T-0021 | #46 | #5 | Keep focus in the trash list after a restore or purge | deploying | Test filter |
 | T-0022 | #48 | #5 | Confirmation dialogs keep focus after a failed purge or folder trash | new | Test filter |
+| T-0023 | #50 | #5 | Trash page keeps focus on the row after a failed restore | new | Test filter |

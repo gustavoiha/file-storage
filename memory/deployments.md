@@ -126,3 +126,13 @@ Recorded 2026-11-20 by the setup session from a `cdk diff` of origin/main 5678ad
 - Smoke check: https://dh0djlfa46gz6.cloudfront.net/login serves `index-KxCj2tbC.js`, renders the sign-in form, the served stylesheet no longer contains `.dockspace-column__counts`, and the console shows no errors.
 - Logs: $LOCAL/logs/prod-deploy-diff-pr-20261121T174741Z.log, prod-deploy-diff-20261121T174809Z.log, prod-deploy-web-20261121T174851Z.log, prod-deploy-diff-20261121T174903Z.log.
 - Prod is now at origin/main `8e15ec8` for both infra and web.
+
+### 2026-11-21 — T-0013 — web
+- origin/main commit: `3361fc4` (PR #34 squash-merged). Run as `dockspace-prod-agent-deployer` via `prod-deploy.sh`.
+- Pre-deploy: PR #34 was MERGEABLE/CLEAN but branched from `f0a598a`. Merged locally onto origin/main `8e15ec8` (the tree testing used) it merged cleanly and passed typecheck, tests (web 195, backend 165) and the build. `prod-deploy.sh diff-pr 34` showed 0 stacks with differences. Main was `8e15ec8`, which prod already ran, so no drift.
+- Infra: not run. PR #34 is web-only (CSS and a test); `prod-deploy.sh diff` at `3361fc4` shows 0 stacks with differences.
+- Web (`prod-deploy.sh web`): built and synced to the prod site bucket; invalidated `/*` on the prod distribution. Entry bundle `index-bf7eOYj7.js`, stylesheet `index-BJ3qtDHN.css`.
+- Shipped: #34 `3361fc4` (T-0013).
+- Smoke check: https://dh0djlfa46gz6.cloudfront.net/login serves `index-bf7eOYj7.js`, renders the sign-in form, the served stylesheet contains `.resource-list__item:has(:focus-visible)` and the `@supports not selector(:has(*))` fallback, and the console shows no errors.
+- Logs: $LOCAL/logs/prod-deploy-diff-pr-20261121T180553Z.log, prod-deploy-diff-20261121T180621Z.log, prod-deploy-web-20261121T180700Z.log, prod-deploy-diff-20261121T180714Z.log.
+- Prod is now at origin/main `3361fc4` for both infra and web.

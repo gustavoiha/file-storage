@@ -14,13 +14,13 @@ Dockspace: a self-hosted, single-tenant cloud file storage app on AWS (minimal G
 ### In progress / next
 All open tasks have their own issues (#11-#16, sub-issues of request #5) since 2026-11-20. 2026-11-20 sweep: the permission and infra-hold blockers are resolved by the setup change (pre-approved prod-deploy.sh, gh pr merge for deployment, drift rules). T-0001, T-0002 and T-0006 have shipped. T-0003 and T-0004 ship with T-0001's deploy of main. Only T-0005 waits on the human (design pick).
 
-- T-0013 Show the row focus highlight only after keyboard use (issue #30, from T-0012 review round 1, C1): PR #34 at the deploying stage (pipeline running).
 - T-0015 Folder info panel from the folder action menu (issue #33, request #31): round 1 options posted on #33; waits on the human's pick.
 - T-0016 Keep folder file counts current after moving files (issue #36, request #31, from T-0014 test round 1): pre-existing bug (folder-row counts stale after a move); dispatched to engineering 2026-11-21 (no design round); now in testing (pipeline running).
 - T-0017 Visible keyboard focus on the current row in ancestor columns (issue #38, request #5, from T-0013 test round 1, finding 2): pre-existing CSS order issue; dispatched to engineering 2026-11-21.
 - T-0018 Trash page handles two trashed items with the same path separately (issue #39, request #5, from T-0013 test round 1, finding 4): pre-existing; pending state and purge/restore keyed by path only; dispatched to engineering 2026-11-21.
 
 ### Shipped
+- 2026-11-21 (prod at 3361fc4): T-0013 Show the row focus highlight only after keyboard use (#30, PR #34): file list rows show the inset ring and accent bottom border only for keyboard focus (`:has(:focus-visible)`), not after mouse or touch actions that move focus; browsers without `:has()` keep the `:focus-within` highlight.
 - 2026-11-21 (prod at 8e15ec8): T-0014 Remove the folder and file counts from the current folder heading (#32, PR #35): the desktop current column heading shows only the folder name (root label at the root); counts move to the folder info panel (T-0015).
 - 2026-11-21 (prod at c02881e): T-0012 Keep focus in the file list after a file is moved to the trash (#28, PR #29): after Move to Trash on a file from any row menu, focus goes to the next row, else the previous row, else the file list fallback; on a failed trash it returns to the menu trigger or the row. Never `body`.
 - 2026-11-21 (prod at f0a598a): T-0011 Status line confirms Move to Trash (#26, PR #27): folder and file Move to Trash clear the old move message and show "Folder moved to trash." / "File moved to trash." ("Failed to move file to trash." on a failed file trash); the `role="status"` region stays mounted so the confirmation is announced.
@@ -53,7 +53,7 @@ All open tasks have their own issues (#11-#16, sub-issues of request #5) since 2
 | T-0010 | #24 | #5 | Visible focus on the file list after a dialog closes | done | Deployment |
 | T-0011 | #26 | #5 | Status line confirms Move to Trash and drops stale messages | done | Deployment |
 | T-0012 | #28 | #5 | Keep focus in the file list after a file is moved to the trash | done | Deployment |
-| T-0013 | #30 | #5 | Show the row focus highlight only after keyboard use | deploying | Review judge |
+| T-0013 | #30 | #5 | Show the row focus highlight only after keyboard use | done | Review judge |
 | T-0014 | #32 | #31 | Remove the folder and file counts from the current folder heading | done | Deployment |
 | T-0015 | #33 | #31 | Folder info panel from the folder action menu | awaiting-human | Design |
 | T-0016 | #36 | #31 | Keep folder file counts current after moving files | testing | Engineering |

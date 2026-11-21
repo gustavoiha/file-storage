@@ -116,3 +116,13 @@ Recorded 2026-11-20 by the setup session from a `cdk diff` of origin/main 5678ad
 - Smoke check: https://dh0djlfa46gz6.cloudfront.net/login serves `index-BSsp0ftS.js`, renders the sign-in form, the new files page chunk is served (200), and the console shows no errors.
 - Logs: $LOCAL/logs/prod-deploy-diff-pr-20261121T173711Z.log, prod-deploy-diff-20261121T173739Z.log, prod-deploy-web-20261121T173830Z.log, prod-deploy-diff-20261121T173841Z.log.
 - Prod is now at origin/main `c02881e` for both infra and web.
+
+### 2026-11-21 — T-0014 — web
+- origin/main commit: `8e15ec8` (PR #35 squash-merged). Run as `dockspace-prod-agent-deployer` via `prod-deploy.sh`.
+- Pre-deploy: PR #35 was MERGEABLE/CLEAN but branched from `f0a598a` (before T-0012). Merged locally onto origin/main `c02881e` it merged cleanly (disjoint files) and passed typecheck, tests (web 188, backend 165) and the build. `prod-deploy.sh diff-pr 35` showed 0 stacks with differences. Main was `c02881e`, which prod already ran, so no drift.
+- Infra: not run. PR #35 is web-only; `prod-deploy.sh diff` at `8e15ec8` shows 0 stacks with differences.
+- Web (`prod-deploy.sh web`): built and synced to the prod site bucket; invalidated `/*` on the prod distribution. Entry bundle `index-KxCj2tbC.js`, stylesheet `index-Dq7nbS38.css`, `FileList-I7RqSK61.js`.
+- Shipped: #35 `8e15ec8` (T-0014).
+- Smoke check: https://dh0djlfa46gz6.cloudfront.net/login serves `index-KxCj2tbC.js`, renders the sign-in form, the served stylesheet no longer contains `.dockspace-column__counts`, and the console shows no errors.
+- Logs: $LOCAL/logs/prod-deploy-diff-pr-20261121T174741Z.log, prod-deploy-diff-20261121T174809Z.log, prod-deploy-web-20261121T174851Z.log, prod-deploy-diff-20261121T174903Z.log.
+- Prod is now at origin/main `8e15ec8` for both infra and web.

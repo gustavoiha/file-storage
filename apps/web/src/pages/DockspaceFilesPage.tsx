@@ -612,9 +612,17 @@ export const DockspaceFilesPage = () => {
     (fullPath: string) => {
       // No dialog here: the row and its menu go away, so focus moves to a nearby row (T-0012).
       const rowFocus = startRowRemovalFocus(fullPath);
-      void moveToTrash
-        .mutateAsync({ fullPath, targetType: 'file' })
-        .then(rowFocus.onRemoved, rowFocus.onFailed);
+      setMoveFilesSummary(null);
+      void (async () => {
+        try {
+          await moveToTrash.mutateAsync({ fullPath, targetType: 'file' });
+          setMoveFilesSummary('File moved to trash.');
+          rowFocus.onRemoved();
+        } catch {
+          setMoveFilesSummary('Failed to move file to trash.');
+          rowFocus.onFailed();
+        }
+      })();
     },
     [moveToTrash]
   );
@@ -851,6 +859,7 @@ export const DockspaceFilesPage = () => {
       }
 
       const folderPath = trashFolderDialogPath;
+      setMoveFilesSummary(null);
       setTrashFolderDialogError(null);
       setIsTrashingFolder(true);
       setPendingFolderTrashPaths((previous) =>
@@ -860,6 +869,7 @@ export const DockspaceFilesPage = () => {
       void (async () => {
         try {
           await moveToTrash.mutateAsync({ fullPath: folderPath, targetType: 'folder' });
+          setMoveFilesSummary('Folder moved to trash.');
           setTrashFolderDialogPath(null);
         } catch (error) {
           setTrashFolderDialogError(

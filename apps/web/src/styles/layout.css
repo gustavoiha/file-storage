@@ -2664,9 +2664,18 @@ button.dockspace-crumbs__crumb:focus-visible {
 .dockspace-browser__sticky {
   top: 2.6rem;
   display: grid;
-  gap: 0.4rem;
   padding: 0.5rem 0.6rem;
   border-bottom: 1px solid var(--border);
+}
+
+/* Only the empty status region is inside: keep it on the page for screen readers, take no space (T-0011). */
+.dockspace-browser__sticky--empty {
+  padding: 0;
+  border-bottom: 0;
+}
+
+.dockspace-browser__selection-feedback--active + .dockspace-browser__selection-bar {
+  margin-top: 0.4rem;
 }
 
 .dockspace-column--current .dockspace-browser__list {

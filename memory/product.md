@@ -17,6 +17,7 @@ All open tasks have their own issues (#11-#16, sub-issues of request #5) since 2
 - T-0013 Show the row focus highlight only after keyboard use (issue #30, from T-0012 review round 1, C1): dispatched to engineering 2026-11-21 (no design round: same highlight, keyboard-only via `:focus-visible`). Rebase on PR #29 (T-0012) once it merges.
 - T-0014 Remove the folder and file counts from the current folder heading (issue #32, request #31): dispatched to engineering 2026-11-21 (no design round: pure removal).
 - T-0015 Folder info panel from the folder action menu (issue #33, request #31): dispatched to design 2026-11-21 (new panel; shows the counts removed in T-0014).
+- T-0016 Keep folder file counts current after moving files (issue #36, request #31, from T-0014 test round 1): new, pre-existing bug (folder-row counts stale after a move); to be dispatched by the PM.
 
 ### Shipped
 - 2026-11-21 (prod at c02881e): T-0012 Keep focus in the file list after a file is moved to the trash (#28, PR #29): after Move to Trash on a file from any row menu, focus goes to the next row, else the previous row, else the file list fallback; on a failed trash it returns to the menu trigger or the row. Never `body`.
@@ -51,5 +52,6 @@ All open tasks have their own issues (#11-#16, sub-issues of request #5) since 2
 | T-0011 | #26 | #5 | Status line confirms Move to Trash and drops stale messages | done | Deployment |
 | T-0012 | #28 | #5 | Keep focus in the file list after a file is moved to the trash | done | Deployment |
 | T-0013 | #30 | #5 | Show the row focus highlight only after keyboard use | review | Review judge |
-| T-0014 | #32 | #31 | Remove the folder and file counts from the current folder heading | filtering | Engineering |
+| T-0014 | #32 | #31 | Remove the folder and file counts from the current folder heading | deploying | Deployment |
 | T-0015 | #33 | #31 | Folder info panel from the folder action menu | awaiting-human | Design |
+| T-0016 | #36 | #31 | Keep folder file counts current after moving files | new | Product Manager |

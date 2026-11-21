@@ -57,6 +57,23 @@ const TREE: Record<string, DirectoryChildRecord[]> = {
 };
 
 let failingFolderNodeIds = new Set<string>();
+// Listing requests for these folders wait until the gate's promise resolves.
+let heldFolderNodeIds = new Map<string, Promise<void>>();
+let isPhone = false;
+
+const holdListing = (folderNodeId: string) => {
+  let release: () => void = () => {};
+  heldFolderNodeIds.set(
+    folderNodeId,
+    new Promise<void>((resolve) => {
+      release = resolve;
+    })
+  );
+  return () => {
+    heldFolderNodeIds.delete(folderNodeId);
+    release();
+  };
+};
 
 const callsFor = (folderNodeId: string) =>
   listFolderChildren.mock.calls.filter(([, requested]) => requested === folderNodeId).length;
@@ -98,10 +115,13 @@ const renderPage = () =>
 beforeEach(() => {
   setSession({ accessToken: 'a', idToken: 'i', email: 'a@a.com', userId: 'u1' });
   failingFolderNodeIds = new Set();
+  heldFolderNodeIds = new Map();
+  isPhone = false;
   unhandledRejections.length = 0;
   process.on('unhandledRejection', onUnhandledRejection);
   listFolderChildren.mockReset();
   listFolderChildren.mockImplementation(async (_dockspaceId, folderNodeId) => {
+    await heldFolderNodeIds.get(folderNodeId);
     if (failingFolderNodeIds.has(folderNodeId)) {
       throw new ApiError('Request failed', 500);
     }
@@ -109,7 +129,7 @@ beforeEach(() => {
     return { parentFolderNodeId: folderNodeId, items: TREE[folderNodeId] ?? [] };
   });
   window.matchMedia = vi.fn((query: string) => ({
-    matches: false,
+    matches: isPhone && query.includes('max-width: 900px'),
     media: query,
     onchange: null,
     addEventListener: vi.fn(),
@@ -209,3 +229,123 @@ describe('DockspaceFilesPage folder discovery', () => {
     expect(callsFor('d_travel')).toBe(2);
   });
 });
+
+describe('DockspaceFilesPage open folder listing', () => {
+  const currentColumn = (name: string) => screen.getByRole('region', { name });
+
+  const expectOnlyTheError = (column: HTMLElement) => {
+    expect(within(column).getByRole('alert')).toHaveTextContent('Request failed');
+    expect(within(column).getByRole('button', { name: 'Try again' })).toBeInTheDocument();
+    expect(screen.queryByText('This folder is empty')).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Upload your first files' })).not.toBeInTheDocument();
+    expect(screen.queryByText('Loading...')).not.toBeInTheDocument();
+  };
+
+  it.each([
+    ['desktop', false],
+    ['phone', true]
+  ])('shows only the error with Try again when the listing fails (%s)', async (_layout, phone) => {
+    isPhone = phone;
+    failingFolderNodeIds = new Set(['root']);
+    renderPage();
+
+    const column = currentColumn('My Dockspace');
+    await within(column).findByRole('alert');
+    await settle();
+    expectOnlyTheError(column);
+    expect(unhandledRejections).toEqual([]);
+  });
+
+  it('shows only the error when an opened subfolder fails to load', async () => {
+    failingFolderNodeIds = new Set(['d_travel']);
+    renderPage();
+
+    await waitFor(() => expect(folderButton('Travel')).toBeInTheDocument());
+    fireEvent.click(folderButton('Travel'));
+    const column = currentColumn('Travel');
+    await within(column).findByRole('alert');
+    await settle();
+    expectOnlyTheError(column);
+  });
+
+  it('still shows the empty state for a folder that loads with no items', async () => {
+    renderPage();
+
+    await waitFor(() => expect(folderButton('Documents')).toBeInTheDocument());
+    fireEvent.click(folderButton('Documents'));
+    const column = currentColumn('Documents');
+    await waitFor(() => expect(within(column).getByText('This folder is empty')).toBeInTheDocument());
+    expect(within(column).getByRole('button', { name: 'Upload your first files' })).toBeInTheDocument();
+    expect(within(column).queryByRole('alert')).not.toBeInTheDocument();
+  });
+
+  it('Try again keeps focus while it runs and after a failure, then shows the contents with focus on the list', async () => {
+    failingFolderNodeIds = new Set(['root']);
+    renderPage();
+
+    const column = currentColumn('My Dockspace');
+    await within(column).findByRole('alert');
+    await settle();
+    const tryAgain = within(column).getByRole('button', { name: 'Try again' });
+    tryAgain.focus();
+
+    // A retry that fails: the same button stays mounted, busy and focused while the request runs, then again.
+    const callsBeforeRetry = callsFor('root');
+    let release = holdListing('root');
+    fireEvent.click(tryAgain);
+    await waitFor(() => expect(tryAgain).toHaveTextContent('Trying again…'));
+    expect(tryAgain).toHaveAttribute('aria-disabled', 'true');
+    expect(within(column).getByRole('alert')).toHaveTextContent('Request failed');
+    expect(document.activeElement).toBe(tryAgain);
+    expectNoEmptyState();
+    // A second click while busy does not start another request.
+    fireEvent.click(tryAgain);
+    release();
+    await settle();
+    expect(callsFor('root')).toBe(callsBeforeRetry + 1);
+    expect(tryAgain).toHaveTextContent('Try again');
+    expect(tryAgain).not.toHaveAttribute('aria-disabled');
+    expect(document.activeElement).toBe(tryAgain);
+    expectOnlyTheError(column);
+
+    // A retry that succeeds: the contents replace the error, and focus moves to the folder's list, not <body>.
+    failingFolderNodeIds = new Set();
+    release = holdListing('root');
+    fireEvent.click(tryAgain);
+    await waitFor(() => expect(tryAgain).toHaveAttribute('aria-disabled', 'true'));
+    expect(document.activeElement).toBe(tryAgain);
+    release();
+    await waitFor(() => expect(within(column).queryByRole('alert')).not.toBeInTheDocument());
+    expect(document.activeElement).toBe(column.querySelector('.dockspace-browser__list'));
+    expect(folderButton('Travel')).toBeInTheDocument();
+    expect(screen.queryByText('This folder is empty')).not.toBeInTheDocument();
+    // Folder discovery runs for the listed folders.
+    await waitFor(() => expect(folderButton('Travel')).toHaveTextContent('1 file'));
+    await waitFor(() => expect(folderButton('Documents')).toHaveTextContent('0 files'));
+    expect(unhandledRejections).toEqual([]);
+  });
+
+  it('shows the empty state after a successful retry of a folder that really is empty', async () => {
+    failingFolderNodeIds = new Set(['d_docs']);
+    renderPage();
+
+    await waitFor(() => expect(folderButton('Documents')).toBeInTheDocument());
+    fireEvent.click(folderButton('Documents'));
+    const column = currentColumn('Documents');
+    await within(column).findByRole('alert');
+    await settle();
+    const tryAgain = within(column).getByRole('button', { name: 'Try again' });
+    tryAgain.focus();
+
+    failingFolderNodeIds = new Set();
+    fireEvent.click(tryAgain);
+    await waitFor(() => expect(within(column).getByText('This folder is empty')).toBeInTheDocument());
+    expect(within(column).queryByRole('alert')).not.toBeInTheDocument();
+    expect(document.activeElement).toBe(column.querySelector('.dockspace-browser__list'));
+  });
+});
+
+const expectNoEmptyState = () => {
+  expect(screen.queryByText('This folder is empty')).not.toBeInTheDocument();
+  expect(screen.queryByRole('button', { name: 'Upload your first files' })).not.toBeInTheDocument();
+};

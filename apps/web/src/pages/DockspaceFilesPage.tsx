@@ -4,6 +4,7 @@ import {
   useState,
   useCallback,
   useEffect,
+  useLayoutEffect,
   type ChangeEvent,
   type FormEvent
 } from 'react';
@@ -318,6 +319,36 @@ export const DockspaceFilesPage = () => {
 
   const unauthorized =
     filesQuery.error instanceof ApiError && filesQuery.error.statusCode === 403;
+  // The open folder's listing failed and nothing is known about its contents: the list shows only the error with
+  // Try again, never the empty state. A retry started from Try again keeps that error (and the focused Try again
+  // button) mounted, marked busy, instead of swapping it for the loading state, so keyboard focus is not dropped to
+  // <body> while it runs. React Query clears `error` while a query with no data refetches, so the retry (and the
+  // message it started from) is tracked here.
+  const [listingRetry, setListingRetry] = useState<{ folderNodeId: string; message: string } | null>(null);
+  const hasListing = Boolean(filesQuery.data);
+  const isRetryingListing =
+    !hasListing && listingRetry?.folderNodeId === currentFolder.folderNodeId && filesQuery.isFetching;
+  const listingFailed =
+    !hasListing && !unauthorized && (isRetryingListing || (Boolean(filesQuery.error) && !filesQuery.isFetching));
+  const listingErrorMessage = filesQuery.error
+    ? filesQuery.error instanceof Error
+      ? filesQuery.error.message
+      : 'Unable to load folder.'
+    : (isRetryingListing ? listingRetry?.message : undefined) ?? 'Unable to load folder.';
+  const currentColumnRef = useRef<HTMLElement | null>(null);
+  // When the error goes away for the same folder (a retry succeeded, or another refetch swapped it for the loading
+  // state), Try again is unmounted. If it had focus, focus fell to <body>: move it to the folder's list, which stays.
+  const previousListingFailedRef = useRef({ folderNodeId: currentFolder.folderNodeId, listingFailed });
+  useLayoutEffect(() => {
+    const previous = previousListingFailedRef.current;
+    previousListingFailedRef.current = { folderNodeId: currentFolder.folderNodeId, listingFailed };
+    if (!previous.listingFailed || listingFailed || previous.folderNodeId !== currentFolder.folderNodeId) {
+      return;
+    }
+    if (focusIsLost()) {
+      currentColumnRef.current?.querySelector<HTMLElement>(`[${DIALOG_FOCUS_FALLBACK_ATTRIBUTE}]`)?.focus();
+    }
+  }, [currentFolder.folderNodeId, listingFailed]);
 
   const folders = useMemo(
     () =>
@@ -1577,12 +1608,42 @@ export const DockspaceFilesPage = () => {
     </div>
   );
 
+  // A failed refetch of a folder whose earlier listing is still shown: the alert sits above that listing.
   const filesErrorAlert =
-    filesQuery.error && !unauthorized ? (
+    filesQuery.error && hasListing && !unauthorized ? (
       <Alert
         message={filesQuery.error instanceof Error ? filesQuery.error.message : 'Unable to load folder.'}
       />
     ) : null;
+
+  const retryListing = () => {
+    if (isRetryingListing) {
+      return;
+    }
+    const folderNodeId = currentFolder.folderNodeId;
+    setListingRetry({ folderNodeId, message: listingErrorMessage });
+    void filesQuery.refetch().finally(() => {
+      setListingRetry((current) => (current?.folderNodeId === folderNodeId ? null : current));
+    });
+  };
+
+  const listingErrorState = (
+    <Alert
+      message={listingErrorMessage}
+      action={
+        // aria-disabled, not disabled: a disabled button would drop its focus.
+        <button
+          type="button"
+          className="dockspace-link-button"
+          aria-disabled={isRetryingListing ? 'true' : undefined}
+          aria-busy={isRetryingListing ? 'true' : undefined}
+          onClick={retryListing}
+        >
+          {isRetryingListing ? 'Trying again…' : 'Try again'}
+        </button>
+      }
+    />
+  );
 
   const fileList = (
     <FileList
@@ -1608,7 +1669,7 @@ export const DockspaceFilesPage = () => {
       renameActionLabel="Rename"
       folderMoveActionLabel="Move"
       folderRenameActionLabel="Rename"
-      emptyState={filesQuery.isLoading ? <p>Loading...</p> : emptyDockspaceState}
+      emptyState={listingFailed ? listingErrorState : hasListing ? emptyDockspaceState : <p>Loading...</p>}
       onRename={openRenameFileDialog}
       onRenameFolder={openRenameFolderDialog}
       onMoveFolder={openMoveFolderDialog}
@@ -1697,7 +1758,11 @@ export const DockspaceFilesPage = () => {
               onOpenFolder={(folder) => openFolderAtLevel(folderTrail.length - 2, folder)}
             />
           ) : null}
-          <section className="dockspace-column dockspace-column--current" aria-label={currentFolderLabel}>
+          <section
+            ref={currentColumnRef}
+            className="dockspace-column dockspace-column--current"
+            aria-label={currentFolderLabel}
+          >
             {filesErrorAlert}
             {fileList}
           </section>
@@ -1740,7 +1805,11 @@ export const DockspaceFilesPage = () => {
               onOpenFile={(file) => openAncestorFile(levelIndex, file)}
             />
           ))}
-          <section className="dockspace-column dockspace-column--current" aria-label={currentFolderLabel}>
+          <section
+            ref={currentColumnRef}
+            className="dockspace-column dockspace-column--current"
+            aria-label={currentFolderLabel}
+          >
             {filesErrorAlert}
             {fileList}
           </section>

@@ -465,7 +465,7 @@ describe('FileList', () => {
     expect(screen.getByText('Trashing...')).toBeInTheDocument();
   });
 
-  it('renders the column header, formatted sizes, dates, folder counts and the previewed row', () => {
+  it('renders the column header with only the folder name, formatted sizes, dates, folder row counts and the previewed row', () => {
     render(
       <FileList
         files={[
@@ -497,7 +497,9 @@ describe('FileList', () => {
       />
     );
 
-    expect(screen.getByRole('heading', { name: 'trip · 1 folder, 2 files' })).toBeInTheDocument();
+    const heading = screen.getByRole('heading', { name: 'trip' });
+    expect(heading).toHaveTextContent(/^trip$/);
+    expect(heading).not.toHaveTextContent(/·|folder|file/i);
     expect(screen.getByText('6 files')).toBeInTheDocument();
     expect(screen.getByText('2.9 MB')).toBeInTheDocument();
     expect(screen.getByText('3 KB')).toBeInTheDocument();
@@ -523,6 +525,7 @@ describe('FileList', () => {
     );
 
     expect(screen.getByText('Upload your first files')).toBeInTheDocument();
+    expect(screen.getByRole('heading', { name: 'trip' })).toHaveTextContent(/^trip$/);
     expect(screen.queryByText('Modified')).not.toBeInTheDocument();
     expect(screen.queryByText('Size')).not.toBeInTheDocument();
   });

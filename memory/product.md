@@ -61,13 +61,13 @@ All open tasks have their own issues (#11-#16, sub-issues of request #5) since 2
 | T-0012 | #28 | #5 | Keep focus in the file list after a file is moved to the trash | done | Deployment |
 | T-0013 | #30 | #5 | Show the row focus highlight only after keyboard use | done | Review judge |
 | T-0014 | #32 | #31 | Remove the folder and file counts from the current folder heading | done | Deployment |
-| T-0015 | #33 | #31 | Folder info panel from the folder action menu | review | Design |
+| T-0015 | #33 | #31 | Folder info panel from the folder action menu | testing | Design |
 | T-0016 | #36 | #31 | Keep folder file counts current after moving files | done | Engineering |
 | T-0017 | #38 | #5 | Visible keyboard focus on the current row in ancestor columns | done | Engineering |
 | T-0018 | #39 | #5 | Trash page handles two trashed items with the same path separately | done | Review judge |
 | T-0019 | #42 | #5 | Trash page restore errors name the item that failed | done | Review judge |
 | T-0020 | #43 | #5 | Confirmation dialogs take focus when they open | done | Test filter |
 | T-0021 | #46 | #5 | Keep focus in the trash list after a restore or purge | done | Test filter |
-| T-0022 | #48 | #5 | Confirmation dialogs keep focus after a failed purge or folder trash | filtering | Engineering |
+| T-0022 | #48 | #5 | Confirmation dialogs keep focus after a failed purge or folder trash | deploying | Engineering |
 | T-0023 | #50 | #5 | Trash page keeps focus on the row after a failed restore | review | Engineering |
 | T-0024 | #52 | #31 | Failed folder listing shows the error without the empty state | new | Test filter |

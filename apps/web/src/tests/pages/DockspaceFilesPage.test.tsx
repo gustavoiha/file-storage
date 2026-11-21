@@ -1043,6 +1043,226 @@ describe('DockspaceFilesPage', () => {
     });
   });
 
+  describe('focus after moving a file to the trash from its row menu', () => {
+    const THREE_FILES = [
+      folder('d_docs', 'Documents'),
+      file('f_a', 'a.txt'),
+      file('f_b', 'b.txt'),
+      file('f_c', 'c.txt')
+    ];
+
+    // The page re-renders with the refetched folder listing (react-query does this in the app).
+    const renderRefreshablePage = () => {
+      const client = createTestQueryClient();
+      const ui = () => (
+        <QueryWrapper client={client}>
+          <DockspaceFilesPage />
+        </QueryWrapper>
+      );
+      const result = render(ui());
+      return { refreshList: () => result.rerender(ui()) };
+    };
+
+    const trashSucceedsRemoving = (childId: string) => {
+      mockState.moveToTrash = vi.fn(async () => {
+        mockState.tree = {
+          ...mockState.tree,
+          root: (mockState.tree.root as DirectoryChildRecord[]).filter((item) => item.childId !== childId)
+        };
+        mockState.resultCache.clear();
+      });
+    };
+
+    const currentList = () => {
+      const list = document.querySelector<HTMLElement>('.dockspace-column--current ul.dockspace-browser__list');
+      if (!list) {
+        throw new Error('No list in the current column');
+      }
+      return list;
+    };
+
+    // Keyboard: focus the menu trigger, open the menu, activate Move to Trash.
+    const trashFromTrigger = (fileName: string) => {
+      const trigger = screen.getByRole('button', { name: `Actions for ${fileName}` });
+      trigger.focus();
+      fireEvent.click(trigger);
+      const item = within(screen.getByRole('menu', { name: `Actions for ${fileName}` })).getByRole(
+        'menuitem',
+        { name: 'Move to Trash' }
+      );
+      item.focus();
+      fireEvent.click(item);
+      return trigger;
+    };
+
+    // Keyboard: Shift+F10 on the row opens its menu with focus on the first item.
+    const trashFromRowMenu = (fullPath: string, fileName: string) => {
+      const row = fileRow(fullPath);
+      row.focus();
+      fireEvent.keyDown(row, { key: 'F10', shiftKey: true });
+      const menu = screen.getByRole('menu', { name: `Actions for ${fileName}` });
+      expect(menu).toContainElement(document.activeElement as HTMLElement);
+      const item = within(menu).getByRole('menuitem', { name: 'Move to Trash' });
+      item.focus();
+      fireEvent.click(item);
+      return row;
+    };
+
+    beforeEach(() => {
+      mockState.tree = { root: THREE_FILES };
+    });
+
+    it('focuses the next row after trashing a file in the middle of the list', async () => {
+      trashSucceedsRemoving('f_b');
+      const { refreshList } = renderRefreshablePage();
+      trashFromTrigger('b.txt');
+
+      await waitFor(() => expect(mockState.moveToTrash).toHaveBeenCalledTimes(1));
+      expect(mockState.moveToTrash).toHaveBeenCalledWith({ fullPath: '/b.txt', targetType: 'file' });
+      refreshList();
+
+      await waitFor(() => expect(fileRow('/c.txt')).toHaveFocus());
+      expect(screen.queryByRole('button', { name: /^b\.txt/ })).not.toBeInTheDocument();
+    });
+
+    it('focuses the previous row after trashing the last file', async () => {
+      trashSucceedsRemoving('f_c');
+      const { refreshList } = renderRefreshablePage();
+      trashFromTrigger('c.txt');
+
+      await waitFor(() => expect(mockState.moveToTrash).toHaveBeenCalledTimes(1));
+      refreshList();
+
+      await waitFor(() => expect(fileRow('/b.txt')).toHaveFocus());
+    });
+
+    it('focuses the file list after trashing the only file', async () => {
+      mockState.tree = { root: [file('f_only', 'only.txt')] };
+      trashSucceedsRemoving('f_only');
+      const { refreshList } = renderRefreshablePage();
+      trashFromTrigger('only.txt');
+
+      await waitFor(() => expect(mockState.moveToTrash).toHaveBeenCalledTimes(1));
+      refreshList();
+
+      await waitFor(() => expect(document.activeElement).not.toBe(document.body));
+      const list = currentList();
+      expect(list).toHaveFocus();
+      expect(list).toHaveAttribute('data-dialog-focus-fallback');
+    });
+
+    it('focuses the next row when the menu was opened from the row (right-click, ContextMenu, Shift+F10)', async () => {
+      trashSucceedsRemoving('f_a');
+      const { refreshList } = renderRefreshablePage();
+      trashFromRowMenu('/a.txt', 'a.txt');
+
+      await waitFor(() => expect(mockState.moveToTrash).toHaveBeenCalledTimes(1));
+      refreshList();
+
+      await waitFor(() => expect(fileRow('/b.txt')).toHaveFocus());
+    });
+
+    it('focuses the previous row from the phone item menu', async () => {
+      mockState.isPhone = true;
+      trashSucceedsRemoving('f_c');
+      const { refreshList } = renderRefreshablePage();
+      expect(screen.queryByRole('button', { name: 'Actions for c.txt' })).not.toBeInTheDocument();
+      trashFromRowMenu('/c.txt', 'c.txt');
+
+      await waitFor(() => expect(mockState.moveToTrash).toHaveBeenCalledTimes(1));
+      refreshList();
+
+      await waitFor(() => expect(fileRow('/b.txt')).toHaveFocus());
+    });
+
+    it('keeps focus on the row menu trigger while the request runs', async () => {
+      let resolveTrash!: () => void;
+      mockState.moveToTrash = vi.fn(
+        () =>
+          new Promise<void>((resolve) => {
+            resolveTrash = () => {
+              mockState.tree = { root: THREE_FILES.filter((item) => item.childId !== 'f_b') };
+              mockState.resultCache.clear();
+              resolve();
+            };
+          })
+      );
+      const { refreshList } = renderRefreshablePage();
+      const trigger = trashFromTrigger('b.txt');
+
+      expect(screen.queryByRole('menu')).not.toBeInTheDocument();
+      await waitFor(() => expect(trigger).toHaveFocus());
+
+      await act(async () => {
+        resolveTrash();
+      });
+      refreshList();
+
+      await waitFor(() => expect(fileRow('/c.txt')).toHaveFocus());
+    });
+
+    it('does not take focus back when the user moved it while the request ran', async () => {
+      let resolveTrash!: () => void;
+      mockState.moveToTrash = vi.fn(
+        () =>
+          new Promise<void>((resolve) => {
+            resolveTrash = () => {
+              mockState.tree = { root: THREE_FILES.filter((item) => item.childId !== 'f_b') };
+              mockState.resultCache.clear();
+              resolve();
+            };
+          })
+      );
+      const { refreshList } = renderRefreshablePage();
+      const trigger = trashFromTrigger('b.txt');
+      await waitFor(() => expect(trigger).toHaveFocus());
+
+      const otherRow = fileRow('/a.txt');
+      otherRow.focus();
+      await act(async () => {
+        resolveTrash();
+      });
+      refreshList();
+      await act(async () => {
+        await new Promise((resolve) => window.setTimeout(resolve, 50));
+      });
+
+      expect(otherRow).toHaveFocus();
+    });
+
+    it('keeps the row and returns focus to its menu trigger when the trash request fails', async () => {
+      mockState.moveToTrash = vi.fn(async () => {
+        throw new Error('Request failed');
+      });
+      const { refreshList } = renderRefreshablePage();
+      const trigger = trashFromTrigger('b.txt');
+
+      await waitFor(() => expect(mockState.moveToTrash).toHaveBeenCalledTimes(1));
+      refreshList();
+      await act(async () => {
+        await new Promise((resolve) => window.setTimeout(resolve, 0));
+      });
+
+      expect(fileRow('/b.txt')).toBeInTheDocument();
+      expect(trigger.isConnected).toBe(true);
+      await waitFor(() => expect(trigger).toHaveFocus());
+    });
+
+    it('returns focus to the row when the trash request fails from a row-opened menu', async () => {
+      mockState.moveToTrash = vi.fn(async () => {
+        throw new Error('Request failed');
+      });
+      const { refreshList } = renderRefreshablePage();
+      const row = trashFromRowMenu('/b.txt', 'b.txt');
+
+      await waitFor(() => expect(mockState.moveToTrash).toHaveBeenCalledTimes(1));
+      refreshList();
+
+      await waitFor(() => expect(row).toHaveFocus());
+      expect(row.isConnected).toBe(true);
+    });
+  });
+
   it('renders unauthorized notice for 403', () => {
     mockState.filesError = new ApiError('Not authorized for this account', 403);
 

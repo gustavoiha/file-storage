@@ -146,3 +146,13 @@ Recorded 2026-11-20 by the setup session from a `cdk diff` of origin/main 5678ad
 - Smoke check: https://dh0djlfa46gz6.cloudfront.net/login serves `index-C2lxzaBK.js`, renders the sign-in form, the served stylesheet contains `.dockspace-column__row[aria-current]:focus-visible`, and the console shows no errors.
 - Logs: $LOCAL/logs/prod-deploy-diff-pr-20261121T182042Z.log, prod-deploy-diff-20261121T182138Z.log, prod-deploy-web-20261121T182204Z.log.
 - Prod is now at origin/main `ac36267` for both infra and web.
+
+### 2026-11-21 — T-0018 — infra + web
+- origin/main commit: `31619d2` (PR #41 squash-merged). Run as `dockspace-prod-agent-deployer` via `prod-deploy.sh`.
+- Pre-deploy: PR #41 was MERGEABLE/CLEAN but branched from `3361fc4` (before T-0017). Merged locally onto origin/main `ac36267` it merged cleanly (disjoint files) and passed typecheck, tests (web 204, backend 178) and the build. `prod-deploy.sh diff-pr 41` showed only DockspaceBackend Lambda code updates (`restoreFileFn`, `purgeFileNowFn`, `listTrashFn`), no replacements or stateful changes. API change is additive (optional `fileNodeId`). Main was `ac36267`, which prod already ran (`prod-deploy.sh diff` 0 stacks), so no drift.
+- Infra (`prod-deploy.sh infra`): DockspaceBackend updated the three Lambdas; DockspaceIdentity, DockspaceStorage and DockspaceFrontendHosting unchanged.
+- Web (`prod-deploy.sh web`): built and synced to the prod site bucket; invalidated `/*` on the prod distribution. Entry bundle `index-BWvQ2uNY.js`, `TrashPage-7FAjyFr6.js`, stylesheet `index-BDqNdBlA.css`.
+- Shipped: #41 `31619d2` (T-0018).
+- Smoke check: https://dh0djlfa46gz6.cloudfront.net/login serves `index-BWvQ2uNY.js`, renders the sign-in form, `TrashPage-7FAjyFr6.js` is served (200), and the console shows no errors. Post-deploy `prod-deploy.sh diff` shows 0 stacks with differences.
+- Logs: $LOCAL/logs/prod-deploy-diff-pr-20261121T182726Z.log, prod-deploy-diff-20261121T182835Z.log, prod-deploy-infra-20261121T182925Z.log, prod-deploy-web-20261121T183029Z.log, prod-deploy-diff-20261121T183040Z.log.
+- Prod is now at origin/main `31619d2` for both infra and web.

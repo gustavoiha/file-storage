@@ -35,7 +35,7 @@ Agents comment only on their own task's issue; the request issue only shows the 
   `.agent-local/logs/permission-gate.log`.
 - Design output: each round = static HTML mockups in `.agent-local/design/T-XXXX/`, PNG screenshots committed to
   `agent-memory` under `design/T-XXXX/round-N/` and embedded in the issue comment (raw.githubusercontent URLs;
-  the repo is public), plus one Claude Design canvas artifact per task (link recorded in the task file).
+  the repo is public). No Claude Design canvas or other artifact is published.
 - Playwright + Chromium + axe live in `.agent-local/tools` (`npm i playwright @axe-core/playwright` there and
   `npx playwright install chromium` if missing).
 - Memory: branch `agent-memory`, checked out at `.agent-team/` (product.md, design-preferences.md,

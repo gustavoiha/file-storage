@@ -18,7 +18,7 @@ All open tasks have their own issues (#11-#16, sub-issues of request #5) since 2
 - T-0016 Keep folder file counts current after moving files (issue #36, request #31, from T-0014 test round 1): pre-existing bug (folder-row counts stale after a move); dispatched to engineering 2026-11-21 (no design round); back in engineering after test round 1 (critical: source folder count double-subtracted).
 - T-0017 Visible keyboard focus on the current row in ancestor columns (issue #38, request #5, from T-0013 test round 1, finding 2): pre-existing CSS order issue; dispatched to engineering 2026-11-21.
 - T-0018 Trash page handles two trashed items with the same path separately (issue #39, request #5, from T-0013 test round 1, finding 4): pre-existing; pending state and purge/restore keyed by path only; dispatched to engineering 2026-11-21.
-- T-0019 Trash page restore errors name the item that failed (issue #42, request #5, from T-0018 review round 1, finding C1): restore error is page-level, unnamed, and cleared by any other restore; new.
+- T-0019 Trash page restore errors name the item that failed (issue #42, request #5, from T-0018 review round 1, finding C1): restore error is page-level, unnamed, and cleared by any other restore; new, held until T-0018 (PR #41) is merged because the code it changes exists only on that PR.
 
 ### Shipped
 - 2026-11-21 (prod at 3361fc4): T-0013 Show the row focus highlight only after keyboard use (#30, PR #34): file list rows show the inset ring and accent bottom border only for keyboard focus (`:has(:focus-visible)`), not after mouse or touch actions that move focus; browsers without `:has()` keep the `:focus-within` highlight.

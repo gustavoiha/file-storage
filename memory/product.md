@@ -57,7 +57,7 @@ All open tasks have their own issues (#11-#16, sub-issues of request #5) since 2
 | T-0013 | #30 | #5 | Show the row focus highlight only after keyboard use | done | Review judge |
 | T-0014 | #32 | #31 | Remove the folder and file counts from the current folder heading | done | Deployment |
 | T-0015 | #33 | #31 | Folder info panel from the folder action menu | awaiting-human | Design |
-| T-0016 | #36 | #31 | Keep folder file counts current after moving files | engineering | Engineering |
+| T-0016 | #36 | #31 | Keep folder file counts current after moving files | review | Engineering |
 | T-0017 | #38 | #5 | Visible keyboard focus on the current row in ancestor columns | testing | Engineering |
 | T-0018 | #39 | #5 | Trash page handles two trashed items with the same path separately | testing | Review judge |
 | T-0019 | #42 | #5 | Trash page restore errors name the item that failed | new | Review judge |

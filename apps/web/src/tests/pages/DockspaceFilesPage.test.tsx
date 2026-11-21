@@ -1027,4 +1027,112 @@ describe('DockspaceFilesPage', () => {
       expect(screen.getByText('Failed to move folder to trash')).toBeInTheDocument()
     );
   });
+  describe('status line after Move to Trash', () => {
+    const trashFolderDocs = () => {
+      fireEvent.click(screen.getByRole('button', { name: 'Actions for docs' }));
+      fireEvent.click(screen.getByRole('menuitem', { name: 'Move to Trash' }));
+      fireEvent.click(screen.getByRole('button', { name: 'Move to trash' }));
+    };
+
+    const moveFolderDocsToArchive = async () => {
+      fireEvent.click(screen.getByRole('button', { name: 'Actions for docs' }));
+      fireEvent.click(screen.getByRole('menuitem', { name: 'Move' }));
+      const dialog = screen.getByRole('dialog', { name: 'Move folder' });
+      fireEvent.change(within(dialog).getByRole('combobox'), { target: { value: '/archive' } });
+      fireEvent.click(within(dialog).getByRole('button', { name: 'Move' }));
+      await waitFor(() =>
+        expect(screen.getByRole('status')).toHaveTextContent('Folder moved from /docs to /archive/docs.')
+      );
+    };
+
+    beforeEach(() => {
+      mockState.tree = {
+        root: [folder('f_docs', 'docs'), folder('f_archive', 'archive'), file('f_readme', 'README.md')],
+        f_archive: []
+      };
+      mockState.moveFolder = vi.fn(async () => ({
+        status: 'MOVED',
+        from: '/docs',
+        to: '/archive/docs',
+        moved: true
+      }));
+    });
+
+    it('confirms a successful folder trash in the status region', async () => {
+      mockState.moveToTrash = vi.fn(async () => {});
+
+      renderPage();
+      expect(screen.queryByRole('status')).not.toBeInTheDocument();
+      trashFolderDocs();
+
+      await waitFor(() =>
+        expect(screen.queryByRole('dialog', { name: /trash/i })).not.toBeInTheDocument()
+      );
+      expect(screen.getByRole('status')).toHaveTextContent(/^Folder moved to trash\.$/);
+    });
+
+    it('replaces a previous move message with the folder trash confirmation', async () => {
+      mockState.moveToTrash = vi.fn(async () => {});
+
+      renderPage();
+      await moveFolderDocsToArchive();
+      trashFolderDocs();
+
+      await waitFor(() =>
+        expect(screen.getByRole('status')).toHaveTextContent(/^Folder moved to trash\.$/)
+      );
+      expect(screen.queryByText(/Folder moved from/)).not.toBeInTheDocument();
+    });
+
+    it('claims no success and drops a stale move message when the folder trash fails', async () => {
+      mockState.moveToTrash = vi.fn(async () => {
+        throw new Error('Failed to move folder to trash');
+      });
+
+      renderPage();
+      await moveFolderDocsToArchive();
+      trashFolderDocs();
+
+      await waitFor(() =>
+        expect(screen.getByText('Failed to move folder to trash')).toBeInTheDocument()
+      );
+      expect(screen.queryByRole('status')).not.toBeInTheDocument();
+      expect(screen.queryByText(/moved to trash\./)).not.toBeInTheDocument();
+      expect(screen.queryByText(/Folder moved from/)).not.toBeInTheDocument();
+    });
+
+    it('replaces a previous move message with the file trash confirmation', async () => {
+      mockState.moveToTrash = vi.fn(async () => {});
+
+      renderPage();
+      await moveFolderDocsToArchive();
+      fireEvent.click(screen.getByRole('button', { name: 'Actions for README.md' }));
+      fireEvent.click(screen.getByRole('menuitem', { name: 'Move to Trash' }));
+
+      expect(mockState.moveToTrash).toHaveBeenCalledWith({
+        fullPath: '/README.md',
+        targetType: 'file'
+      });
+      await waitFor(() =>
+        expect(screen.getByRole('status')).toHaveTextContent(/^File moved to trash\.$/)
+      );
+      expect(screen.queryByText(/Folder moved from/)).not.toBeInTheDocument();
+    });
+
+    it('reports a failed file trash without claiming success', async () => {
+      mockState.moveToTrash = vi.fn(async () => {
+        throw new Error('Request failed');
+      });
+
+      renderPage();
+      await moveFolderDocsToArchive();
+      fireEvent.click(screen.getByRole('button', { name: 'Actions for README.md' }));
+      fireEvent.click(screen.getByRole('menuitem', { name: 'Move to Trash' }));
+
+      await waitFor(() =>
+        expect(screen.getByRole('status')).toHaveTextContent(/^Failed to move file to trash\.$/)
+      );
+      expect(screen.queryByText(/moved to trash\./)).not.toBeInTheDocument();
+    });
+  });
 });

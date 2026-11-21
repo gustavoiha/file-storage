@@ -14,7 +14,7 @@ Dockspace: a self-hosted, single-tenant cloud file storage app on AWS (minimal G
 ### In progress / next
 All open tasks have their own issues (#11-#16, sub-issues of request #5) since 2026-11-20. 2026-11-20 sweep: the permission and infra-hold blockers are resolved by the setup change (pre-approved prod-deploy.sh, gh pr merge for deployment, drift rules). T-0001, T-0002 and T-0006 have shipped. T-0003 and T-0004 ship with T-0001's deploy of main. Only T-0005 waits on the human (design pick).
 
-- T-0015 Folder info panel from the folder action menu (issue #33, request #31): human picked option 2 (info in the right-hand file-preview panel) on 2026-11-21; in testing.
+- T-0015 Folder info panel from the folder action menu (issue #33, request #31): human picked option 2 (info in the right-hand file-preview panel) on 2026-11-21; test round 1 found the discovery request loop on failed listings, back in engineering.
 - T-0021 Keep focus in the trash list after a restore or purge (issue #46, request #5, from T-0019 test round 1, finding 2): after a successful restore or purge on the trash page focus falls to body; move it to the next/previous row like T-0012. In engineering since 2026-11-21 (T-0019 merged); stays in `TrashPage.tsx`, rebase after T-0020's PR #44 merges.
 - T-0022 Confirmation dialogs keep focus after a failed purge or folder trash (issue #48, request #5, from T-0020 test round 1, findings 1-3): after a failed purge or folder trash focus goes to Cancel, a failed folder trash returns focus to the opener on close, and dialog titles stop skipping heading levels. New; builds on T-0020 (PR #44), so dispatch after it is merged.
 
@@ -59,7 +59,7 @@ All open tasks have their own issues (#11-#16, sub-issues of request #5) since 2
 | T-0012 | #28 | #5 | Keep focus in the file list after a file is moved to the trash | done | Deployment |
 | T-0013 | #30 | #5 | Show the row focus highlight only after keyboard use | done | Review judge |
 | T-0014 | #32 | #31 | Remove the folder and file counts from the current folder heading | done | Deployment |
-| T-0015 | #33 | #31 | Folder info panel from the folder action menu | filtering | Design |
+| T-0015 | #33 | #31 | Folder info panel from the folder action menu | engineering | Design |
 | T-0016 | #36 | #31 | Keep folder file counts current after moving files | done | Engineering |
 | T-0017 | #38 | #5 | Visible keyboard focus on the current row in ancestor columns | done | Engineering |
 | T-0018 | #39 | #5 | Trash page handles two trashed items with the same path separately | done | Review judge |

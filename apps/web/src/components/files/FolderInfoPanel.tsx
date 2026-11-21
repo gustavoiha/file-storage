@@ -1,4 +1,4 @@
-import type { RefObject } from 'react';
+import { useCallback, useLayoutEffect, useRef, useState, type MutableRefObject, type RefObject } from 'react';
 import { AlertCircle, ArrowLeft, File, Folder, FolderOpen, X } from 'lucide-react';
 import { Button } from '@/components/ui/Button';
 import { useFiles } from '@/hooks/useFiles';
@@ -89,8 +89,51 @@ export const FolderInfoPanel = ({
   const contentsQuery = useFiles(dockspaceId, folder.folderNodeId);
   const items = contentsQuery.data?.items;
   const summary = items ? summarizeFolderContents(items) : null;
-  const isLoading = !summary && (contentsQuery.isPending || contentsQuery.isFetching);
-  const hasError = !summary && !isLoading && Boolean(contentsQuery.error);
+  // A retry started from Try again keeps the error alert (and the focused Try again button) mounted, marked busy,
+  // instead of swapping it for the loading state, so keyboard focus is not dropped to <body> while it runs.
+  // (React Query clears `error` while a query with no data refetches, so the retry is tracked here.)
+  const [retryingFolderNodeId, setRetryingFolderNodeId] = useState<string | null>(null);
+  const isRetrying = !summary && retryingFolderNodeId === folder.folderNodeId && contentsQuery.isFetching;
+  const hasError = !summary && (isRetrying || (Boolean(contentsQuery.error) && !contentsQuery.isFetching));
+  const isLoading = !summary && !hasError && (contentsQuery.isPending || contentsQuery.isFetching);
+
+  // Close (side) or back (page): the panel's stable control, also handed to the page as its focus target.
+  const headerButtonRef = useRef<HTMLButtonElement | null>(null);
+  const setHeaderButton = useCallback(
+    (element: HTMLButtonElement | null) => {
+      headerButtonRef.current = element;
+      if (focusTargetRef) {
+        (focusTargetRef as MutableRefObject<HTMLButtonElement | null>).current = element;
+      }
+    },
+    [focusTargetRef]
+  );
+
+  // When the error alert goes away for the same folder (a retry succeeded, or another refetch swapped it for the
+  // loading state), Try again is unmounted. If it had focus, focus fell to <body>: move it to Close / back.
+  const previousErrorRef = useRef({ folderNodeId: folder.folderNodeId, hasError });
+  useLayoutEffect(() => {
+    const previous = previousErrorRef.current;
+    previousErrorRef.current = { folderNodeId: folder.folderNodeId, hasError };
+    if (!previous.hasError || hasError || previous.folderNodeId !== folder.folderNodeId) {
+      return;
+    }
+    const active = document.activeElement;
+    if (!active || active === document.body) {
+      headerButtonRef.current?.focus();
+    }
+  }, [folder.folderNodeId, hasError]);
+
+  const retry = () => {
+    if (isRetrying) {
+      return;
+    }
+    const folderNodeId = folder.folderNodeId;
+    setRetryingFolderNodeId(folderNodeId);
+    void contentsQuery.refetch().finally(() => {
+      setRetryingFolderNodeId((current) => (current === folderNodeId ? null : current));
+    });
+  };
 
   const TitleTag = variant === 'page' ? 'h1' : 'h2';
   const created = formatModifiedDate(folder.createdAt);
@@ -105,7 +148,7 @@ export const FolderInfoPanel = ({
       <header className="dockspace-preview__head">
         {variant === 'page' ? (
           <button
-            ref={focusTargetRef}
+            ref={setHeaderButton}
             type="button"
             className="dockspace-icon-button dockspace-icon-button--ghost"
             aria-label={backLabel ?? 'Back'}
@@ -127,7 +170,7 @@ export const FolderInfoPanel = ({
         ) : null}
         {variant === 'side' ? (
           <button
-            ref={focusTargetRef}
+            ref={setHeaderButton}
             type="button"
             className="dockspace-icon-button dockspace-icon-button--ghost"
             aria-label="Close folder info"
@@ -144,14 +187,15 @@ export const FolderInfoPanel = ({
             <AlertCircle className="dockspace-folder-info__error-icon" size={16} aria-hidden="true" />
             <span>
               Couldn&apos;t count what {folder.name} contains.{' '}
+              {/* aria-disabled, not disabled: a disabled button would drop its focus. */}
               <button
                 type="button"
                 className="dockspace-link-button"
-                onClick={() => {
-                  void contentsQuery.refetch();
-                }}
+                aria-disabled={isRetrying ? 'true' : undefined}
+                aria-busy={isRetrying ? 'true' : undefined}
+                onClick={retry}
               >
-                Try again
+                {isRetrying ? 'Trying again…' : 'Try again'}
               </button>
             </span>
           </div>

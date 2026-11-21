@@ -165,14 +165,21 @@ describe('DockspaceFilesPage folder discovery', () => {
     await settle();
 
     const callsBeforeRetry = callsFor('d_travel');
-    fireEvent.click(within(panel).getByRole('button', { name: 'Try again' }));
+    const tryAgain = within(panel).getByRole('button', { name: 'Try again' });
+    tryAgain.focus();
+    fireEvent.click(tryAgain);
     await settle();
     expect(callsFor('d_travel')).toBe(callsBeforeRetry + 1);
     expect(within(panel).getByRole('alert')).toBeInTheDocument();
+    // Focus stays on Try again through a failed retry, never falling to <body>.
+    expect(within(panel).getByRole('button', { name: 'Try again' })).toBe(tryAgain);
+    expect(document.activeElement).toBe(tryAgain);
 
     failingFolderNodeIds = new Set();
-    fireEvent.click(within(panel).getByRole('button', { name: 'Try again' }));
+    fireEvent.click(tryAgain);
     await waitFor(() => expect(within(panel).queryByRole('alert')).not.toBeInTheDocument());
+    // A successful retry removes Try again: focus moves to the panel's Close button.
+    expect(document.activeElement).toBe(within(panel).getByRole('button', { name: 'Close folder info' }));
     const contents = within(panel).getByRole('list', { name: 'Contents' });
     await waitFor(() => expect(contents).toHaveTextContent('0 folders'));
     expect(contents).toHaveTextContent('1 file');

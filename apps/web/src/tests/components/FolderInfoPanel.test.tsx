@@ -1,4 +1,5 @@
 import { cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
+import { createRef } from 'react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { FolderInfoPanel, summarizeFolderContents } from '@/components/files/FolderInfoPanel';
 import type { DirectoryChildRecord, DirectoryChildrenRecord } from '@/lib/apiTypes';
@@ -183,6 +184,76 @@ describe('FolderInfoPanel', () => {
     await waitFor(() => expect(within(contents()).getByText('1 folder')).toBeInTheDocument());
     expect(within(panel).queryByRole('alert')).not.toBeInTheDocument();
     expect(listFolderChildren).toHaveBeenCalledTimes(2);
+  });
+
+  it('keeps keyboard focus on Try again while a retry runs and after it fails again', async () => {
+    listFolderChildren.mockRejectedValueOnce(new Error('Network down'));
+    const { panel } = renderPanel();
+    const alert = await within(panel).findByRole('alert');
+
+    let rejectRetry: (error: Error) => void = () => undefined;
+    listFolderChildren.mockImplementationOnce(
+      () =>
+        new Promise<DirectoryChildrenRecord>((_resolve, reject) => {
+          rejectRetry = reject;
+        })
+    );
+    const tryAgain = within(alert).getByRole('button', { name: 'Try again' });
+    tryAgain.focus();
+    fireEvent.click(tryAgain);
+
+    // While the retry runs the alert stays, with the same button marked busy, instead of the loading state.
+    const busy = await within(panel).findByRole('button', { name: 'Trying again…' });
+    expect(busy).toBe(tryAgain);
+    expect(busy).toHaveAttribute('aria-disabled', 'true');
+    expect(document.activeElement).toBe(tryAgain);
+    expect(within(panel).queryByRole('status')).not.toBeInTheDocument();
+
+    // A second activation while busy does not start another request.
+    fireEvent.click(busy);
+    expect(listFolderChildren).toHaveBeenCalledTimes(2);
+
+    rejectRetry(new Error('Still down'));
+    await waitFor(() => expect(within(panel).getByRole('button', { name: 'Try again' })).not.toHaveAttribute('aria-disabled'));
+    expect(within(panel).getByRole('alert')).toHaveTextContent("Couldn't count what Day trips contains.");
+    expect(document.activeElement).toBe(tryAgain);
+    expect(document.activeElement).not.toBe(document.body);
+  });
+
+  it('moves keyboard focus to Close when a retry from Try again succeeds', async () => {
+    listFolderChildren.mockRejectedValueOnce(new Error('Network down'));
+    const { panel } = renderPanel();
+    const alert = await within(panel).findByRole('alert');
+
+    listFolderChildren.mockResolvedValueOnce(listing([child('file', 'a.txt')]));
+    const tryAgain = within(alert).getByRole('button', { name: 'Try again' });
+    tryAgain.focus();
+    fireEvent.click(tryAgain);
+
+    await waitFor(() => expect(within(contents()).getByText('1 file')).toBeInTheDocument());
+    expect(within(panel).queryByRole('alert')).not.toBeInTheDocument();
+    expect(document.activeElement).toBe(within(panel).getByRole('button', { name: 'Close folder info' }));
+  });
+
+  it('moves keyboard focus to the back button when a retry succeeds in the page variant', async () => {
+    listFolderChildren.mockRejectedValueOnce(new Error('Network down'));
+    const { panel } = renderPanel({ variant: 'page', backLabel: 'Back to Lisbon 2025' });
+    const alert = await within(panel).findByRole('alert');
+
+    listFolderChildren.mockResolvedValueOnce(listing([]));
+    const tryAgain = within(alert).getByRole('button', { name: 'Try again' });
+    tryAgain.focus();
+    fireEvent.click(tryAgain);
+
+    await waitFor(() => expect(within(contents()).getByText('0 files')).toBeInTheDocument());
+    expect(document.activeElement).toBe(within(panel).getByRole('button', { name: 'Back to Lisbon 2025' }));
+  });
+
+  it('still hands the Close button to the page as its focus target', () => {
+    listFolderChildren.mockReturnValue(new Promise(() => undefined));
+    const focusTargetRef = createRef<HTMLButtonElement>();
+    const { panel } = renderPanel({ focusTargetRef });
+    expect(focusTargetRef.current).toBe(within(panel).getByRole('button', { name: 'Close folder info' }));
   });
 
   it('renders the page variant with a back button, an h1 and no Close button or Esc hint', async () => {

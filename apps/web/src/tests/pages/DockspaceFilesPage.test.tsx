@@ -49,6 +49,9 @@ const mockState = vi.hoisted(() => ({
   tree: {} as Record<string, unknown[]>,
   filesError: null as unknown,
   resultCache: new Map<string, unknown>(),
+  // Bumped when a mocked listing reloads, so components using `useFiles` re-render (like a refetch).
+  listingVersion: 0,
+  listingListeners: new Set<() => void>(),
   moveToTrash: vi.fn(async () => {}),
   moveFiles: vi.fn(async () => ({ moved: [], failed: [] })),
   moveFolder: vi.fn(async () => ({ status: 'MOVED', from: '/docs', to: '/archive/docs', moved: true })),
@@ -85,7 +88,14 @@ vi.mock('@/lib/dockspaceApi', () => ({
   createFolderDownloadSession: vi.fn(async () => ({ downloadUrl: null }))
 }));
 
-vi.mock('@/hooks/useFiles', () => {
+vi.mock('@/hooks/useFiles', async () => {
+  const { useSyncExternalStore } = await vi.importActual<typeof import('react')>('react');
+  const subscribe = (listener: () => void) => {
+    mockState.listingListeners.add(listener);
+    return () => {
+      mockState.listingListeners.delete(listener);
+    };
+  };
   const resultFor = (folderNodeId: string) => {
     const key = `${folderNodeId}:${mockState.filesError ? 'error' : 'ok'}`;
     if (!mockState.resultCache.has(key)) {
@@ -100,7 +110,10 @@ vi.mock('@/hooks/useFiles', () => {
   };
 
   return {
-    useFiles: (_dockspaceId: string, folderNodeId: string) => resultFor(folderNodeId),
+    useFiles: (_dockspaceId: string, folderNodeId: string) => {
+      useSyncExternalStore(subscribe, () => mockState.listingVersion);
+      return resultFor(folderNodeId);
+    },
     useDiscoverFolder: () => ({
       mutateAsync: vi.fn(async (folderNodeId: string) => ({
         parentFolderNodeId: folderNodeId,
@@ -128,6 +141,20 @@ vi.mock('@/hooks/useDockspaces', () => ({
     ]
   })
 }));
+
+/** Replaces a folder's mocked listing and notifies `useFiles` users, like a refetch after invalidation. */
+const reloadListing = (folderNodeId: string, items: DirectoryChildRecord[]) => {
+  mockState.tree = { ...mockState.tree, [folderNodeId]: items };
+  for (const key of Array.from(mockState.resultCache.keys())) {
+    if (key.startsWith(`${folderNodeId}:`)) {
+      mockState.resultCache.delete(key);
+    }
+  }
+  mockState.listingVersion += 1;
+  for (const listener of Array.from(mockState.listingListeners)) {
+    listener();
+  }
+};
 
 const renderPage = (ui: ReactElement = <DockspaceFilesPage />) =>
   render(<QueryWrapper client={createTestQueryClient()}>{ui}</QueryWrapper>);
@@ -397,6 +424,190 @@ describe('DockspaceFilesPage', () => {
       ).toBeInTheDocument()
     );
     expect(screen.queryByRole('region', { name: 'Uploads' })).not.toBeInTheDocument();
+  });
+
+  describe('folder file counts after moving files', () => {
+    const folderRow = (columnName: string, folderName: string, count: string) =>
+      within(column(columnName)).getByRole('button', {
+        name: new RegExp(`^${folderName}.*${count}`)
+      });
+
+    const openCrumb = (name: string) =>
+      fireEvent.click(
+        within(screen.getByRole('navigation', { name: 'Folder path' })).getByRole('button', { name })
+      );
+
+    const moveSelectedFilesTo = async (destinationPath: string) => {
+      fireEvent.click(screen.getByRole('button', { name: 'Move' }));
+      const dialog = await screen.findByRole('dialog', { name: 'Move files' });
+      fireEvent.change(within(dialog).getByLabelText('Destination folder'), {
+        target: { value: destinationPath }
+      });
+      fireEvent.click(within(dialog).getByRole('button', { name: 'Move' }));
+    };
+
+    // The open folder's listing reloads after a move (query invalidation). On the live site the
+    // reloaded listing usually lands before the move request resolves, so these mocks do the same.
+    const resolveMoveAfterListingReload = (
+      response: unknown,
+      reloads: Array<[folderNodeId: string, items: DirectoryChildRecord[]]>
+    ) =>
+      mockState.moveFiles.mockImplementationOnce((async () => {
+        await Promise.resolve();
+        act(() => {
+          for (const [folderNodeId, items] of reloads) {
+            reloadListing(folderNodeId, items);
+          }
+        });
+        return response;
+      }) as never);
+
+    it('updates the destination and source folder counts after a successful move', async () => {
+      resolveMoveAfterListingReload(
+        {
+          targetFolderPath: '/Travel/Japan 2024',
+          moved: [{ from: '/Travel/packing-list.txt', to: '/Travel/Japan 2024/packing-list.txt' }],
+          failed: []
+        },
+        [['d_travel', DEFAULT_TREE.d_travel!.filter((item) => item.childId !== 'f_packing')]]
+      );
+      renderPage();
+      await waitFor(() => expect(folderRow('My Dockspace', 'Travel', '1 file')).toBeInTheDocument());
+
+      openFolderInCurrentColumn('Travel');
+      await waitFor(() => expect(folderRow('Travel', 'Japan 2024', '1 file')).toBeInTheDocument());
+      expect(folderRow('Travel', 'Lisbon 2025', '2 files')).toBeInTheDocument();
+
+      fireEvent.click(screen.getByRole('checkbox', { name: 'Select packing-list.txt' }));
+      await moveSelectedFilesTo('/Travel/Japan 2024');
+
+      await waitFor(() => expect(folderRow('Travel', 'Japan 2024', '2 files')).toBeInTheDocument());
+      expect(folderRow('Travel', 'Lisbon 2025', '2 files')).toBeInTheDocument();
+      expect(mockState.moveFiles).toHaveBeenCalledWith({
+        sourcePaths: ['/Travel/packing-list.txt'],
+        targetFolderPath: '/Travel/Japan 2024'
+      });
+
+      // The source folder's row, shown in its parent folder, drops the moved file too.
+      openCrumb('My Dockspace');
+      await waitFor(() => expect(folderRow('My Dockspace', 'Travel', '0 files')).toBeInTheDocument());
+      expect(folderRow('My Dockspace', 'Documents', '0 files')).toBeInTheDocument();
+    });
+
+    it('counts only the files that moved when part of the move fails', async () => {
+      resolveMoveAfterListingReload(
+        {
+          targetFolderPath: '/Travel/Lisbon 2025/Day trips',
+          moved: [
+            { from: '/Travel/Lisbon 2025/IMG_4821.jpg', to: '/Travel/Lisbon 2025/Day trips/IMG_4821.jpg' }
+          ],
+          failed: [
+            {
+              from: '/Travel/Lisbon 2025/IMG_4826.jpg',
+              code: 'CONFLICT',
+              error: 'A file with this name already exists in the destination folder'
+            }
+          ]
+        },
+        [['d_lisbon', DEFAULT_TREE.d_lisbon!.filter((item) => item.childId !== 'f_4821')]]
+      );
+      renderPage();
+
+      openFolderInCurrentColumn('Travel');
+      await waitFor(() => expect(folderRow('Travel', 'Lisbon 2025', '2 files')).toBeInTheDocument());
+      openFolderInCurrentColumn('Lisbon 2025');
+      await waitFor(() =>
+        expect(folderRow('Lisbon 2025', 'Day trips', '0 files')).toBeInTheDocument()
+      );
+
+      fireEvent.click(screen.getByRole('checkbox', { name: 'Select IMG_4821.jpg' }));
+      fireEvent.click(screen.getByRole('checkbox', { name: 'Select IMG_4826.jpg' }));
+      await moveSelectedFilesTo('/Travel/Lisbon 2025/Day trips');
+
+      await waitFor(() => expect(folderRow('Lisbon 2025', 'Day trips', '1 file')).toBeInTheDocument());
+      expect(
+        within(screen.getByRole('dialog', { name: 'Move files' })).getByText(
+          'A file with this name already exists in the destination folder'
+        )
+      ).toBeInTheDocument();
+
+      fireEvent.click(
+        within(screen.getByRole('dialog', { name: 'Move files' })).getByRole('button', { name: 'Cancel' })
+      );
+      openCrumb('Travel');
+      await waitFor(() => expect(folderRow('Travel', 'Lisbon 2025', '1 file')).toBeInTheDocument());
+      expect(folderRow('Travel', 'Japan 2024', '1 file')).toBeInTheDocument();
+    });
+
+    describe('open source folder whose listing reloads after the move', () => {
+      const LISBON_BEFORE = [...DEFAULT_TREE.d_lisbon!, file('f_4830', 'IMG_4830.jpg', 'd_lisbon')];
+      const LISBON_AFTER = LISBON_BEFORE.filter((item) => item.childId !== 'f_4821');
+      const RESPONSE = {
+        targetFolderPath: '/Travel/Lisbon 2025/Day trips',
+        moved: [
+          { from: '/Travel/Lisbon 2025/IMG_4821.jpg', to: '/Travel/Lisbon 2025/Day trips/IMG_4821.jpg' }
+        ],
+        failed: []
+      };
+
+      const openLisbonAndMoveOneFile = async () => {
+        renderPage();
+        openFolderInCurrentColumn('Travel');
+        await waitFor(() => expect(folderRow('Travel', 'Lisbon 2025', '3 files')).toBeInTheDocument());
+        openFolderInCurrentColumn('Lisbon 2025');
+        await waitFor(() =>
+          expect(folderRow('Lisbon 2025', 'Day trips', '0 files')).toBeInTheDocument()
+        );
+
+        fireEvent.click(screen.getByRole('checkbox', { name: 'Select IMG_4821.jpg' }));
+        await moveSelectedFilesTo('/Travel/Lisbon 2025/Day trips');
+        await waitFor(() => expect(screen.getByText('1 file moved.')).toBeInTheDocument());
+      };
+
+      const expectCountsAfterMove = async () => {
+        expect(folderRow('Lisbon 2025', 'Day trips', '1 file')).toBeInTheDocument();
+        openCrumb('Travel');
+        // 3 files, 1 moved out: "2 files", not "1 file" (the moved file subtracted twice).
+        await waitFor(() => expect(folderRow('Travel', 'Lisbon 2025', '2 files')).toBeInTheDocument());
+      };
+
+      beforeEach(() => {
+        mockState.tree = { ...DEFAULT_TREE, d_lisbon: LISBON_BEFORE };
+      });
+
+      it('subtracts the moved files once when the listing reloads before the move resolves', async () => {
+        resolveMoveAfterListingReload(RESPONSE, [['d_lisbon', LISBON_AFTER]]);
+
+        await openLisbonAndMoveOneFile();
+        await expectCountsAfterMove();
+      });
+
+      it('subtracts the moved files once when the listing reloads after the move resolves', async () => {
+        mockState.moveFiles.mockResolvedValueOnce(RESPONSE as never);
+
+        await openLisbonAndMoveOneFile();
+        act(() => reloadListing('d_lisbon', LISBON_AFTER));
+        await expectCountsAfterMove();
+      });
+    });
+
+    it('leaves the counts as they are when the files stay in their folder', async () => {
+      mockState.moveFiles.mockResolvedValueOnce({
+        targetFolderPath: '/Travel',
+        moved: [{ from: '/Travel/packing-list.txt', to: '/Travel/packing-list.txt' }],
+        failed: []
+      } as never);
+      renderPage();
+      await waitFor(() => expect(folderRow('My Dockspace', 'Travel', '1 file')).toBeInTheDocument());
+
+      openFolderInCurrentColumn('Travel');
+      fireEvent.click(screen.getByRole('checkbox', { name: 'Select packing-list.txt' }));
+      await moveSelectedFilesTo('/Travel');
+      await waitFor(() => expect(screen.getByText('1 file moved.')).toBeInTheDocument());
+
+      openCrumb('My Dockspace');
+      await waitFor(() => expect(folderRow('My Dockspace', 'Travel', '1 file')).toBeInTheDocument());
+    });
   });
 
   describe('file sizes from the folder listing', () => {

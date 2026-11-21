@@ -144,6 +144,57 @@ const parentFolderPathFromPath = (fullPath: string): string => {
   return `/${segments.slice(0, -1).join('/')}`;
 };
 
+/**
+ * Adjusts the known direct file counts of the source and destination folders after files were moved,
+ * from the move response alone. Folders not discovered yet keep their unknown count (their discovery
+ * returns current data), and entries that stayed in the same folder change nothing.
+ *
+ * The open folder is skipped: the move reloads its listing, and the count is recounted from that
+ * listing. Adjusting it here as well would count the moved files twice whenever the reloaded listing
+ * lands first (T-0016).
+ */
+const applyFileMovesToDiscoveredFolders = (
+  previous: Map<string, FolderDiscoveryNode>,
+  moved: ReadonlyArray<{ from: string; to: string }>,
+  recountedFolderPath: string
+): Map<string, FolderDiscoveryNode> => {
+  const countDeltaByFolderPath = new Map<string, number>();
+  const addDelta = (folderPath: string, delta: number) => {
+    if (folderPath === recountedFolderPath) {
+      return;
+    }
+
+    countDeltaByFolderPath.set(folderPath, (countDeltaByFolderPath.get(folderPath) ?? 0) + delta);
+  };
+
+  for (const entry of moved) {
+    const sourceFolderPath = parentFolderPathFromPath(entry.from);
+    const destinationFolderPath = parentFolderPathFromPath(entry.to);
+    if (sourceFolderPath === destinationFolderPath) {
+      continue;
+    }
+
+    addDelta(sourceFolderPath, -1);
+    addDelta(destinationFolderPath, 1);
+  }
+
+  if (!countDeltaByFolderPath.size) {
+    return previous;
+  }
+
+  const next = new Map(previous);
+  for (const [folderNodeId, node] of previous) {
+    const delta = countDeltaByFolderPath.get(node.fullPath);
+    if (!delta || node.directFileCount === null) {
+      continue;
+    }
+
+    next.set(folderNodeId, { ...node, directFileCount: Math.max(0, node.directFileCount + delta) });
+  }
+
+  return next;
+};
+
 const isSameOrDescendantPath = (path: string, maybeAncestorPath: string): boolean =>
   path === maybeAncestorPath || path.startsWith(`${maybeAncestorPath}/`);
 
@@ -714,6 +765,12 @@ export const DockspaceFilesPage = () => {
             targetFolderPath: moveFilesDialogDestinationPath
           });
 
+          // Folder rows show counts from the one-time discovery: update the affected folders here,
+          // except the open folder, which is recounted from its reloaded listing.
+          setDiscoveredFoldersByNodeId((previous) =>
+            applyFileMovesToDiscoveredFolders(previous, response.moved, currentFolder.fullPath)
+          );
+
           const movedCount = response.moved.length;
           const failedCount = response.failed.length;
           setMoveFilesSummary(
@@ -744,7 +801,13 @@ export const DockspaceFilesPage = () => {
         }
       })();
     },
-    [moveFiles, moveFilesDialogDestinationPath, returnFocusToRowAfterSubmit, selectedFilePaths]
+    [
+      currentFolder.fullPath,
+      moveFiles,
+      moveFilesDialogDestinationPath,
+      returnFocusToRowAfterSubmit,
+      selectedFilePaths
+    ]
   );
 
   const onMoveFolderSubmit = useCallback(

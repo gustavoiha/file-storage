@@ -187,3 +187,13 @@ Recorded 2026-11-20 by the setup session from a `cdk diff` of origin/main 5678ad
 - Smoke check: https://dh0djlfa46gz6.cloudfront.net/login serves `index-BPT6BQD3.js`, renders the sign-in form, `useDialogDismiss-StCBgzEp.js` is served (200, JavaScript), and the console shows no errors.
 - Logs: $LOCAL/logs/prod-deploy-diff-pr-20261121T191612Z.log, prod-deploy-diff-20261121T191640Z.log, prod-deploy-web-20261121T191728Z.log, prod-deploy-diff-20261121T191738Z.log.
 - Prod is now at origin/main `674d6f4` for both infra and web.
+
+### 2026-11-21 — T-0021 — web
+- origin/main commit: `4a9ea0b` (PR #49 squash-merged). Run as `dockspace-prod-agent-deployer` via `prod-deploy.sh`.
+- Pre-deploy: PR #49 at `2061a3e` was MERGEABLE/CLEAN and already contained origin/main `674d6f4`, so the merged tree is the one engineering and testing checked. Web only (`FileList.tsx`, `TrashPage.tsx`, `layout.css`, tests). `prod-deploy.sh diff-pr 49` showed 0 stacks with differences. Main was `674d6f4`, which prod already ran (`prod-deploy.sh diff` 0 stacks), so no drift.
+- Infra: not run. Post-deploy `prod-deploy.sh diff` at `4a9ea0b` shows 0 stacks with differences.
+- Web (`prod-deploy.sh web`): built and synced to the prod site bucket; invalidated `/*` on the prod distribution. Entry bundle `index-C_AseQnz.js`, `TrashPage-CoGpjmmx.js`, `FileList-dTqeHLmI.js`, stylesheet `index-bfZV5UXs.css`.
+- Shipped: #49 `4a9ea0b` (T-0021).
+- Smoke check: https://dh0djlfa46gz6.cloudfront.net/login serves `index-C_AseQnz.js`, renders the sign-in form, `TrashPage-CoGpjmmx.js` is served (200, JavaScript), the `FileList` chunk contains `data-dialog-focus-fallback`, the stylesheet contains `.flat-file-list__empty:focus-visible`, and the console shows no errors.
+- Logs: $LOCAL/logs/prod-deploy-diff-pr-20261121T193624Z.log, prod-deploy-diff-20261121T193652Z.log, prod-deploy-web-20261121T193735Z.log, prod-deploy-diff-20261121T193745Z.log.
+- Prod is now at origin/main `4a9ea0b` for both infra and web.

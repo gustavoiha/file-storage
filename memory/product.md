@@ -17,6 +17,8 @@ All open tasks have their own issues (#11-#16, sub-issues of request #5) since 2
 - T-0013 Show the row focus highlight only after keyboard use (issue #30, from T-0012 review round 1, C1): PR #34 in review round 1 (security review done, code review re-dispatched 2026-11-21). PR #29 (T-0012) has merged.
 - T-0015 Folder info panel from the folder action menu (issue #33, request #31): round 1 options posted on #33; waits on the human's pick.
 - T-0016 Keep folder file counts current after moving files (issue #36, request #31, from T-0014 test round 1): pre-existing bug (folder-row counts stale after a move); dispatched to engineering 2026-11-21 (no design round).
+- T-0017 Visible keyboard focus on the current row in ancestor columns (issue #38, request #5, from T-0013 test round 1, finding 2): pre-existing CSS order issue; new, waits for PM dispatch.
+- T-0018 Trash page handles two trashed items with the same path separately (issue #39, request #5, from T-0013 test round 1, finding 4): pre-existing; pending state and purge/restore keyed by path only; new, waits for PM dispatch.
 
 ### Shipped
 - 2026-11-21 (prod at 8e15ec8): T-0014 Remove the folder and file counts from the current folder heading (#32, PR #35): the desktop current column heading shows only the folder name (root label at the root); counts move to the folder info panel (T-0015).
@@ -51,7 +53,9 @@ All open tasks have their own issues (#11-#16, sub-issues of request #5) since 2
 | T-0010 | #24 | #5 | Visible focus on the file list after a dialog closes | done | Deployment |
 | T-0011 | #26 | #5 | Status line confirms Move to Trash and drops stale messages | done | Deployment |
 | T-0012 | #28 | #5 | Keep focus in the file list after a file is moved to the trash | done | Deployment |
-| T-0013 | #30 | #5 | Show the row focus highlight only after keyboard use | filtering | Review judge |
+| T-0013 | #30 | #5 | Show the row focus highlight only after keyboard use | deploying | Review judge |
 | T-0014 | #32 | #31 | Remove the folder and file counts from the current folder heading | done | Deployment |
 | T-0015 | #33 | #31 | Folder info panel from the folder action menu | awaiting-human | Design |
 | T-0016 | #36 | #31 | Keep folder file counts current after moving files | testing | Engineering |
+| T-0017 | #38 | #5 | Visible keyboard focus on the current row in ancestor columns | new | Test results filtering |
+| T-0018 | #39 | #5 | Trash page handles two trashed items with the same path separately | new | Test results filtering |

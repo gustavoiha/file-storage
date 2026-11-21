@@ -40,13 +40,13 @@ Allow users to trash an entire folder and all of its descendants (files and subf
 
 ### 1) Add folder trash action in file browser
 
-- File: `/Users/gustavoiha/Personal/file-storage/apps/web/src/components/files/FileList.tsx`
+- File: `apps/web/src/components/files/FileList.tsx`
 - Add `Trash folder` menu item in folder row actions.
 - Wire callback `onTrashFolder(folderPath: string)`.
 
 ### 2) Add confirmation dialog for folder trash
 
-- New file: `/Users/gustavoiha/Personal/file-storage/apps/web/src/components/files/TrashFolderDialog.tsx`
+- New file: `apps/web/src/components/files/TrashFolderDialog.tsx`
 - Dialog states:
   - idle confirmation,
   - running/progress,
@@ -54,7 +54,7 @@ Allow users to trash an entire folder and all of its descendants (files and subf
 
 ### 3) Build recursive traversal on client
 
-- File: `/Users/gustavoiha/Personal/file-storage/apps/web/src/pages/DockspaceFilesPage.tsx`
+- File: `apps/web/src/pages/DockspaceFilesPage.tsx`
 - Add recursive collector:
   - start from target folder node id,
   - call `listFolderChildren` for each folder node,
@@ -64,7 +64,7 @@ Allow users to trash an entire folder and all of its descendants (files and subf
 
 ### 4) Add dedicated hook for recursive folder trash workflow
 
-- File: `/Users/gustavoiha/Personal/file-storage/apps/web/src/hooks/useFiles.ts`
+- File: `apps/web/src/hooks/useFiles.ts`
 - Add `useTrashFolderRecursively` (or equivalent helper) to:
   - run traversal + trash pipeline,
   - expose progress metrics,
@@ -107,15 +107,15 @@ Allow users to trash an entire folder and all of its descendants (files and subf
 
 ### Frontend component tests
 
-- File: `/Users/gustavoiha/Personal/file-storage/apps/web/src/tests/components/FileList.test.tsx`
+- File: `apps/web/src/tests/components/FileList.test.tsx`
 1. Folder menu includes `Trash folder`.
 2. Selecting `Trash folder` calls callback with correct folder path.
 
 ### Frontend page/hook tests
 
 - Files:
-  - `/Users/gustavoiha/Personal/file-storage/apps/web/src/tests/pages/DockspaceFilesPage.test.tsx`
-  - `/Users/gustavoiha/Personal/file-storage/apps/web/src/tests/hooks/useFiles.test.tsx`
+  - `apps/web/src/tests/pages/DockspaceFilesPage.test.tsx`
+  - `apps/web/src/tests/hooks/useFiles.test.tsx`
 1. Recursive traversal collects nested files across multiple folder levels.
 2. Progress updates during operation.
 3. Partial failures are surfaced without dropping successful moves to trash.

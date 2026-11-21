@@ -6,7 +6,7 @@ Replace full-table `ScanCommand` usage in `purgeReconciliation` with an indexed 
 
 ## Current Problem
 
-Current flow in `/Users/gustavoiha/Personal/file-storage/packages/backend/src/handlers/purgeReconciliation.ts`:
+Current flow in `packages/backend/src/handlers/purgeReconciliation.ts`:
 
 1. Scans the whole table for `DOCKSPACE` items.
 2. For each dockspace, queries trashed files.
@@ -44,7 +44,7 @@ This enables querying all due items with one indexed range query:
 
 ### 1) Repository write paths
 
-Update write operations in `/Users/gustavoiha/Personal/file-storage/packages/backend/src/lib/repository.ts` to maintain index fields consistently:
+Update write operations in `packages/backend/src/lib/repository.ts` to maintain index fields consistently:
 
 - `markResolvedFileNodeTrashed`
 - `restoreFileNodeFromTrash`
@@ -55,7 +55,7 @@ Add small helper builders for purge index keys (new helper location can be `doma
 
 ### 2) Reconciliation handler query
 
-Replace scan logic in `/Users/gustavoiha/Personal/file-storage/packages/backend/src/handlers/purgeReconciliation.ts` with:
+Replace scan logic in `packages/backend/src/handlers/purgeReconciliation.ts` with:
 
 - `QueryCommand` on `IndexName: "GSI1"`
 - key condition for due items (`<= now`)
@@ -69,7 +69,7 @@ For each returned due item:
 
 ### 3) Infra and schema
 
-`GSI1` already exists in `/Users/gustavoiha/Personal/file-storage/infra/cdk/src/stacks/storage-stack.ts`.
+`GSI1` already exists in `infra/cdk/src/stacks/storage-stack.ts`.
 
 Likely no new index is required; this is a key-population and query-usage migration.
 

@@ -45,7 +45,7 @@ MVP scope:
 ### Handler
 
 - New handler:
-  - `/Users/gustavoiha/Personal/file-storage/packages/backend/src/handlers/moveFolder.ts`
+  - `packages/backend/src/handlers/moveFolder.ts`
 - Validate body, resolve source and destination.
 - Enforce cycle and conflict checks.
 - Delegate move operation to repository function.
@@ -67,7 +67,7 @@ MVP scope:
 ### Infrastructure
 
 - Wire lambda + route in:
-  - `/Users/gustavoiha/Personal/file-storage/infra/cdk/src/stacks/backend-stack.ts`
+  - `infra/cdk/src/stacks/backend-stack.ts`
 - Grant table read/write to new handler.
 
 ## Frontend Plan
@@ -75,20 +75,20 @@ MVP scope:
 ### API + Hooks
 
 - Add client method in:
-  - `/Users/gustavoiha/Personal/file-storage/apps/web/src/lib/dockspaceApi.ts`
+  - `apps/web/src/lib/dockspaceApi.ts`
   - `moveFolder(dockspaceId, sourceFolderPath, targetFolderPath)`
 - Add mutation hook in:
-  - `/Users/gustavoiha/Personal/file-storage/apps/web/src/hooks/useFiles.ts`
+  - `apps/web/src/hooks/useFiles.ts`
   - `useMoveFolder(dockspaceId)`
 
 ### UI
 
 - Add `Move` action to folder row menu in:
-  - `/Users/gustavoiha/Personal/file-storage/apps/web/src/components/files/FileList.tsx`
+  - `apps/web/src/components/files/FileList.tsx`
 - Add dialog component (new or generalized existing move dialog):
-  - `/Users/gustavoiha/Personal/file-storage/apps/web/src/components/files/MoveFolderDialog.tsx`
+  - `apps/web/src/components/files/MoveFolderDialog.tsx`
 - Integrate in page:
-  - `/Users/gustavoiha/Personal/file-storage/apps/web/src/pages/DockspaceFilesPage.tsx`
+  - `apps/web/src/pages/DockspaceFilesPage.tsx`
 
 ### State Handling Notes
 

@@ -23,29 +23,29 @@ Ensure folder rename is explicitly disallowed when the new name conflicts with a
 
 ### 1) Frontend conflict validation before submit
 
-- File: `/Users/gustavoiha/Personal/file-storage/apps/web/src/pages/DockspaceFilesPage.tsx`
+- File: `apps/web/src/pages/DockspaceFilesPage.tsx`
 - Build a lookup map of sibling folders for the folder being renamed.
 - Reuse normalized comparison strategy (trim + normalized case/slug strategy matching backend behavior).
 - In `onRenameFolderSubmit`, short-circuit with validation error when conflict is detected locally.
 
 ### 2) Add breadcrumb right-click folder actions
 
-- File: `/Users/gustavoiha/Personal/file-storage/apps/web/src/components/files/FileList.tsx`
+- File: `apps/web/src/components/files/FileList.tsx`
 - Extend breadcrumb rendering to support `onContextMenu` for each non-root crumb.
 - Open the same dropdown menu component and actions used by folder rows (same `Rename` item and callback wiring).
 - Ensure root breadcrumb (`/`) does not expose rename action.
 
 ### 3) Keep backend conflict guard as authoritative
 
-- File: `/Users/gustavoiha/Personal/file-storage/packages/backend/src/handlers/renameFolder.ts`
+- File: `packages/backend/src/handlers/renameFolder.ts`
 - No behavior change required for base rule.
 - Ensure returned error string remains stable and explicit for UI mapping.
 
 ### 4) Standardize dialog error messaging
 
 - Files:
-  - `/Users/gustavoiha/Personal/file-storage/apps/web/src/pages/DockspaceFilesPage.tsx`
-  - `/Users/gustavoiha/Personal/file-storage/apps/web/src/components/files/RenameFolderDialog.tsx`
+  - `apps/web/src/pages/DockspaceFilesPage.tsx`
+  - `apps/web/src/components/files/RenameFolderDialog.tsx`
 - Use a single message format, for example:
   - `A folder with this name already exists in this location.`
 
@@ -64,7 +64,7 @@ Ensure folder rename is explicitly disallowed when the new name conflicts with a
 
 ### Frontend tests
 
-- File: `/Users/gustavoiha/Personal/file-storage/apps/web/src/tests/pages/DockspaceFilesPage.test.tsx`
+- File: `apps/web/src/tests/pages/DockspaceFilesPage.test.tsx`
 1. Submitting conflicting folder name shows inline conflict and does not call mutation.
 2. Backend conflict error keeps dialog open and shows conflict message.
 3. Non-conflicting rename still calls mutation and closes dialog on success.
@@ -73,7 +73,7 @@ Ensure folder rename is explicitly disallowed when the new name conflicts with a
 
 ### Backend tests
 
-- File: `/Users/gustavoiha/Personal/file-storage/packages/backend/src/tests`
+- File: `packages/backend/src/tests`
 1. Rename to existing sibling returns `409`.
 2. Rename to same normalized target remains deterministic.
 

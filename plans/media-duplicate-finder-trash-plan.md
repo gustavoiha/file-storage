@@ -10,14 +10,14 @@ Allow users in a `PHOTOS_VIDEOS` dockspace to:
 ## Current State
 
 - Media listing already returns `contentHash` for active media:
-  - `/Users/gustavoiha/Personal/file-storage/packages/backend/src/handlers/listMedia.ts`
+  - `packages/backend/src/handlers/listMedia.ts`
 - Media workspace already supports per-item `Move to trash`:
-  - `/Users/gustavoiha/Personal/file-storage/apps/web/src/pages/DockspaceMediaPage.tsx`
-  - `/Users/gustavoiha/Personal/file-storage/apps/web/src/hooks/useFiles.ts`
+  - `apps/web/src/pages/DockspaceMediaPage.tsx`
+  - `apps/web/src/hooks/useFiles.ts`
 - Trash flow already removes media from album memberships when trashed:
-  - `/Users/gustavoiha/Personal/file-storage/packages/backend/src/lib/repository.ts`
+  - `packages/backend/src/lib/repository.ts`
 - API routes are defined in:
-  - `/Users/gustavoiha/Personal/file-storage/infra/cdk/src/stacks/backend-stack.ts`
+  - `infra/cdk/src/stacks/backend-stack.ts`
 
 ## Scope
 
@@ -60,10 +60,10 @@ Allow users in a `PHOTOS_VIDEOS` dockspace to:
 ### 1) Add dedicated duplicates endpoint
 
 - New handler:
-  - `/Users/gustavoiha/Personal/file-storage/packages/backend/src/handlers/listMediaDuplicates.ts`
+  - `packages/backend/src/handlers/listMediaDuplicates.ts`
 - New route in CDK:
   - `GET /dockspaces/{dockspaceId}/media/duplicates`
-  - file: `/Users/gustavoiha/Personal/file-storage/infra/cdk/src/stacks/backend-stack.ts`
+  - file: `infra/cdk/src/stacks/backend-stack.ts`
 
 Behavior:
 - Validate user and media dockspace entitlement.
@@ -75,7 +75,7 @@ Behavior:
 ### 2) Add repository helper for duplicate grouping
 
 - File:
-  - `/Users/gustavoiha/Personal/file-storage/packages/backend/src/lib/repository.ts`
+  - `packages/backend/src/lib/repository.ts`
 - Add helper like:
   - `listActiveMediaDuplicateGroups(userId, dockspaceId, cursor, limit)`
 
@@ -83,9 +83,9 @@ Behavior:
 
 Use a dedicated hash index record type so duplicates query does not depend on `/media` listing behavior:
 - add `MEDIA_HASH_INDEX` item type in:
-  - `/Users/gustavoiha/Personal/file-storage/packages/backend/src/types/models.ts`
+  - `packages/backend/src/types/models.ts`
 - add key helpers in:
-  - `/Users/gustavoiha/Personal/file-storage/packages/backend/src/domain/keys.ts`
+  - `packages/backend/src/domain/keys.ts`
 
 Suggested key pattern under dockspace PK:
 - `SK = H#<contentHash>#L#<fileNodeId>`
@@ -103,30 +103,30 @@ Update repository write paths so `MEDIA_HASH_INDEX` reflects active state:
 - on restore: recreate hash index record.
 
 Primary touchpoints:
-- `/Users/gustavoiha/Personal/file-storage/packages/backend/src/lib/repository.ts`
-- `/Users/gustavoiha/Personal/file-storage/packages/backend/src/handlers/confirmUpload.ts`
-- `/Users/gustavoiha/Personal/file-storage/packages/backend/src/handlers/completeMultipartUpload.ts`
+- `packages/backend/src/lib/repository.ts`
+- `packages/backend/src/handlers/confirmUpload.ts`
+- `packages/backend/src/handlers/completeMultipartUpload.ts`
 - trash/restore/purge handlers already calling repository state transitions.
 
 ### 5) Backfill hash index for existing active media
 
 - New script:
-  - `/Users/gustavoiha/Personal/file-storage/packages/backend/src/scripts/backfillMediaHashIndex.ts`
+  - `packages/backend/src/scripts/backfillMediaHashIndex.ts`
 - Build missing `MEDIA_HASH_INDEX` records for active media with `contentHash`.
 
 ## UX Plan
 
 ### 1) Add duplicate discovery controls
 
-- File: `/Users/gustavoiha/Personal/file-storage/apps/web/src/pages/DockspaceMediaPage.tsx`
+- File: `apps/web/src/pages/DockspaceMediaPage.tsx`
 - Add a `Find duplicates` action in the media toolbar.
 - Add a new view panel (`Duplicates`) under the `All Media` experience.
 
 ### 2) Add duplicate group review UI
 
-- File: `/Users/gustavoiha/Personal/file-storage/apps/web/src/pages/DockspaceMediaPage.tsx`
+- File: `apps/web/src/pages/DockspaceMediaPage.tsx`
 - Optional new component:
-  - `/Users/gustavoiha/Personal/file-storage/apps/web/src/components/media/DuplicateGroupsPanel.tsx`
+  - `apps/web/src/components/media/DuplicateGroupsPanel.tsx`
 - Group card displays:
   - representative thumbnail/icon,
   - count of files in group,
@@ -137,21 +137,21 @@ Primary touchpoints:
 ### 3) Confirm bulk trash action
 
 - File:
-  - `/Users/gustavoiha/Personal/file-storage/apps/web/src/pages/DockspaceMediaPage.tsx`
+  - `apps/web/src/pages/DockspaceMediaPage.tsx`
 - Optional dialog:
-  - `/Users/gustavoiha/Personal/file-storage/apps/web/src/components/media/ConfirmTrashDuplicatesDialog.tsx`
+  - `apps/web/src/components/media/ConfirmTrashDuplicatesDialog.tsx`
 - Confirm copy includes selected count and reclaimable bytes.
 
 ### 4) Add styles
 
-- File: `/Users/gustavoiha/Personal/file-storage/apps/web/src/styles/layout.css`
+- File: `apps/web/src/styles/layout.css`
 - Add classes for duplicate panel, group cards, and bulk-action footer.
 
 ## Data/State Plan (Frontend)
 
 ### 1) Add duplicates query hook
 
-- File: `/Users/gustavoiha/Personal/file-storage/apps/web/src/hooks/useMedia.ts`
+- File: `apps/web/src/hooks/useMedia.ts`
 - Add:
   - `mediaDuplicatesQueryKey(userId, dockspaceId, cursor, limit)`
   - `useMediaDuplicates(dockspaceId, cursor, limit)`
@@ -159,7 +159,7 @@ Primary touchpoints:
 
 ### 2) Add bulk trash workflow
 
-- File: `/Users/gustavoiha/Personal/file-storage/apps/web/src/hooks/useFiles.ts`
+- File: `apps/web/src/hooks/useFiles.ts`
 - Add helper mutation for batched file trashing with bounded concurrency (for example `3`).
 - Reuse existing `moveToTrash` API for each selected `fullPath`.
 - Preserve partial successes; return summary of successes/failures.
@@ -201,9 +201,9 @@ Trash action remains:
 ### Frontend
 
 - New tests:
-  - `/Users/gustavoiha/Personal/file-storage/apps/web/src/tests/pages/DockspaceMediaPage.test.tsx`
-  - `/Users/gustavoiha/Personal/file-storage/apps/web/src/tests/hooks/useMedia.test.tsx`
-  - `/Users/gustavoiha/Personal/file-storage/apps/web/src/tests/hooks/useFiles.test.tsx`
+  - `apps/web/src/tests/pages/DockspaceMediaPage.test.tsx`
+  - `apps/web/src/tests/hooks/useMedia.test.tsx`
+  - `apps/web/src/tests/hooks/useFiles.test.tsx`
 
 Test cases:
 1. Duplicates query is called and rendered correctly.
@@ -216,8 +216,8 @@ Test cases:
 ### Backend
 
 - New tests:
-  - `/Users/gustavoiha/Personal/file-storage/packages/backend/src/tests/listMediaDuplicates.test.ts`
-  - `/Users/gustavoiha/Personal/file-storage/packages/backend/src/tests/mediaHashIndexMaintenance.test.ts`
+  - `packages/backend/src/tests/listMediaDuplicates.test.ts`
+  - `packages/backend/src/tests/mediaHashIndexMaintenance.test.ts`
 
 Test cases:
 1. Endpoint returns only duplicate groups (`count >= 2`) for active media.

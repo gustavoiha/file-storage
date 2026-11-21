@@ -38,7 +38,7 @@ Response:
 ### 2) Backend handler logic
 
 New handler file:
-- `/Users/gustavoiha/Personal/file-storage/packages/backend/src/handlers/purgeFileNow.ts`
+- `packages/backend/src/handlers/purgeFileNow.ts`
 
 Flow:
 1. Validate/authenticate request.
@@ -55,7 +55,7 @@ Notes:
 ### 3) Infrastructure wiring
 
 Update API/Lambda wiring in:
-- `/Users/gustavoiha/Personal/file-storage/infra/cdk/src/stacks/backend-stack.ts`
+- `infra/cdk/src/stacks/backend-stack.ts`
 
 Changes:
 - register `purgeFileNow` handler in handlers map,
@@ -65,8 +65,8 @@ Changes:
 ### 4) Frontend API + hook
 
 Update:
-- `/Users/gustavoiha/Personal/file-storage/apps/web/src/lib/dockspaceApi.ts`
-- `/Users/gustavoiha/Personal/file-storage/apps/web/src/hooks/useFiles.ts`
+- `apps/web/src/lib/dockspaceApi.ts`
+- `apps/web/src/hooks/useFiles.ts`
 
 Add:
 - `purgeFileNow(dockspaceId, fullPath)` API function,
@@ -79,9 +79,9 @@ On success invalidate:
 ### 5) Trash UI changes
 
 Update:
-- `/Users/gustavoiha/Personal/file-storage/apps/web/src/pages/TrashPage.tsx`
-- `/Users/gustavoiha/Personal/file-storage/apps/web/src/components/files/FileList.tsx`
-- add new dialog component, e.g. `/Users/gustavoiha/Personal/file-storage/apps/web/src/components/files/ConfirmPurgeFileDialog.tsx`
+- `apps/web/src/pages/TrashPage.tsx`
+- `apps/web/src/components/files/FileList.tsx`
+- add new dialog component, e.g. `apps/web/src/components/files/ConfirmPurgeFileDialog.tsx`
 
 UI requirements:
 - Each trash row has `Restore` and `Purge now` actions.

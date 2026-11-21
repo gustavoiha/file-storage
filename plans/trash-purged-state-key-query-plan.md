@@ -61,9 +61,9 @@ All state transitions should update file node + state index in the same transact
 
 ## Handler Changes
 
-- `/Users/gustavoiha/Personal/file-storage/packages/backend/src/handlers/listTrash.ts`
+- `packages/backend/src/handlers/listTrash.ts`
   - switch to querying trash state index items directly
-- `/Users/gustavoiha/Personal/file-storage/packages/backend/src/handlers/listPurged.ts`
+- `packages/backend/src/handlers/listPurged.ts`
   - switch to querying purged state index items directly
 
 Repository methods to add/update:

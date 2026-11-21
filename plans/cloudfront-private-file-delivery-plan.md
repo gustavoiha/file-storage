@@ -70,7 +70,7 @@ Authorization stays centralized in the API, while CloudFront enforces signed URL
 
 ## 1) Add dedicated file distribution
 
-- File: `/Users/gustavoiha/Personal/file-storage/infra/cdk/src/stacks/storage-stack.ts` (or a dedicated file-delivery stack).
+- File: `infra/cdk/src/stacks/storage-stack.ts` (or a dedicated file-delivery stack).
 - Configure:
   - S3 origin with OAC
   - behavior for file delivery (distribution can be file-only, with default behavior)
@@ -87,7 +87,7 @@ Authorization stays centralized in the API, while CloudFront enforces signed URL
 
 ## 3) Wire backend signer configuration
 
-- File: `/Users/gustavoiha/Personal/file-storage/infra/cdk/src/stacks/backend-stack.ts`
+- File: `infra/cdk/src/stacks/backend-stack.ts`
 - Add env vars for download-session Lambda:
   - `FILE_CDN_DOMAIN`
   - `FILE_CDN_KEY_PAIR_ID` (or public key id/key group inputs required by signer flow)
@@ -97,14 +97,14 @@ Authorization stays centralized in the API, while CloudFront enforces signed URL
 
 ## 4) Add CloudFront signer helper
 
-- New file: `/Users/gustavoiha/Personal/file-storage/packages/backend/src/lib/cdn.ts`
+- New file: `packages/backend/src/lib/cdn.ts`
 - Use `@aws-sdk/cloudfront-signer`.
 - Input: object path and expiration.
 - Output: signed CloudFront URL for one object.
 
 ## 5) Update download/session endpoints
 
-- File: `/Users/gustavoiha/Personal/file-storage/packages/backend/src/handlers/createDownloadSession.ts`
+- File: `packages/backend/src/handlers/createDownloadSession.ts`
 - Keep existing auth checks:
   - authenticated user from JWT
   - authorize dockspace access via DynamoDB for `sub`
@@ -120,7 +120,7 @@ Authorization stays centralized in the API, while CloudFront enforces signed URL
 
 ## Frontend Impact
 
-- File: `/Users/gustavoiha/Personal/file-storage/apps/web/src/lib/dockspaceApi.ts`
+- File: `apps/web/src/lib/dockspaceApi.ts`
 - Keep API-driven read flow, but consume CloudFront signed URLs returned by API.
 - No need to send auth headers directly to CloudFront, because access is via signed URL.
 

@@ -35,12 +35,12 @@ MVP constraints:
 - Refresh files-related queries after move completion and clear selection.
 
 Primary files:
-- `/Users/gustavoiha/Personal/file-storage/apps/web/src/pages/DockspaceFilesPage.tsx`
-- `/Users/gustavoiha/Personal/file-storage/apps/web/src/components/files/FileList.tsx`
-- `/Users/gustavoiha/Personal/file-storage/apps/web/src/components/files/MoveFilesDialog.tsx` (new)
-- `/Users/gustavoiha/Personal/file-storage/apps/web/src/lib/dockspaceApi.ts`
-- `/Users/gustavoiha/Personal/file-storage/apps/web/src/hooks/useFiles.ts`
-- `/Users/gustavoiha/Personal/file-storage/apps/web/src/styles/layout.css`
+- `apps/web/src/pages/DockspaceFilesPage.tsx`
+- `apps/web/src/components/files/FileList.tsx`
+- `apps/web/src/components/files/MoveFilesDialog.tsx` (new)
+- `apps/web/src/lib/dockspaceApi.ts`
+- `apps/web/src/hooks/useFiles.ts`
+- `apps/web/src/styles/layout.css`
 
 ### Backend
 
@@ -54,9 +54,9 @@ Primary files:
 - Return per-file results to support partial success handling.
 
 Primary files:
-- `/Users/gustavoiha/Personal/file-storage/packages/backend/src/handlers/moveFiles.ts` (new)
-- `/Users/gustavoiha/Personal/file-storage/packages/backend/src/lib/repository.ts`
-- `/Users/gustavoiha/Personal/file-storage/infra/cdk/src/stacks/backend-stack.ts`
+- `packages/backend/src/handlers/moveFiles.ts` (new)
+- `packages/backend/src/lib/repository.ts`
+- `infra/cdk/src/stacks/backend-stack.ts`
 
 ## API Shape (Proposed)
 

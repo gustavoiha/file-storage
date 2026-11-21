@@ -32,7 +32,7 @@ Create a single dockspace-browser state source to drive both main content and si
 
 ### New state module
 
-- New file: `/Users/gustavoiha/Personal/file-storage/apps/web/src/lib/dockspaceBrowserStore.ts`
+- New file: `apps/web/src/lib/dockspaceBrowserStore.ts`
 
 State shape (conceptual):
 - `currentFolderPath: string`
@@ -63,7 +63,7 @@ Actions (conceptual):
 
 ### 1) Sidebar tree UI
 
-- Update file: `/Users/gustavoiha/Personal/file-storage/apps/web/src/components/files/DockspaceSidebar.tsx`
+- Update file: `apps/web/src/components/files/DockspaceSidebar.tsx`
 - Add new section component (or extracted child component):
   - `DirectoryTree`
   - recursive `DirectoryTreeNode`
@@ -75,7 +75,7 @@ Actions (conceptual):
 
 ### 2) Page integration
 
-- Update file: `/Users/gustavoiha/Personal/file-storage/apps/web/src/pages/DockspaceFilesPage.tsx`
+- Update file: `apps/web/src/pages/DockspaceFilesPage.tsx`
 - Replace local-only folder navigation state with shared store/hook values.
 - Pass sidebar tree props:
   - root folder node/path,
@@ -85,7 +85,7 @@ Actions (conceptual):
 
 ### 3) Optional hook abstraction
 
-- New file (optional): `/Users/gustavoiha/Personal/file-storage/apps/web/src/hooks/useDockspaceBrowserState.ts`
+- New file (optional): `apps/web/src/hooks/useDockspaceBrowserState.ts`
 - Encapsulate store reads/writes and lazy loading behavior.
 
 ## Interaction Details
@@ -113,7 +113,7 @@ Actions (conceptual):
 
 ## Styling
 
-- Update file: `/Users/gustavoiha/Personal/file-storage/apps/web/src/styles/layout.css`
+- Update file: `apps/web/src/styles/layout.css`
 - Add styles for:
   - tree indentation per depth,
   - disclosure chevron transitions,
@@ -125,7 +125,7 @@ Actions (conceptual):
 
 ### Component tests
 
-- File: `/Users/gustavoiha/Personal/file-storage/apps/web/src/tests/components/DockspaceSidebar.test.tsx` (new)
+- File: `apps/web/src/tests/components/DockspaceSidebar.test.tsx` (new)
 1. Renders folder nodes only.
 2. Shows direct file-count labels for discovered folders.
 3. Shows loading indicator when expanding undiscovered folder.
@@ -133,14 +133,14 @@ Actions (conceptual):
 
 ### Page/store integration tests
 
-- File: `/Users/gustavoiha/Personal/file-storage/apps/web/src/tests/pages/DockspaceFilesPage.test.tsx`
+- File: `apps/web/src/tests/pages/DockspaceFilesPage.test.tsx`
 1. Opening folder in sidebar updates main file list folder context.
 2. Opening folder in main list updates active state in sidebar tree.
 3. Shared store retains discovered children and avoids duplicate fetch for already discovered node.
 
 ### Hook/store tests
 
-- File: `/Users/gustavoiha/Personal/file-storage/apps/web/src/tests/hooks/useDockspaceBrowserState.test.tsx` (if hook is added)
+- File: `apps/web/src/tests/hooks/useDockspaceBrowserState.test.tsx` (if hook is added)
 1. Toggle expansion state behaves deterministically.
 2. Discovered cache updates correctly by folder node id.
 3. Loading state is per-node and cleared on success/failure.

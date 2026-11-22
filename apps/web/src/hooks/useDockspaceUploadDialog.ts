@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import {
   buildPathInFolder,
+  invalidUploadPathsMessage,
   isValidUploadPath,
   leafFolderPathsForUploads,
   normalizeUploadPath
@@ -112,8 +113,7 @@ export const useDockspaceUploadDialog = ({
     }
 
     if (skippedCount > 0) {
-      const suffix = skippedCount === 1 ? '' : 's';
-      setValidationError(`${skippedCount} file${suffix} had invalid upload paths and were skipped.`);
+      setValidationError(invalidUploadPathsMessage(skippedCount));
     }
 
     enqueueUploads(nextUploads);
@@ -148,8 +148,7 @@ export const useDockspaceUploadDialog = ({
     }
 
     if (skippedCount > 0) {
-      const suffix = skippedCount === 1 ? '' : 's';
-      setValidationError(`${skippedCount} file${suffix} had invalid upload paths and were skipped.`);
+      setValidationError(invalidUploadPathsMessage(skippedCount));
     }
 
     const folderPaths = createFolder

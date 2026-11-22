@@ -399,3 +399,14 @@ Recorded 2026-11-20 by the setup session from a `cdk diff` of origin/main 5678ad
 - Known pre-existing issues still live: phone pill says "an upload failed" for skipped files (T-0045, #96); files upload invalid-paths singular (T-0043, #93); trash copy plurals (T-0041, #85); phone touch targets (T-0038, #82); batches over 120 uploads (T-0042, #90); duplicates summary focus ring (T-0044, #95).
 - Logs: $LOCAL/logs/prod-deploy-diff-pr-20261122T182437Z.log, prod-deploy-diff-20261122T182503Z.log, prod-deploy-web-20261122T182550Z.log, prod-deploy-diff-20261122T182602Z.log.
 - Prod is now at origin/main `923a617` for both infra and web.
+
+### 2026-11-22 — T-0038 — web
+- origin/main commit: `b433bae` (PR #92 squash-merged). Run as `dockspace-prod-agent-deployer` via `prod-deploy.sh`.
+- Pre-deploy: PR #92 at `b993a34` was MERGEABLE/CLEAN with merge base `b2a20d3`; main had moved to `923a617` (T-0040 #88, T-0036 #89, T-0039 #91; T-0040 added a focus rule elsewhere in `layout.css`, no overlap). The PR merged onto `923a617` without conflicts and passed web typecheck, tests (68 files, 548 tests) and build in a local merge-check worktree, and the squash-merged tree matches it. Web only (`layout.css` phone-scoped min-heights, a CSS guard test); no API, backend or infra change. `prod-deploy.sh diff-pr 92` showed 0 stacks with differences. Main since the last deploy (`923a617`) had no commits; `prod-deploy.sh diff` 0 stacks, so no drift.
+- Infra: not run. Post-deploy `prod-deploy.sh diff` at `b433bae` shows 0 stacks with differences.
+- Web (`prod-deploy.sh web`): built and synced to the prod site bucket; invalidated `/*` on the prod distribution. Entry bundle `index-BhS15Phf.js`, `DockspaceMediaPage-BW4iz6FU.js`, stylesheet `index-BVhLaEPo.css`.
+- Shipped: #92 `b433bae` (T-0038).
+- Smoke check: https://dh0djlfa46gz6.cloudfront.net/login serves `index-BhS15Phf.js` and `index-BVhLaEPo.css`, renders the sign-in form, the stylesheet (200, text/css) contains the phone `min-height:2.75rem` rules for the gallery and files-page pill and the selection bar buttons, and the console shows no errors.
+- Known pre-existing issues still live: files-page phone Upload button 37.4px (T-0046, #98); phone pill says "an upload failed" for skipped files (T-0045, #96); files upload invalid-paths singular (T-0043, #93); trash copy plurals (T-0041, #85); batches over 120 uploads (T-0042, #90); duplicates summary focus ring (T-0044, #95).
+- Logs: $LOCAL/logs/prod-deploy-diff-pr-20261122T183043Z.log, prod-deploy-diff-20261122T183125Z.log, prod-deploy-web-20261122T183210Z.log, prod-deploy-diff-20261122T183221Z.log.
+- Prod is now at origin/main `b433bae` for both infra and web.

@@ -355,3 +355,14 @@ Recorded 2026-11-20 by the setup session from a `cdk diff` of origin/main 5678ad
 - Known pre-existing issues still live: phone touch targets under 44px on the uploads pill and selection bar (T-0038, #82); the gallery skipped-files message wording (T-0039, #83); gallery trash dialog focus (T-0040, #84); trash copy plurals (T-0041, #85).
 - Logs: $LOCAL/logs/prod-deploy-diff-pr-20261122T152121Z.log, prod-deploy-diff-20261122T152148Z.log, prod-deploy-web-20261122T152248Z.log, prod-deploy-diff-20261122T152259Z.log.
 - Prod is now at origin/main `6781d67` for both infra and web.
+
+### 2026-11-22 — T-0037 — web
+- origin/main commit: `b2a20d3` (PR #87 squash-merged). Run as `dockspace-prod-agent-deployer` via `prod-deploy.sh`.
+- Pre-deploy: PR #87 at `01671d0` was MERGEABLE/CLEAN with merge base origin/main `e5b701e`, so the merged tree is the one review and testing checked. Web only (`FileViewerDialog.tsx`, `DockspaceMediaPreviewFocus.test.tsx`); no API, backend or infra change. `prod-deploy.sh diff-pr 87` showed 0 stacks with differences. Main since the last deploy (`6781d67`) had one commit, `e5b701e` (#86, agent-team config under `.claude/` only, nothing to deploy); `prod-deploy.sh diff` 0 stacks, so no drift.
+- Infra: not run. Post-deploy `prod-deploy.sh diff` at `b2a20d3` shows 0 stacks with differences.
+- Web (`prod-deploy.sh web`): built and synced to the prod site bucket; invalidated `/*` on the prod distribution. Entry bundle `index-DqI0aAuw.js`, `DockspaceMediaPage-DiAPy7hJ.js`, stylesheet `index-CEQ7djkD.css`.
+- Shipped: #87 `b2a20d3` (T-0037).
+- Smoke check: https://dh0djlfa46gz6.cloudfront.net/login serves `index-DqI0aAuw.js`, renders the sign-in form, `DockspaceMediaPage-DiAPy7hJ.js` is served (200, JavaScript) and contains the arrow-key selector (`audio, video, input, textarea, select, iframe`), and the console shows no errors.
+- Known pre-existing issues still live: gallery trash dialog focus (T-0040, #84); tile placeholder after a gallery upload (T-0036, #79); phone touch targets (T-0038, #82); skipped-files wording (T-0039, #83); trash copy plurals (T-0041, #85).
+- Logs: $LOCAL/logs/prod-deploy-diff-pr-20261122T175112Z.log, prod-deploy-diff-20261122T175144Z.log, prod-deploy-web-20261122T175237Z.log, prod-deploy-diff-20261122T175248Z.log.
+- Prod is now at origin/main `b2a20d3` for both infra and web.

@@ -258,3 +258,14 @@ Recorded 2026-11-20 by the setup session from a `cdk diff` of origin/main 5678ad
 - Known pre-existing issue still live: the files page loops `GET /dockspaces` when that request fails (T-0027, #61, also on `93aef8c`).
 - Logs: $LOCAL/logs/prod-deploy-diff-pr-20261122T105503Z.log, prod-deploy-diff-20261122T105534Z.log, prod-deploy-web-20261122T105619Z.log, prod-deploy-diff-20261122T105630Z.log.
 - Prod is now at origin/main `97ce3a7` for both infra and web.
+
+### 2026-11-22 — T-0027 — web
+- origin/main commit: `6211c82` (PR #62 squash-merged). Run as `dockspace-prod-agent-deployer` via `prod-deploy.sh`.
+- Pre-deploy: PR #62 at `b3c93d6` was MERGEABLE/CLEAN and already contained origin/main `97ce3a7`, so the merged tree is the one engineering and testing checked (`git diff b3c93d6 6211c82` empty). Web only (`DockspaceWorkspacePage.tsx`, `layout.css`, two tests); no API, backend or infra change. `prod-deploy.sh diff-pr 62` showed 0 stacks with differences. Main since the last deploy (`97ce3a7`) had no commits; `prod-deploy.sh diff` 0 stacks, so no drift.
+- Infra: not run. Post-deploy `prod-deploy.sh diff` at `6211c82` shows 0 stacks with differences.
+- Web (`prod-deploy.sh web`): built and synced to the prod site bucket; invalidated `/*` on the prod distribution. Entry bundle `index-BsBaaSbP.js`, `DockspaceWorkspacePage-BElzh_BG.js`, stylesheet `index-BO4WPlwZ.css`.
+- Shipped: #62 `6211c82` (T-0027). This fixes the `GET /dockspaces` loop noted under T-0026.
+- Smoke check: https://dh0djlfa46gz6.cloudfront.net/login serves `index-BsBaaSbP.js`, renders the sign-in form, `DockspaceWorkspacePage-BElzh_BG.js` is served (200, JavaScript) and contains "Couldn't load this dockspace", and the console shows no errors.
+- Known pre-existing issue still live: with the list failing, `/dockspaces` looks empty and the usage page says "Dockspace not found." (T-0028, #63).
+- Logs: $LOCAL/logs/prod-deploy-diff-pr-20261122T111627Z.log, prod-deploy-diff-20261122T111658Z.log, prod-deploy-web-20261122T111741Z.log, prod-deploy-diff-20261122T111752Z.log.
+- Prod is now at origin/main `6211c82` for both infra and web.

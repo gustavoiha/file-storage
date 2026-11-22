@@ -18,6 +18,7 @@ All open tasks have their own issues (#11-#16, sub-issues of request #5) since 2
 - 2026-11-22: T-0032 (#70) split from T-0029 test round 1: the gallery preview leaves focus on the page body when it closes (already on main); focus should return to the opening tile, or to the last shown item's tile. Held until T-0029 (PR #68) is merged.
 - 2026-11-22: T-0029 is live, so T-0031 and T-0032 are dispatched to engineering. The human picked option 1 for T-0030 (album menu button, ⋯ Gallery options, floating uploads card); it goes to design-decision for the final spec, then engineering. All three touch the gallery files, so each rebases on main before its PR.
 - 2026-11-22: T-0033 (#74) and T-0034 (#75) split from T-0031 test round 1, both already on main: an upload from the media gallery does not refresh the gallery (`useUploadFile` does not invalidate `media`), and the gallery Move to trash dialog stays on "Moving..." until the whole gallery refetch ends. Both dispatched to engineering on the next sweep; they touch `useFiles.ts` and the gallery files, so each rebases on main before its PR.
+- 2026-11-22: T-0035 (#77) split from T-0032 test round 1, already on main: the gallery preview does not take focus when it opens and has no Tab trap, so Tab walks the hidden gallery first. Build after T-0032 (PR #72) is merged; it touches the gallery files, so rebase on main before its PR.
 
 ### Shipped
 - 2026-11-22 (prod at 3a8036d): T-0031 Gallery loading status while a background refetch delays the next page (#69, PR #71): when the user reaches the end of the loaded media while a background refetch holds the next page back, the reserved footer's `role="status"` shows "Loading more media..." (only within the load-ahead distance, so nothing is announced at the top of the gallery; not shown next to Try again or in album views).
@@ -86,8 +87,9 @@ All open tasks have their own issues (#11-#16, sub-issues of request #5) since 2
 | T-0027 | #61 | #57 | Stop the dockspace list request loop when it fails on the files page | done | Engineering |
 | T-0028 | #63 | #57 | Show a load error on the dockspaces and usage pages when the dockspace list fails | done | Engineering |
 | T-0029 | #66 | #65 | Gallery infinite scroll: no jump on phone, load further ahead on desktop | done | Engineering |
-| T-0030 | #67 | #65 | Gallery layout: no card frame, actions in a menu, gapless grid | engineering | Design |
+| T-0030 | #67 | #65 | Gallery layout: no card frame, actions in a menu, gapless grid | review | Design |
 | T-0031 | #69 | #65 | Gallery: show loading status while a background refetch delays the next page | done | Engineering |
-| T-0032 | #70 | #65 | Gallery preview returns focus to its tile on close | filtering | Engineering |
+| T-0032 | #70 | #65 | Gallery preview returns focus to its tile on close | deploying | Engineering |
 | T-0033 | #74 | #65 | Gallery shows a file uploaded from the gallery without a reload | review | Engineering |
 | T-0034 | #75 | #65 | Gallery Move to trash dialog closes without waiting for the gallery refetch | engineering | Engineering |
+| T-0035 | #77 | #65 | Gallery preview takes focus when it opens and keeps Tab inside | new | Test results filtering |

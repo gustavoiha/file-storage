@@ -39,9 +39,11 @@ export const DockspaceMediaWorkspace = ({ dockspaceId, controller }: DockspaceMe
     selectedDuplicatePaths,
     uploadErrorMessage,
     mediaListError,
+    mediaNextPageError,
     duplicatesListError,
     mediaHasNextPage,
     mediaIsFetchingNextPage,
+    mediaIsFetching,
     mediaListIsLoading,
     showBulkActions,
     isAssignAlbumMediaPending,
@@ -51,6 +53,7 @@ export const DockspaceMediaWorkspace = ({ dockspaceId, controller }: DockspaceMe
     isLoadingMoreDuplicateGroups,
     onLoadMoreDuplicateGroups,
     onLoadMoreMedia,
+    onRetryNextMediaPage,
     onUploadButtonClick,
     onToggleDuplicates,
     onSelectAllMedia,
@@ -345,7 +348,10 @@ export const DockspaceMediaWorkspace = ({ dockspaceId, controller }: DockspaceMe
                 onOpenPreview={openPreview}
                 hasNextPage={mediaHasNextPage}
                 isFetchingNextPage={mediaIsFetchingNextPage}
+                isFetching={mediaIsFetching}
                 onLoadMore={onLoadMoreMedia}
+                nextPageError={mediaNextPageError}
+                onRetryNextPage={onRetryNextMediaPage}
               />
             )}
           </section>

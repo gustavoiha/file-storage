@@ -1,4 +1,4 @@
-import { useMemo } from 'react';
+import { useMemo, useState } from 'react';
 import { ApiError } from '@/lib/apiClient';
 import type { FileRecord } from '@/lib/apiTypes';
 import {
@@ -91,9 +91,24 @@ export const useMediaPageQueries = ({
     (albumsQuery.error instanceof ApiError && albumsQuery.error.statusCode === 403) ||
     (mediaDuplicatesQuery.error instanceof ApiError && mediaDuplicatesQuery.error.statusCode === 403);
 
+  // A failed next page keeps the loaded tiles and is shown (with Try again) at the end of the grid, not above it.
+  // React Query reports isFetchNextPageError only while the last fetch was a next page: a background refetch (e.g.
+  // after an upload) clears it while the error stays, so remember it here until the query succeeds again.
+  const [rememberedNextPageFailure, setRememberedNextPageFailure] = useState(false);
+  const nextPageFailed =
+    mediaQuery.status === 'error' && (rememberedNextPageFailure || Boolean(mediaQuery.isFetchNextPageError));
+  if (nextPageFailed !== rememberedNextPageFailure) {
+    setRememberedNextPageFailure(nextPageFailed);
+  }
+
+  const mediaNextPageError =
+    !selectedAlbumId && nextPageFailed && mediaQuery.error instanceof Error ? mediaQuery.error.message : null;
+
   const mediaListError =
     selectedAlbumId && selectedAlbumMediaQuery.error instanceof Error
       ? selectedAlbumMediaQuery.error.message
+      : selectedAlbumId || nextPageFailed
+      ? null
       : mediaQuery.error instanceof Error
       ? mediaQuery.error.message
       : null;
@@ -103,6 +118,8 @@ export const useMediaPageQueries = ({
 
   const mediaHasNextPage = !selectedAlbumId && Boolean(mediaQuery.hasNextPage);
   const mediaIsFetchingNextPage = !selectedAlbumId && mediaQuery.isFetchingNextPage;
+  // Any request of the gallery query: a next page or a background refetch of the loaded pages.
+  const mediaIsFetching = !selectedAlbumId && mediaQuery.isFetching;
   const mediaListIsLoading =
     mediaQuery.isLoading || (Boolean(selectedAlbumId) && selectedAlbumMediaQuery.isLoading);
 
@@ -121,9 +138,11 @@ export const useMediaPageQueries = ({
     duplicateSummary,
     unauthorized,
     mediaListError,
+    mediaNextPageError,
     duplicatesListError,
     mediaHasNextPage,
     mediaIsFetchingNextPage,
+    mediaIsFetching,
     mediaListIsLoading
   };
 };

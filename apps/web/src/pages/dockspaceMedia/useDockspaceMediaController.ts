@@ -93,13 +93,31 @@ export const useDockspaceMediaController = ({ dockspaceId }: UseDockspaceMediaCo
     selectionState.clearSelection();
   }, [selectionState]);
 
+  // Automatic loading: never while any request of the query is in flight (a next page, or a background refetch,
+  // which a fetchNextPage with cancelRefetch: false would only join, sending no next-page request), and never after
+  // a next page failed (Try again resumes it). The grid asks again once the in-flight request settles.
   const onLoadMoreMedia = useCallback(() => {
-    if (!mediaData.mediaHasNextPage || mediaData.mediaIsFetchingNextPage) {
+    if (!mediaData.mediaHasNextPage || mediaData.mediaIsFetching || mediaData.mediaNextPageError) {
       return;
     }
 
-    void mediaData.mediaQuery.fetchNextPage();
-  }, [mediaData.mediaHasNextPage, mediaData.mediaIsFetchingNextPage, mediaData.mediaQuery.fetchNextPage]);
+    void mediaData.mediaQuery.fetchNextPage({ cancelRefetch: false });
+  }, [
+    mediaData.mediaHasNextPage,
+    mediaData.mediaIsFetching,
+    mediaData.mediaNextPageError,
+    mediaData.mediaQuery.fetchNextPage
+  ]);
+
+  // Try again after a failed next page: one request per press. The grid shows the button busy while any request is
+  // in flight, and a press then does nothing.
+  const onRetryNextMediaPage = useCallback(() => {
+    if (mediaData.mediaIsFetching) {
+      return;
+    }
+
+    void mediaData.mediaQuery.fetchNextPage({ cancelRefetch: false });
+  }, [mediaData.mediaIsFetching, mediaData.mediaQuery.fetchNextPage]);
 
   useEffect(() => {
     if (!selectedMediaId) {
@@ -361,9 +379,11 @@ export const useDockspaceMediaController = ({ dockspaceId }: UseDockspaceMediaCo
     uploadErrorMessage,
     membershipMutationPending,
     mediaListError: mediaData.mediaListError,
+    mediaNextPageError: mediaData.mediaNextPageError,
     duplicatesListError: mediaData.duplicatesListError,
     mediaHasNextPage: mediaData.mediaHasNextPage,
     mediaIsFetchingNextPage: mediaData.mediaIsFetchingNextPage,
+    mediaIsFetching: mediaData.mediaIsFetching,
     mediaListIsLoading: mediaData.mediaListIsLoading,
     showBulkActions,
     isAssignAlbumMediaPending: assignAlbumMediaMutation.isPending,
@@ -374,6 +394,7 @@ export const useDockspaceMediaController = ({ dockspaceId }: UseDockspaceMediaCo
     isLoadingMoreDuplicateGroups: mediaData.mediaDuplicatesQuery.isFetchingNextPage,
     onLoadMoreDuplicateGroups,
     onLoadMoreMedia,
+    onRetryNextMediaPage,
     onUploadButtonClick,
     onToggleDuplicates,
     onSelectAllMedia,

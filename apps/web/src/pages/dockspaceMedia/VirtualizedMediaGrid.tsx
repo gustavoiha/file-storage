@@ -1,13 +1,21 @@
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { Film, Image as ImageIcon } from 'lucide-react';
 import {
   MEDIA_GRID_GAP_PX,
   MEDIA_GRID_LAYOUT,
   MEDIA_GRID_OVERSCAN_ROWS
 } from '@/pages/dockspaceMedia/mediaGridConfig';
+import {
+  currentScrollSpeed,
+  getLoadAheadPx,
+  nextScrollSpeedSample,
+  shouldLoadNextPage,
+  type ScrollSpeedSample
+} from '@/pages/dockspaceMedia/mediaGridLoadAhead';
 import { basename } from '@/pages/dockspaceMedia/mediaHelpers';
 import type { MediaSelectionOptions, MediaGridSize } from '@/pages/dockspaceMedia/mediaTypes';
 import type { MediaFileRecord } from '@/lib/apiTypes';
+import '@/styles/ui.css';
 
 interface VirtualizedMediaGridProps {
   items: MediaFileRecord[];
@@ -20,7 +28,15 @@ interface VirtualizedMediaGridProps {
   onOpenPreview: (item: MediaFileRecord) => void;
   hasNextPage: boolean;
   isFetchingNextPage: boolean;
+  /**
+   * Any request of the media query in flight (a next page or a background refetch). Defaults to isFetchingNextPage.
+   * No next page is asked for while it is true, and the grid asks again when it turns false.
+   */
+  isFetching?: boolean;
   onLoadMore: () => void;
+  /** Message of a failed next-page request: automatic loading stops and the end of the grid offers Try again. */
+  nextPageError?: string | null;
+  onRetryNextPage?: () => void;
 }
 
 export const VirtualizedMediaGrid = ({
@@ -34,12 +50,16 @@ export const VirtualizedMediaGrid = ({
   onOpenPreview,
   hasNextPage,
   isFetchingNextPage,
-  onLoadMore
+  isFetching = isFetchingNextPage,
+  onLoadMore,
+  nextPageError = null,
+  onRetryNextPage
 }: VirtualizedMediaGridProps) => {
   const containerRef = useRef<HTMLDivElement>(null);
   const [viewportWidth, setViewportWidth] = useState(0);
   const [viewportHeight, setViewportHeight] = useState(0);
   const [scrollTop, setScrollTop] = useState(0);
+  const scrollSpeedRef = useRef<ScrollSpeedSample | null>(null);
   const gridLayout = MEDIA_GRID_LAYOUT[gridSize];
   const rowHeightPx = gridLayout.rowHeightPx;
   const minColumnWidthPx = gridLayout.minColumnWidthPx;
@@ -77,39 +97,92 @@ export const VirtualizedMediaGrid = ({
     1,
     Math.floor((viewportWidth + MEDIA_GRID_GAP_PX) / (minColumnWidthPx + MEDIA_GRID_GAP_PX))
   );
+  // The rows are laid out with a MEDIA_GRID_GAP_PX gap (set inline on the list below, so CSS and this math agree):
+  // a row starts every rowStridePx. Using rowHeightPx alone as the stride made every tile move by one gap each time
+  // a row left the top of the rendered window (a visible jump on iOS, a scroll position correction in Chrome).
+  const rowStridePx = rowHeightPx + MEDIA_GRID_GAP_PX;
   const rowCount = Math.ceil(items.length / columnCount);
-  const totalHeight = rowCount * rowHeightPx;
-  const startRow = Math.max(0, Math.floor(scrollTop / rowHeightPx) - MEDIA_GRID_OVERSCAN_ROWS);
+  const totalHeight = rowCount > 0 ? rowCount * rowStridePx - MEDIA_GRID_GAP_PX : 0;
+  const startRow = Math.max(0, Math.floor(scrollTop / rowStridePx) - MEDIA_GRID_OVERSCAN_ROWS);
   const endRow =
     rowCount > 0
       ? Math.min(
           rowCount - 1,
-          Math.ceil((scrollTop + viewportHeight) / rowHeightPx) + MEDIA_GRID_OVERSCAN_ROWS
+          Math.ceil((scrollTop + viewportHeight) / rowStridePx) + MEDIA_GRID_OVERSCAN_ROWS
         )
       : -1;
   const visibleStartIndex = startRow * columnCount;
   const visibleEndIndex = endRow >= 0 ? Math.min(items.length, (endRow + 1) * columnCount) : 0;
   const visibleItems = items.slice(visibleStartIndex, visibleEndIndex);
-  const topSpacerHeight = startRow * rowHeightPx;
-  const visibleRowCount = endRow >= startRow ? endRow - startRow + 1 : 0;
-  const bottomSpacerHeight = Math.max(0, totalHeight - topSpacerHeight - visibleRowCount * rowHeightPx);
+  const topSpacerHeight = startRow * rowStridePx;
+  // Rows after endRow, each with the gap above it.
+  const bottomSpacerHeight = endRow >= 0 ? Math.max(0, (rowCount - 1 - endRow) * rowStridePx) : 0;
 
   useEffect(() => {
-    if (!hasNextPage || isFetchingNextPage) {
+    const remainingPx = totalHeight - (scrollTop + viewportHeight);
+    // A viewport height is the taller of the grid's own scroll box and the window.
+    const viewportHeightPx = Math.max(viewportHeight, typeof window === 'undefined' ? 0 : window.innerHeight);
+    const loadAheadPx = getLoadAheadPx({
+      viewportHeightPx,
+      scrollSpeedPxPerMs: currentScrollSpeed(scrollSpeedRef.current, performance.now())
+    });
+
+    if (
+      shouldLoadNextPage({
+        remainingPx,
+        loadAheadPx,
+        hasNextPage,
+        isFetching,
+        hasNextPageError: Boolean(nextPageError)
+      })
+    ) {
+      onLoadMore();
+    }
+    // isFetching is a dependency so that the end of a background refetch, which changes nothing else here when the
+    // user reached the bottom during it and stopped scrolling, still asks for the next page.
+  }, [hasNextPage, isFetching, nextPageError, onLoadMore, scrollTop, totalHeight, viewportHeight]);
+
+  // A successful Try again (or a background refetch that succeeds) removes the error and the focused Try again
+  // button. If focus fell to <body>, move it to the first tile the retry loaded, else the old last tile (the retry
+  // loaded nothing, or the virtual window has moved), else the scroll box itself, which is always rendered: both
+  // tiles can be outside the rendered rows when the user scrolled away while the retry ran.
+  const previousErrorRef = useRef<{ message: string | null; itemCount: number }>({
+    message: nextPageError,
+    itemCount: items.length
+  });
+  useLayoutEffect(() => {
+    const previous = previousErrorRef.current;
+    previousErrorRef.current = { message: nextPageError, itemCount: items.length };
+    if (!previous.message || nextPageError) {
       return;
     }
 
-    const remainingHeight = totalHeight - (scrollTop + viewportHeight);
-    if (remainingHeight <= rowHeightPx * 2) {
-      onLoadMore();
+    const active = document.activeElement;
+    if (active && active !== document.body) {
+      return;
     }
-  }, [hasNextPage, isFetchingNextPage, onLoadMore, rowHeightPx, scrollTop, totalHeight, viewportHeight]);
+
+    const container = containerRef.current;
+    const target =
+      container?.querySelector<HTMLElement>(`[data-media-index="${previous.itemCount}"]`) ??
+      container?.querySelector<HTMLElement>(`[data-media-index="${previous.itemCount - 1}"]`) ??
+      container;
+    target?.focus();
+  }, [items.length, nextPageError]);
+
+  const showFooter = hasNextPage || Boolean(nextPageError);
 
   return (
     <div
       ref={containerRef}
       className="media-grid-virtual"
-      onScroll={(event) => setScrollTop(event.currentTarget.scrollTop)}
+      // Focus fallback after a successful Try again (see above); not in the tab order.
+      tabIndex={-1}
+      onScroll={(event) => {
+        const nextScrollTop = event.currentTarget.scrollTop;
+        scrollSpeedRef.current = nextScrollSpeedSample(scrollSpeedRef.current, nextScrollTop, performance.now());
+        setScrollTop(nextScrollTop);
+      }}
     >
       {topSpacerHeight > 0 ? (
         <div className="media-grid-virtual__spacer" style={{ height: `${topSpacerHeight}px` }} />
@@ -118,7 +191,8 @@ export const VirtualizedMediaGrid = ({
       <ul
         className={`media-grid media-grid--virtual media-grid--${gridSize}`}
         style={{
-          gridTemplateColumns: `repeat(${columnCount}, minmax(0, 1fr))`
+          gridTemplateColumns: `repeat(${columnCount}, minmax(0, 1fr))`,
+          gap: `${MEDIA_GRID_GAP_PX}px`
         }}
       >
         {visibleItems.map((item, index) => {
@@ -137,6 +211,7 @@ export const VirtualizedMediaGrid = ({
               <button
                 type="button"
                 className="media-card"
+                data-media-index={absoluteIndex}
                 data-selected={selected}
                 aria-label={`${isMultiSelectMode ? 'Select' : 'Open'} ${basename(item.fullPath)}`}
                 aria-pressed={isMultiSelectMode ? selected : undefined}
@@ -181,7 +256,34 @@ export const VirtualizedMediaGrid = ({
         <div className="media-grid-virtual__spacer" style={{ height: `${bottomSpacerHeight}px` }} />
       ) : null}
 
-      {isFetchingNextPage ? <p className="media-grid-virtual__status">Loading more media...</p> : null}
+      {showFooter ? (
+        // Reserved space at the end of the list: showing or hiding the loading text never changes the scroll height.
+        <div className="media-grid-virtual__footer">
+          {nextPageError ? (
+            <div className="ui-alert ui-alert--error media-grid-virtual__error" role="alert">
+              <span>Couldn&apos;t load more media. {nextPageError}</span>{' '}
+              {/* aria-disabled, not disabled: a disabled button would drop its focus while the retry runs. */}
+              <button
+                type="button"
+                className="dockspace-link-button"
+                // Busy while any request is in flight: a background refetch that succeeds also clears the error.
+                aria-disabled={isFetching ? 'true' : undefined}
+                aria-busy={isFetching ? 'true' : undefined}
+                onClick={() => {
+                  if (!isFetching) {
+                    onRetryNextPage?.();
+                  }
+                }}
+              >
+                {isFetching ? 'Trying again…' : 'Try again'}
+              </button>
+            </div>
+          ) : null}
+          <p className="media-grid-virtual__status" role="status">
+            {isFetchingNextPage && !nextPageError ? 'Loading more media...' : ''}
+          </p>
+        </div>
+      ) : null}
     </div>
   );
 };

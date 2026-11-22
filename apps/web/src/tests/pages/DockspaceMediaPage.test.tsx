@@ -664,7 +664,34 @@ describe('DockspaceMediaPage layout (no sidebar, album menu, gallery options)', 
     });
 
     const card = screen.getByRole('region', { name: 'Uploads' });
-    expect(within(card).getByText(/1 file were skipped/)).toBeInTheDocument();
+    expect(
+      within(card).getByText('1 file was skipped because this gallery accepts only photos and videos.')
+    ).toBeInTheDocument();
     expect(document.querySelector('.media-workspace__alerts')).toBeNull();
+    expect(mockState.stageFiles).not.toHaveBeenCalled();
+  });
+
+  it('names several skipped files in the plural and still uploads the photos and videos', () => {
+    renderPage();
+
+    const photo = new File(['x'], 'IMG_1.jpg', { type: 'image/jpeg' });
+    const input = document.querySelector('input[type="file"]') as HTMLInputElement;
+    act(() => {
+      fireEvent.change(input, {
+        target: {
+          files: [
+            new File(['x'], 'notes.txt', { type: 'text/plain' }),
+            photo,
+            new File(['x'], 'report.pdf', { type: 'application/pdf' })
+          ]
+        }
+      });
+    });
+
+    const card = screen.getByRole('region', { name: 'Uploads' });
+    expect(
+      within(card).getByText('2 files were skipped because this gallery accepts only photos and videos.')
+    ).toBeInTheDocument();
+    expect(mockState.stageFiles).toHaveBeenCalledWith([photo]);
   });
 });

@@ -27,6 +27,7 @@ All open tasks have their own issues (#11-#16, sub-issues of request #5) since 2
 - 2026-11-22 sweep: PRs #76 (T-0033) and #80 (T-0035) are still open, so T-0036 and T-0037 stay new; nothing dispatched.
 - 2026-11-22 sweep: PRs #73 (T-0030), #76 (T-0033) and #80 (T-0035) are still open, so T-0036, T-0037, T-0038 and T-0039 stay new; nothing dispatched.
 - 2026-11-22 sweep: PRs #73 (T-0030), #76 (T-0033), #78 (T-0034) and #80 (T-0035) are still open, so T-0036 to T-0041 stay new; nothing dispatched.
+- 2026-11-22 sweep: all prerequisite PRs (#73, #76, #78, #80) are merged and live. T-0036, T-0037 and T-0040 dispatched to engineering (3-dispatch limit). T-0038, T-0039 and T-0041 are unblocked and queued for the next sweep (T-0039 and T-0041 change the same controller, so pair or sequence them). All gallery tasks rebase on main before their PRs.
 
 ### Shipped
 - 2026-11-22 (prod at 6781d67): T-0030 Gallery layout: no card frame, actions in a menu, gapless grid (#67, PR #73): the gallery has no card frame and spans the full width; the sidebar is gone, with an album menu button (All media and each album with counts, current one marked), a ⋯ Gallery options menu (Find duplicates / Browse media, Trash, Detailed usage) and a floating uploads card with a toolbar pill while uploads run; tiles are square with no gap, radius or border, and selection and keyboard focus show as an inset ring. Follow-ups T-0038 (#82), T-0039 (#83), T-0040 (#84), T-0041 (#85).
@@ -106,9 +107,9 @@ All open tasks have their own issues (#11-#16, sub-issues of request #5) since 2
 | T-0033 | #74 | #65 | Gallery shows a file uploaded from the gallery without a reload | done | Engineering |
 | T-0034 | #75 | #65 | Gallery Move to trash dialog closes without waiting for the gallery refetch | done | Engineering |
 | T-0035 | #77 | #65 | Gallery preview takes focus when it opens and keeps Tab inside | done | Deployment |
-| T-0036 | #79 | #65 | Gallery shows a new upload's thumbnail without a reload | new | Test results filtering |
-| T-0037 | #81 | #65 | Gallery preview arrow keys seek video/audio instead of changing the item | new | Review judge |
+| T-0036 | #79 | #65 | Gallery shows a new upload's thumbnail without a reload | engineering | Test results filtering |
+| T-0037 | #81 | #65 | Gallery preview arrow keys seek video/audio instead of changing the item | engineering | Review judge |
 | T-0038 | #82 | #65 | Phone touch targets at least 44px: uploads pill and gallery selection bar | new | Test results filtering |
 | T-0039 | #83 | #65 | Gallery skipped-files message: correct plural and no internal type name | new | Test results filtering |
-| T-0040 | #84 | #65 | Gallery Move to trash dialog: focus on open, Tab trap, focus after close | new | Test results filtering |
+| T-0040 | #84 | #65 | Gallery Move to trash dialog: focus on open, Tab trap, focus after close | engineering | Test results filtering |
 | T-0041 | #85 | #65 | Gallery trash messages: correct plurals, success not shown as an error | new | Test results filtering |

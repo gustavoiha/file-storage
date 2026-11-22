@@ -273,11 +273,13 @@ describe('Media gallery paging', () => {
     });
     await waitFor(() => expect(api.listMedia).toHaveBeenCalledTimes(7));
 
-    // The user reaches the bottom during the refetch and stops scrolling: no next page is asked for yet, and the
-    // reserved footer says why.
+    // At the top nothing is held back by the refetch, so nothing is announced.
     const scroller = document.querySelector('.media-grid-virtual') as HTMLElement;
     const status = scroller.querySelector('.media-grid-virtual__footer [role="status"]') as HTMLElement;
-    expect(status).toHaveTextContent('Loading more media...');
+    expect(status.textContent).toBe('');
+
+    // The user reaches the bottom during the refetch and stops scrolling: no next page is asked for yet, and the
+    // reserved footer says why.
     fireEvent.scroll(scroller, { target: { scrollTop: 6 * 420 - 12 - BOX_HEIGHT } });
     await settle();
     expect(api.listMedia).toHaveBeenCalledTimes(7);
@@ -294,6 +296,41 @@ describe('Media gallery paging', () => {
     await settle();
     expect(api.inFlight).toBe(0);
     expect(status.textContent).toBe('');
+  });
+
+  it('announces nothing during a background refetch while the user stays at the top of the gallery', async () => {
+    servePages(20, 8);
+    const client = createTestQueryClient();
+    renderPage(client);
+    await waitFor(() => expect(api.listMedia).toHaveBeenCalledTimes(6));
+    await settle();
+    const scroller = document.querySelector('.media-grid-virtual') as HTMLElement;
+    const status = scroller.querySelector('.media-grid-virtual__footer [role="status"]') as HTMLElement;
+    expect(status.textContent).toBe('');
+    // Every text the live region gets, even for one render.
+    const announced: string[] = [];
+    const observer = new MutationObserver(() => announced.push(status.textContent ?? ''));
+    observer.observe(status, { childList: true, characterData: true, subtree: true });
+
+    // A refetch after an upload, trash or album change (or a return to the tab) re-requests the loaded pages. The
+    // lookahead below the top is full, so no next page waits on it and the live region stays empty throughout.
+    const releaseRefetch = holdNextRequest(undefined);
+    act(() => {
+      void client.invalidateQueries({ queryKey: ['media'] });
+    });
+    await waitFor(() => expect(api.listMedia).toHaveBeenCalledTimes(7));
+    await settle();
+    expect(api.inFlight).toBe(1);
+    expect(status.textContent).toBe('');
+
+    await releaseRefetch();
+    await waitFor(() => expect(api.listMedia).toHaveBeenCalledTimes(12));
+    await settle();
+    expect(api.inFlight).toBe(0);
+    expect(api.listMedia).toHaveBeenCalledTimes(12);
+    expect(status.textContent).toBe('');
+    observer.disconnect();
+    expect(announced.filter((text) => text !== '')).toEqual([]);
   });
 
   it('keeps Try again busy during a background refetch, and a press then sends nothing', async () => {

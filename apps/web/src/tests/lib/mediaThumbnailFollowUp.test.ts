@@ -458,6 +458,83 @@ describe('createMediaThumbnailFollowUp', () => {
       instance.dispose();
     });
 
+    it('keeps following a slow upload past two API pages once the rest of the batch has thumbnails', async () => {
+      let round = 0;
+      // Every upload has its thumbnail by round 1 except upload 450 (a video near the bottom of the batch): round 4.
+      const hasThumbnail = (index: number) => round >= (index === 450 ? 4 : 1);
+      fetchLatest.mockImplementation(serveListing(() => library(500, 50, hasThumbnail)));
+      client.setQueryData(queryKey, loadedGallery(library(500, 50, () => false), 1));
+
+      const instance = followUp();
+      instance.start(uploadPaths(500));
+      round = 1;
+      await advance(MEDIA_THUMBNAIL_FOLLOW_UP_DELAYS_MS[0]!);
+      expect(fetchLatest).toHaveBeenCalledTimes(3);
+      expect(loadedUploads().every((entry) => entry.thumbnail)).toBe(true);
+
+      // One path is left, yet the walk still reaches it at position 450 (past two pages of 200).
+      round = 2;
+      fetchLatest.mockClear();
+      await advance(MEDIA_THUMBNAIL_FOLLOW_UP_DELAYS_MS[1]!);
+      expect(fetchLatest.mock.calls.map(([options]) => options)).toEqual([
+        { limit: MEDIA_LIST_MAX_PAGE_SIZE },
+        { cursor: '200', limit: MEDIA_LIST_MAX_PAGE_SIZE },
+        { cursor: '400', limit: MEDIA_LIST_MAX_PAGE_SIZE }
+      ]);
+
+      // The user scrolls down to it: it is loaded, still without a thumbnail.
+      round = 3;
+      client.setQueryData(queryKey, loadedGallery(library(500, 50, hasThumbnail), 4));
+      await advance(MEDIA_THUMBNAIL_FOLLOW_UP_DELAYS_MS[2]!);
+      expect(loadedItem(client, uploadName(450))?.thumbnail).toBeUndefined();
+
+      round = 4;
+      await advance(MEDIA_THUMBNAIL_FOLLOW_UP_DELAYS_MS[3]!);
+      expect(loadedItem(client, uploadName(450))?.thumbnail?.url).toBe(`https://thumbs.example/${uploadName(450)}`);
+      expect(loadedUploads()).toHaveLength(480);
+      expect(loadedUploads().every((entry) => entry.thumbnail)).toBe(true);
+
+      const callsWhenShown = fetchLatest.mock.calls.length;
+      await advance(10 * 60_000);
+      expect(fetchLatest).toHaveBeenCalledTimes(callsWhenShown);
+      instance.dispose();
+    });
+
+    it('keeps a slow upload of an earlier large batch when a small new batch restarts the follow-up', async () => {
+      let round = 0;
+      const hasThumbnail = (index: number) => round >= (index === 450 ? 3 : 1);
+      const firstBatch = () => library(500, 50, hasThumbnail);
+      // A second batch of 10 lists above the first one.
+      const secondBatch = () =>
+        Array.from({ length: 10 }, (_, index) => ({
+          ...item(`second-${index}.jpg`, round >= 1),
+          updatedAt: new Date(Date.UTC(2026, 10, 22, 13, 0, 0) - index * 1000).toISOString()
+        }));
+      let withSecond = false;
+      const listing = () => (withSecond ? [...secondBatch(), ...firstBatch()] : firstBatch());
+      fetchLatest.mockImplementation(serveListing(listing));
+      client.setQueryData(queryKey, loadedGallery(listing(), 1));
+
+      const instance = followUp();
+      instance.start(uploadPaths(500));
+      round = 1;
+      await advance(MEDIA_THUMBNAIL_FOLLOW_UP_DELAYS_MS[0]!);
+      expect(loadedUploads().every((entry) => entry.thumbnail)).toBe(true);
+
+      // The second batch: upload 450 now sits at position 460, beyond two pages of 120.
+      withSecond = true;
+      client.setQueryData(queryKey, loadedGallery(listing(), 1));
+      instance.start(Array.from({ length: 10 }, (_, index) => `/second-${index}.jpg`));
+      round = 2;
+      await advance(MEDIA_THUMBNAIL_FOLLOW_UP_DELAYS_MS[0]!);
+
+      client.setQueryData(queryKey, loadedGallery(listing(), 4));
+      round = 3;
+      await advance(MEDIA_THUMBNAIL_FOLLOW_UP_DELAYS_MS[1]!);
+      expect(loadedItem(client, uploadName(450))?.thumbnail?.url).toBe(`https://thumbs.example/${uploadName(450)}`);
+      instance.dispose();
+    });
+
     it('stops early once the uploads not loaded have their thumbnail too', async () => {
       fetchLatest.mockImplementation(serveListing(() => library(130, 20, () => true)));
       client.setQueryData(queryKey, loadedGallery(library(130, 20, () => false), 1));

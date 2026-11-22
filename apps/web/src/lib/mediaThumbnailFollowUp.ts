@@ -122,8 +122,9 @@ export interface MediaThumbnailFollowUp {
 /**
  * Follows recently uploaded items until each has a thumbnail. Every round requests the newest items again (pages
  * sized to the batch, between `minPageSize` and the API's 200, walking on only while a followed item is still
- * unseen, and at most one page more than the batch needs), copies the thumbnails that arrived onto the loaded items,
- * and drops a path once its item has a thumbnail, is not listed where the newest items are, or the rounds run out.
+ * unseen, and at most one page more than the whole batch needs, set at start), copies the thumbnails that arrived
+ * onto the loaded items, and drops a path once its item has a thumbnail, is not listed where the newest items are,
+ * or the rounds run out.
  * A path whose item is not loaded (beyond the loaded pages) stays followed, so a tile the user scrolls to later
  * still gets its thumbnail.
  *
@@ -145,6 +146,11 @@ export const createMediaThumbnailFollowUp = ({
   // Items per request, set from the followed count at start: the uploads are the newest items, so one request of
   // this size usually covers them all. It does not shrink as paths drop, since the ones left can be anywhere in it.
   let pageLimit = minPageSize;
+  // How deep in the listing the followed uploads can be: the batch size at start (a new batch while following adds to
+  // it, since it lists above the earlier one). It sets the pages per round and, like `pageLimit`, does not shrink as
+  // paths drop: an upload still waiting can sit at the bottom of a large batch.
+  let followedDepth = 0;
+  let pagesPerRound = 1;
   let step = 0;
   let timer: ReturnType<typeof setTimeout> | null = null;
   // Bumped by start and dispose, so a request that was in flight does not schedule a second chain of rounds.
@@ -215,12 +221,12 @@ export const createMediaThumbnailFollowUp = ({
     }
 
     const limit = pageLimit;
-    // Enough pages for every followed item, plus one for items listed above them since (other uploads, edits).
-    const maxPages = Math.ceil(followedPaths.size / limit) + 1;
+    const maxPages = pagesPerRound;
     const fetchedItems: MediaFileRecord[] = [];
     const seen = new Map<string, MediaFileRecord>();
-    // Whether the walk covered every page the followed items can be on: the listing's end, or `maxPages` pages.
-    let walkComplete = false;
+    // Whether the walk reached the listing's end, or stopped at `maxPages` pages before it.
+    let reachedEnd = false;
+    let reachedPageCap = false;
     let oldestFetchedUpdatedAt: string | undefined;
     const isPassed = (path: string) => {
       const updatedAt = lastUpdatedAt.get(path);
@@ -249,8 +255,13 @@ export const createMediaThumbnailFollowUp = ({
       }
 
       oldestFetchedUpdatedAt = page.items[page.items.length - 1]?.updatedAt ?? oldestFetchedUpdatedAt;
-      if (!page.nextCursor || pageCount >= maxPages) {
-        walkComplete = true;
+      if (!page.nextCursor) {
+        reachedEnd = true;
+        break;
+      }
+
+      if (pageCount >= maxPages) {
+        reachedPageCap = true;
         break;
       }
 
@@ -277,13 +288,16 @@ export const createMediaThumbnailFollowUp = ({
     const restarted = roundRun !== run;
     for (const path of [...followedPaths]) {
       const item = seen.get(path);
+      // Stopping at the page cap shows a path is not listed only when its place in the listing is unknown; one whose
+      // `updatedAt` is known and not yet passed is still further down, so the bound ends it instead.
+      const notListed = reachedEnd || isPassed(path) || (reachedPageCap && !lastUpdatedAt.has(path));
       if (item) {
         if (item.thumbnail && canWrite) {
           stopFollowing(path);
         } else {
           lastUpdatedAt.set(path, item.updatedAt);
         }
-      } else if (!restarted && (walkComplete || isPassed(path))) {
+      } else if (!restarted && notListed) {
         // Not listed where the newest items are: it is gone (trashed, moved, renamed) or was never media.
         stopFollowing(path);
       }
@@ -300,11 +314,20 @@ export const createMediaThumbnailFollowUp = ({
         return;
       }
 
-      for (const path of uploadedPaths) {
-        followedPaths.add(path);
+      if (followedPaths.size === 0) {
+        followedDepth = 0;
       }
 
-      pageLimit = Math.min(MEDIA_LIST_MAX_PAGE_SIZE, Math.max(minPageSize, followedPaths.size));
+      for (const path of uploadedPaths) {
+        if (!followedPaths.has(path)) {
+          followedPaths.add(path);
+          followedDepth += 1;
+        }
+      }
+
+      pageLimit = Math.min(MEDIA_LIST_MAX_PAGE_SIZE, Math.max(minPageSize, followedDepth));
+      // Enough pages for the whole batch, plus one for items listed above it since (other uploads, edits).
+      pagesPerRound = Math.ceil(followedDepth / pageLimit) + 1;
       run += 1;
       step = 0;
       clearTimer();

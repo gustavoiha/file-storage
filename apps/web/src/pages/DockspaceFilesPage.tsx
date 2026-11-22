@@ -158,6 +158,8 @@ const parentFolderPathFromPath = (fullPath: string): string => {
 
 /** A folder created, or a file uploaded, while the listing of the folder it went into had not loaded. */
 interface SavedUnlistedItem {
+  /** The folder the item went into: the folder open when the create or upload started. */
+  folderPath: string;
   fullPath: string;
   kind: 'created-folder' | 'uploaded-file';
 }
@@ -169,8 +171,9 @@ interface SavedUnlistedEntry {
   created: boolean;
 }
 
-const childEntryInFolder = (folderPath: string, item: SavedUnlistedItem): SavedUnlistedEntry | null => {
-  const folderSegments = folderPath.split('/').filter(Boolean);
+/** The entry directly inside the folder the saved item went into: the item itself, or a folder upload's top folder. */
+const savedUnlistedEntry = (item: SavedUnlistedItem): SavedUnlistedEntry | null => {
+  const folderSegments = item.folderPath.split('/').filter(Boolean);
   const segments = item.fullPath.split('/').filter(Boolean);
   if (
     segments.length <= folderSegments.length ||
@@ -416,18 +419,24 @@ export const DockspaceFilesPage = () => {
     }
   }, [currentFolder.folderNodeId, listingFailed]);
 
-  // Items created or uploaded into the open folder while its listing was not loaded (it failed). The list cannot show
-  // them (and their pending rows would otherwise stay "Creating..." or vanish), so the page says they were saved.
-  // Dropped once that folder's listing loads, which shows them.
+  // Items created or uploaded into a folder whose listing was not loaded (it failed) when they were saved. The list
+  // cannot show them (and their pending rows would otherwise stay "Creating..." or vanish), so while that folder is
+  // open with its listing still not loaded, the page says they were saved. Each record keeps the folder the item went
+  // into, and is dropped only once that same folder is open with its listing loaded, which shows the item: opening
+  // another folder (an ancestor included) keeps it.
   const [savedUnlistedItems, setSavedUnlistedItems] = useState<SavedUnlistedItem[]>([]);
   const listingStateRef = useRef({ folderPath: currentFolder.fullPath, hasListing });
   useLayoutEffect(() => {
     listingStateRef.current = { folderPath: currentFolder.fullPath, hasListing };
   }, [currentFolder.fullPath, hasListing]);
-  /** Records an item saved into the open folder while its listing is not loaded. */
+  /**
+   * Records a saved item unless the folder it went into is open with its listing loaded (whose refetch shows it). One
+   * that finishes while another folder is open is kept too: if its folder's listing has not loaded when it is opened
+   * again, the line says it was saved; if it has, the record is dropped without being shown.
+   */
   const recordSavedIfUnlisted = useCallback((item: SavedUnlistedItem) => {
     const { folderPath, hasListing: listed } = listingStateRef.current;
-    if (listed || !childEntryInFolder(folderPath, item)) {
+    if ((item.folderPath === folderPath && listed) || !savedUnlistedEntry(item)) {
       return;
     }
     setSavedUnlistedItems((previous) =>
@@ -440,21 +449,27 @@ export const DockspaceFilesPage = () => {
       return;
     }
     setSavedUnlistedItems((previous) => {
-      const next = previous.filter((item) => !childEntryInFolder(currentFolder.fullPath, item));
+      const next = previous.filter((item) => item.folderPath !== currentFolder.fullPath);
       return next.length === previous.length ? previous : next;
     });
   }, [currentFolder.fullPath, hasListing, savedUnlistedItems]);
-  const savedUnlistedEntries = useMemo(() => {
+  const openFolderSavedItems = useMemo(
+    () => savedUnlistedItems.filter((item) => item.folderPath === currentFolder.fullPath),
+    [currentFolder.fullPath, savedUnlistedItems]
+  );
+  const savedUnlistedMessage = useMemo(() => {
+    if (hasListing) {
+      return null;
+    }
     const entries = new Map<string, SavedUnlistedEntry>();
-    for (const item of savedUnlistedItems) {
-      const entry = childEntryInFolder(currentFolder.fullPath, item);
+    for (const item of openFolderSavedItems) {
+      const entry = savedUnlistedEntry(item);
       if (entry && !entries.has(entry.fullPath)) {
         entries.set(entry.fullPath, entry);
       }
     }
-    return Array.from(entries.values());
-  }, [currentFolder.fullPath, savedUnlistedItems]);
-  const savedUnlistedMessage = hasListing ? null : describeSavedUnlistedEntries(savedUnlistedEntries);
+    return describeSavedUnlistedEntries(Array.from(entries.values()));
+  }, [hasListing, openFolderSavedItems]);
 
   const folders = useMemo(
     () =>
@@ -595,7 +610,8 @@ export const DockspaceFilesPage = () => {
   const createFolderAndFocusRow = useCallback(
     async (fullPath: string) => {
       const response = await createFolder.mutateAsync(fullPath);
-      recordSavedIfUnlisted({ fullPath, kind: 'created-folder' });
+      // The dialog creates a folder directly inside the folder open when it was submitted.
+      recordSavedIfUnlisted({ folderPath: parentFolderPathFromPath(fullPath), fullPath, kind: 'created-folder' });
       // Into a folder whose listing still failed, the new folder gets no row: the dialog then returns focus to its
       // opener once it gives up waiting for the row.
       returnFocusToRowAfterSubmit(fullPath);
@@ -617,9 +633,13 @@ export const DockspaceFilesPage = () => {
 
   const uploadFileMutateAsync = uploadFile.mutateAsync;
   const uploadFileAndRecord = useCallback(
-    async (params: Parameters<typeof uploadFileMutateAsync>[0]) => {
+    async ({ folderPath, ...params }: Parameters<typeof uploadFileMutateAsync>[0] & { folderPath?: string }) => {
       const response = await uploadFileMutateAsync(params);
-      recordSavedIfUnlisted({ fullPath: params.fullPath, kind: 'uploaded-file' });
+      recordSavedIfUnlisted({
+        folderPath: folderPath ?? parentFolderPathFromPath(params.fullPath),
+        fullPath: params.fullPath,
+        kind: 'uploaded-file'
+      });
       return response;
     },
     [recordSavedIfUnlisted, uploadFileMutateAsync]
@@ -1633,12 +1653,12 @@ export const DockspaceFilesPage = () => {
   );
   // A folder created into a folder whose listing failed is described above the list instead of staying "Creating...".
   const pendingFolderPathsInList = useMemo(() => {
-    if (hasListing || !savedUnlistedItems.length) {
+    if (hasListing || !openFolderSavedItems.length) {
       return addFolderDialog.pendingFolderPaths;
     }
-    const savedPaths = new Set(savedUnlistedItems.map((item) => item.fullPath));
+    const savedPaths = new Set(openFolderSavedItems.map((item) => item.fullPath));
     return addFolderDialog.pendingFolderPaths.filter((pendingPath) => !savedPaths.has(pendingPath));
-  }, [addFolderDialog.pendingFolderPaths, hasListing, savedUnlistedItems]);
+  }, [addFolderDialog.pendingFolderPaths, hasListing, openFolderSavedItems]);
   const pendingUploadFolderPaths = useMemo(() => {
     const folderPaths = new Set<string>();
 

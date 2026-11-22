@@ -95,6 +95,7 @@ describe('useDockspaceUploadDialog', () => {
     expect(uploadFile).toHaveBeenCalledWith(
       expect.objectContaining({
         fullPath: '/target/project/a.txt',
+        folderPath: '/target',
         onProgress: expect.any(Function)
       })
     );

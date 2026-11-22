@@ -113,9 +113,9 @@ const onUnhandledRejection = (reason: unknown) => {
   unhandledRejections.push(reason);
 };
 
-const renderPage = () =>
+const renderPage = (client = createTestQueryClient()) =>
   render(
-    <QueryWrapper client={createTestQueryClient()}>
+    <QueryWrapper client={client}>
       <DockspaceFilesPage />
     </QueryWrapper>
   );
@@ -430,6 +430,104 @@ describe('DockspaceFilesPage open folder listing', () => {
     await waitFor(() => expect(within(column).queryByRole('alert')).not.toBeInTheDocument());
     expect(folderButton('Receipts')).toBeInTheDocument();
     expect(within(column).queryByText('Creating...')).not.toBeInTheDocument();
+    expect(screen.queryByText(/It will show here after Try again/)).not.toBeInTheDocument();
+    expect(unhandledRejections).toEqual([]);
+  });
+
+  it('keeps saying a folder was created into a failed folder after opening a loaded ancestor and coming back', async () => {
+    failingFolderNodeIds = new Set(['d_travel']);
+    createFolder.mockImplementation(async (_dockspaceId, folderPath) => {
+      addedItems = { d_travel: [child('folder', 'd_receipts', 'Receipts', 'd_travel')] };
+      return { folderPath, folderNodeId: 'd_receipts', created: true };
+    });
+    renderPage();
+
+    await waitFor(() => expect(folderButton('Travel')).toBeInTheDocument());
+    fireEvent.click(folderButton('Travel'));
+    const travel = currentColumn('Travel');
+    await within(travel).findByRole('alert');
+    await settle();
+
+    fireEvent.click(screen.getByRole('button', { name: 'New folder' }));
+    const dialog = screen.getByRole('dialog', { name: 'Add folder' });
+    fireEvent.change(within(dialog).getByLabelText('Folder name'), { target: { value: 'Receipts' } });
+    fireEvent.click(within(dialog).getByRole('button', { name: 'Create' }));
+    await waitFor(() => expect(createFolder).toHaveBeenCalledWith('v1', '/Travel/Receipts'));
+    const savedLine = '"Receipts" was created. It will show here after Try again.';
+    await waitFor(() => expect(within(travel).getByText(savedLine)).toBeInTheDocument());
+    await settle();
+    expect(within(travel).queryByText('Creating...')).not.toBeInTheDocument();
+
+    // Up to the root, whose listing loads. The folder was not created there, so the root says nothing about it.
+    fireEvent.click(
+      within(screen.getByRole('navigation', { name: 'Folder path' })).getByRole('button', { name: 'My Dockspace' })
+    );
+    const root = currentColumn('My Dockspace');
+    await waitFor(() => expect(within(root).getByText('Travel')).toBeInTheDocument());
+    await settle();
+    expect(screen.queryByText(/It will show here after Try again/)).not.toBeInTheDocument();
+    expect(screen.queryByText('Creating...')).not.toBeInTheDocument();
+
+    // Back into Travel, whose listing still fails: still no "Creating..." row, and the line says it was created.
+    fireEvent.click(folderButton('Travel'));
+    const travelAgain = currentColumn('Travel');
+    await within(travelAgain).findByRole('alert');
+    await settle();
+    expect(within(travelAgain).getByText(savedLine).closest('[role="status"]')).not.toBeNull();
+    expect(within(travelAgain).queryByText('Creating...')).not.toBeInTheDocument();
+    expectNoEmptyState();
+
+    // Try again lists it.
+    failingFolderNodeIds = new Set();
+    fireEvent.click(within(travelAgain).getByRole('button', { name: 'Try again' }));
+    await waitFor(() => expect(within(travelAgain).queryByRole('alert')).not.toBeInTheDocument());
+    expect(folderButton('Receipts')).toBeInTheDocument();
+    expect(screen.queryByText(/It will show here after Try again/)).not.toBeInTheDocument();
+    expect(unhandledRejections).toEqual([]);
+  });
+
+  it('does not say an upload into another folder was saved into an open folder whose listing failed', async () => {
+    let finishUpload: () => void = () => {};
+    uploadFile.mockImplementation(
+      () =>
+        new Promise<void>((resolve) => {
+          finishUpload = () => {
+            addedItems = { d_travel: [child('file', 'f_notes', 'notes.txt', 'd_travel')] };
+            resolve();
+          };
+        })
+    );
+    const client = createTestQueryClient();
+    const { container } = renderPage(client);
+
+    await waitFor(() => expect(folderButton('Travel')).toBeInTheDocument());
+    fireEvent.click(folderButton('Travel'));
+    const travel = currentColumn('Travel');
+    await waitFor(() => expect(within(travel).getByText('packing-list.txt')).toBeInTheDocument());
+
+    // An upload into Travel, whose listing is loaded.
+    const fileInput = container.querySelector<HTMLInputElement>('input[type="file"][multiple]')!;
+    fireEvent.change(fileInput, { target: { files: [new File(['x'], 'notes.txt')] } });
+    await waitFor(() => expect(uploadFile).toHaveBeenCalledTimes(1));
+    expect(uploadFile.mock.calls[0]?.[1]).toBe('/Travel/notes.txt');
+
+    // While it runs, the root's listing is lost and now fails, and the user goes up to the root.
+    failingFolderNodeIds = new Set(['root']);
+    await act(async () => {
+      await client.resetQueries({ queryKey: ['files', 'u1', 'v1', 'root'] });
+    });
+    fireEvent.click(
+      within(screen.getByRole('navigation', { name: 'Folder path' })).getByRole('button', { name: 'My Dockspace' })
+    );
+    const root = currentColumn('My Dockspace');
+    await within(root).findByRole('alert');
+    await settle();
+
+    // The upload finishes while the failed root is open: nothing was uploaded into the root, so it says nothing.
+    finishUpload();
+    await settle();
+    expect(within(root).getByRole('alert')).toHaveTextContent('Request failed');
+    expect(screen.queryByText(/was uploaded/)).not.toBeInTheDocument();
     expect(screen.queryByText(/It will show here after Try again/)).not.toBeInTheDocument();
     expect(unhandledRejections).toEqual([]);
   });

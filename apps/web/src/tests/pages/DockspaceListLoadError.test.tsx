@@ -217,6 +217,23 @@ describe.each([
     expect(document.activeElement).toBe(document.body);
   });
 
+  it('a retry that returns 403 shows Not Authorized and moves focus to the page title, not <body>', async () => {
+    mocks.listDockspaces.mockRejectedValueOnce(serverError());
+    await renderAt(path);
+    await screen.findByRole('alert');
+
+    const tryAgain = tryAgainButton();
+    tryAgain.focus();
+    mocks.listDockspaces.mockRejectedValueOnce(new ApiError('Not authorized for this account', 403));
+    fireEvent.click(tryAgain);
+
+    expect(await screen.findByText('Not Authorized')).toBeInTheDocument();
+    expect(screen.queryByRole('alert')).not.toBeInTheDocument();
+    const title = screen.getByRole('heading', { level: 1 });
+    expect(title).toHaveAttribute('tabindex', '-1');
+    expect(document.activeElement).toBe(title);
+  });
+
   it('shows the Not Authorized notice for a 403, without Try again', async () => {
     mocks.listDockspaces.mockRejectedValue(new ApiError('Not authorized for this account', 403));
     await renderAt(path);
@@ -264,6 +281,22 @@ describe('usage page when the list loaded', () => {
 
     expect(await screen.findByText('Dockspace not found.')).toBeInTheDocument();
     expect(screen.queryByRole('alert')).not.toBeInTheDocument();
+  });
+
+  it('a successful retry that loads a list without that dockspace moves focus to the page title, not <body>', async () => {
+    mocks.listDockspaces.mockRejectedValueOnce(serverError());
+    await renderAt('/dockspaces/v1/usage');
+    await screen.findByRole('alert');
+
+    const tryAgain = tryAgainButton();
+    tryAgain.focus();
+    mocks.listDockspaces.mockResolvedValueOnce([{ ...dockspace, dockspaceId: 'other' }]);
+    fireEvent.click(tryAgain);
+
+    expect(await screen.findByText('Dockspace not found.')).toBeInTheDocument();
+    const title = screen.getByRole('heading', { level: 1, name: 'Detailed usage' });
+    expect(title).toHaveAttribute('tabindex', '-1');
+    expect(document.activeElement).toBe(title);
   });
 
   it('shows the usage of a listed dockspace', async () => {

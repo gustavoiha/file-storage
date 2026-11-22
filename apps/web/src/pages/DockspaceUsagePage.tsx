@@ -56,15 +56,17 @@ const formatDockspaceType = (dockspaceType: 'GENERIC_FILES' | 'PHOTOS_VIDEOS'): 
 export const DockspaceUsagePage = () => {
   const { dockspaceId } = useParams({ from: '/dockspaces/$dockspaceId/usage' });
   const backLinkRef = useRef<HTMLAnchorElement | null>(null);
+  const titleRef = useRef<HTMLHeadingElement | null>(null);
   const dockspaceList = useDockspaceListLoad({
-    // After Try again loads the list: Back to dockspace (the usage card's stable control).
-    getFocusTarget: () => backLinkRef.current
+    // After Try again loads the list: Back to dockspace (the usage card's stable control). "Dockspace not found." and
+    // Not Authorized (a retry that returns 403) have no control: the page title.
+    getFocusTarget: () => backLinkRef.current ?? titleRef.current
   });
   const dockspace = dockspaceList.dockspaces?.find((item) => item.dockspaceId === dockspaceId);
 
   return (
     <RequireAuth>
-      <Page title={dockspace ? `${dockspace.name} usage` : 'Detailed usage'}>
+      <Page title={dockspace ? `${dockspace.name} usage` : 'Detailed usage'} titleRef={titleRef}>
         {dockspaceList.unauthorized ? (
           <UnauthorizedNotice />
         ) : dockspaceList.showLoadError ? (

@@ -41,6 +41,7 @@ All open tasks have their own issues (#11-#16, sub-issues of request #5) since 2
 - 2026-11-22 sweep: T-0043 (PR #94) is merged and live, so T-0047 is dispatched to engineering (rebase on main; T-0045 touches the same Uploads card). T-0048 stays new until T-0041 (PR #100, deploying) is merged. T-0041 (deploying), T-0042, T-0045 and T-0046 (testing) pipelines are running.
 
 ### Shipped
+- 2026-11-22 (prod at fa05f2e): T-0041 Gallery trash messages: correct plurals, success not shown as an error (#85, PR #100): trash results read "Moved 1 item to trash." / "Moved N items to trash." (+ " M failed.") in the gallery and Find duplicates, the duplicates footer "1 item selected for trash.", the dialog "This will move 1 selected media file to trash.", and the Find duplicates summary and group lines "1 duplicate group found.", "1 repeated file.", "1 file, 1 byte reclaimable"; a clean Find duplicates trash result shows in the blue info alert (failures stay red). Follow-up: gallery partial failure still shows in the info style (T-0048, #104).
 - 2026-11-22 (prod at b472015): T-0044 Find duplicates summary focus ring: space between ring and text (#95, PR #97): the duplicates summary's keyboard focus ring now sits about 10px from the text inline and 6px above and below, on desktop and phone, without clipping; the text and the items below stay where they were, and the ring still shows only for keyboard focus.
 - 2026-11-22 (prod at 1c18c15): T-0043 Files upload invalid-paths message: correct singular (#93, PR #94): on the files page, skipped files with invalid upload paths read "1 file had an invalid upload path and was skipped." or "N files had invalid upload paths and were skipped." for both file and folder uploads; the valid files still upload. Follow-up T-0047 (#101): a mixed valid/invalid selection clears the notice at once.
 - 2026-11-22 (prod at b433bae): T-0038 Phone touch targets at least 44px: uploads pill and gallery selection bar (#82, PR #92): on phone the collapsed uploads pill (gallery and files page) and the gallery selection bar buttons (Cancel, Add to album, Trash selected) are at least 44px tall; desktop sizes, labels, failure dot and focus styles are unchanged. Follow-up T-0046 (#98): the files page's phone Upload button beside the pill is 37.4px.
@@ -130,7 +131,7 @@ All open tasks have their own issues (#11-#16, sub-issues of request #5) since 2
 | T-0038 | #82 | #65 | Phone touch targets at least 44px: uploads pill and gallery selection bar | done | Engineering |
 | T-0039 | #83 | #65 | Gallery skipped-files message: correct plural and no internal type name | done | Engineering |
 | T-0040 | #84 | #65 | Gallery Move to trash dialog: focus on open, Tab trap, focus after close | done | Test results filtering |
-| T-0041 | #85 | #65 | Gallery trash messages: correct plurals, success not shown as an error | deploying | Test results filtering |
+| T-0041 | #85 | #65 | Gallery trash messages: correct plurals, success not shown as an error | done | Deployment |
 | T-0042 | #90 | #65 | Gallery thumbnail follow-up covers batches larger than one page | testing | Review judge |
 | T-0043 | #93 | #65 | Files upload invalid-paths message: correct singular | done | Deployment |
 | T-0044 | #95 | #65 | Find duplicates summary focus ring: space between ring and text | done | Deployment |

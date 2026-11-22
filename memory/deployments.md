@@ -432,3 +432,14 @@ Recorded 2026-11-20 by the setup session from a `cdk diff` of origin/main 5678ad
 - Known pre-existing issues still live: mixed valid/invalid upload selection clears the skipped-files notice (T-0047, #101); phone pill says "an upload failed" for skipped files (T-0045, #96); files-page phone Upload button 37.4px (T-0046, #98); trash copy plurals (T-0041, #85); batches over 120 uploads (T-0042, #90).
 - Logs: $LOCAL/logs/prod-deploy-diff-pr-20261122T183941Z.log, prod-deploy-diff-20261122T184011Z.log, prod-deploy-web-20261122T184113Z.log, prod-deploy-diff-20261122T184123Z.log.
 - Prod is now at origin/main `b472015` for both infra and web.
+
+### 2026-11-22 — T-0041 — web
+- origin/main commit: `fa05f2e` (PR #100 squash-merged). Run as `dockspace-prod-agent-deployer` via `prod-deploy.sh`.
+- Pre-deploy: PR #100 at `5113a63` was MERGEABLE/CLEAN with merge base `1c18c15`; main had moved to `b472015` (T-0044 #97: `layout.css` and a CSS test, no overlap). The PR merged onto `b472015` without conflicts and passed typecheck, tests (web 69 files, 573 tests; backend pass) and build in a local merge-check worktree, and the squash-merged tree matches it. Web only (`mediaHelpers.ts`, `mediaTypes.ts`, `useDockspaceMediaController.ts`, `DockspaceMediaWorkspace.tsx`, tests); no API, backend or infra change. `prod-deploy.sh diff-pr 100` showed 0 stacks with differences. Main since the last deploy (`b472015`) had no commits; `prod-deploy.sh diff` 0 stacks, so no drift.
+- Infra: not run. Post-deploy `prod-deploy.sh diff` at `fa05f2e` shows 0 stacks with differences.
+- Web (`prod-deploy.sh web`): built and synced to the prod site bucket; invalidated `/*` on the prod distribution. Entry bundle `index-xKX60ws2.js`, `DockspaceMediaPage-C_jqUudT.js`, stylesheet `index-DFbfcofV.css`.
+- Shipped: #100 `fa05f2e` (T-0041).
+- Smoke check: https://dh0djlfa46gz6.cloudfront.net/login serves `index-xKX60ws2.js`, renders the sign-in form, `DockspaceMediaPage-C_jqUudT.js` is served (200, JavaScript) and contains the new "selected for trash", "duplicate group" and "repeated file" helpers (no "1 items"), and the console shows no errors.
+- Known pre-existing issues still live: gallery partial trash failure shown in the info style (T-0048, #104); mixed valid/invalid upload selection clears the skipped-files notice (T-0047, #101); phone pill says "an upload failed" for skipped files (T-0045, #96); files-page phone Upload button 37.4px (T-0046, #98); batches over 120 uploads (T-0042, #90).
+- Logs: $LOCAL/logs/prod-deploy-diff-pr-20261122T184714Z.log, prod-deploy-diff-20261122T184755Z.log, prod-deploy-web-20261122T184903Z.log, prod-deploy-diff-20261122T184916Z.log.
+- Prod is now at origin/main `fa05f2e` for both infra and web.

@@ -26,6 +26,7 @@ All open tasks have their own issues (#11-#16, sub-issues of request #5) since 2
 - 2026-11-22: T-0047 (#101) split from T-0043 test round 1: on the files page, a mixed valid/invalid upload selection clears the skipped-files notice at once (`enqueueUploads` resets `validationError`), so the user is not told files were skipped (already on main, `useDockspaceUploadDialog.ts`). Build after T-0043 (PR #94) is merged; same hook. Related to T-0045 (same Uploads card notice).
 - 2026-11-22: T-0048 (#104) split from T-0041 test round 1: in the gallery, a trash result with failed files ("Moved 1 item to trash. 1 failed.") shows in the blue info alert, while Find duplicates shows it in red (already on main, `bulkActionMessage` is always `tone="info"`). Build after T-0041 (PR #100) is merged; same controller and alert block.
 - 2026-11-22: T-0049 (#106) split from T-0047 review round 1: on phone the files page's collapsed uploads pill says "an upload failed" with the red dot when invalid-path files were skipped, now also for mixed selections (files page passes the notice as `uploadErrorMessage`). Build after T-0045 (PR #103, adds `uploadNoticeMessage`) and T-0047 (PR #105) are merged.
+- 2026-11-22: T-0050 (#108) split from T-0045 test round 1 (already on main since T-0030): collapsing or expanding the uploads card drops keyboard focus to the page body; focus should go to the collapsed pill, and from the pill to Collapse uploads (gallery and files page). Coordinate with T-0049 (same card).
 
 - 2026-11-22 sweep: T-0032 is live, so T-0035 is dispatched to engineering (rebase on main; PRs #73, #76, #78 touch the gallery files). T-0036 stays new until T-0033 (PR #76) is merged.
 - 2026-11-22 sweep: PRs #76 (T-0033) and #80 (T-0035) are still open, so T-0036 and T-0037 stay new; nothing dispatched.
@@ -138,8 +139,9 @@ All open tasks have their own issues (#11-#16, sub-issues of request #5) since 2
 | T-0042 | #90 | #65 | Gallery thumbnail follow-up covers batches larger than one page | done | Review judge |
 | T-0043 | #93 | #65 | Files upload invalid-paths message: correct singular | done | Deployment |
 | T-0044 | #95 | #65 | Find duplicates summary focus ring: space between ring and text | done | Deployment |
-| T-0045 | #96 | #65 | Collapsed uploads pill: skipped files are not reported as a failed upload | filtering | Test results filtering |
+| T-0045 | #96 | #65 | Collapsed uploads pill: skipped files are not reported as a failed upload | deploying | Test results filtering |
 | T-0046 | #98 | #65 | Files page phone Upload button at least 44px, matching the uploads pill | done | Deployment |
 | T-0047 | #101 | #65 | Files upload: keep the skipped-files notice when some files still upload | testing | Engineering |
 | T-0048 | #104 | #65 | Gallery trash result: a partial failure shows as an error | testing | Test results filtering |
 | T-0049 | #106 | #65 | Files page uploads pill: skipped invalid-path files are a notice, not a failed upload | new | Review judge |
+| T-0050 | #108 | #65 | Uploads card keeps keyboard focus when it collapses or expands | new | Test results filtering |

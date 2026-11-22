@@ -366,3 +366,14 @@ Recorded 2026-11-20 by the setup session from a `cdk diff` of origin/main 5678ad
 - Known pre-existing issues still live: gallery trash dialog focus (T-0040, #84); tile placeholder after a gallery upload (T-0036, #79); phone touch targets (T-0038, #82); skipped-files wording (T-0039, #83); trash copy plurals (T-0041, #85).
 - Logs: $LOCAL/logs/prod-deploy-diff-pr-20261122T175112Z.log, prod-deploy-diff-20261122T175144Z.log, prod-deploy-web-20261122T175237Z.log, prod-deploy-diff-20261122T175248Z.log.
 - Prod is now at origin/main `b2a20d3` for both infra and web.
+
+### 2026-11-22 — T-0040 — web
+- origin/main commit: `6dfc382` (PR #88 squash-merged). Run as `dockspace-prod-agent-deployer` via `prod-deploy.sh`.
+- Pre-deploy: PR #88 at `91a1b36` was MERGEABLE/CLEAN with merge base `e5b701e`; main had moved to `b2a20d3` (T-0037, `FileViewerDialog.tsx` and its test, no overlap). The PR merged onto `b2a20d3` passed web typecheck, tests (65 files, 522 tests) and build in a local merge-check worktree. Web only (`DockspaceMediaWorkspace.tsx`, `layout.css`, two test files); no API, backend or infra change. `prod-deploy.sh diff-pr 88` showed 0 stacks with differences. Main since the last deploy (`b2a20d3`) had no commits; `prod-deploy.sh diff` 0 stacks, so no drift.
+- Infra: not run. Post-deploy `prod-deploy.sh diff` at `6dfc382` shows 0 stacks with differences.
+- Web (`prod-deploy.sh web`): built and synced to the prod site bucket; invalidated `/*` on the prod distribution. Entry bundle `index-KCSDe-H4.js`, `DockspaceMediaPage-5GXrPnTc.js`, stylesheet `index-DrhwRw4c.css`.
+- Shipped: #88 `6dfc382` (T-0040).
+- Smoke check: https://dh0djlfa46gz6.cloudfront.net/login serves `index-KCSDe-H4.js` and `index-DrhwRw4c.css`, renders the sign-in form, `DockspaceMediaPage-5GXrPnTc.js` is served (200, JavaScript), the stylesheet contains the `.media-duplicates__summary:focus-visible` ring, and the console shows no errors.
+- Known pre-existing issues still live: duplicates summary focus ring touches the text (T-0044, #95); tile placeholder after a gallery upload (T-0036, #79); phone touch targets (T-0038, #82); skipped-files wording (T-0039, #83); trash copy plurals (T-0041, #85).
+- Logs: $LOCAL/logs/prod-deploy-diff-pr-20261122T180719Z.log, prod-deploy-diff-20261122T180747Z.log, prod-deploy-web-20261122T180839Z.log, prod-deploy-diff-20261122T180852Z.log.
+- Prod is now at origin/main `6dfc382` for both infra and web.

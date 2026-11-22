@@ -25,6 +25,7 @@ All open tasks have their own issues (#11-#16, sub-issues of request #5) since 2
 - 2026-11-22: T-0043 (#93) split from T-0039 review round 1: the files upload dialog says "1 file had invalid upload paths and were skipped." (wrong singular, already on main, `useDockspaceUploadDialog.ts`). Independent of the gallery tasks; can be built any time.
 - 2026-11-22: T-0044 (#95) split from T-0040 test round 1: the Find duplicates summary's keyboard focus ring (added by T-0040) touches the first character of the text; give it some space. Cosmetic; build after T-0040 (PR #88) is merged.
 - 2026-11-22: T-0045 (#96) split from T-0039 test round 1: on phone the collapsed uploads pill says "an upload failed" with the red dot when files were only skipped (already on main since T-0030; `UploadsCard.tsx`, shared with the files page). Build after T-0038 (#82) is merged; same component.
+- 2026-11-22: T-0046 (#98) split from T-0038 test round 1: on phone the files page's floating Upload button is 37.4px, under the 44px target and no longer level with the 44px collapsed uploads pill beside it (the gallery pair is 44px). Build after T-0038 (PR #92) is merged; same CSS area and guard test.
 
 - 2026-11-22 sweep: T-0032 is live, so T-0035 is dispatched to engineering (rebase on main; PRs #73, #76, #78 touch the gallery files). T-0036 stays new until T-0033 (PR #76) is merged.
 - 2026-11-22 sweep: PRs #76 (T-0033) and #80 (T-0035) are still open, so T-0036 and T-0037 stay new; nothing dispatched.
@@ -120,7 +121,7 @@ All open tasks have their own issues (#11-#16, sub-issues of request #5) since 2
 | T-0035 | #77 | #65 | Gallery preview takes focus when it opens and keeps Tab inside | done | Deployment |
 | T-0036 | #79 | #65 | Gallery shows a new upload's thumbnail without a reload | done | Test results filtering |
 | T-0037 | #81 | #65 | Gallery preview arrow keys seek video/audio instead of changing the item | done | Review judge |
-| T-0038 | #82 | #65 | Phone touch targets at least 44px: uploads pill and gallery selection bar | filtering | Engineering |
+| T-0038 | #82 | #65 | Phone touch targets at least 44px: uploads pill and gallery selection bar | deploying | Engineering |
 | T-0039 | #83 | #65 | Gallery skipped-files message: correct plural and no internal type name | done | Engineering |
 | T-0040 | #84 | #65 | Gallery Move to trash dialog: focus on open, Tab trap, focus after close | done | Test results filtering |
 | T-0041 | #85 | #65 | Gallery trash messages: correct plurals, success not shown as an error | new | Test results filtering |
@@ -128,3 +129,4 @@ All open tasks have their own issues (#11-#16, sub-issues of request #5) since 2
 | T-0043 | #93 | #65 | Files upload invalid-paths message: correct singular | testing | Engineering |
 | T-0044 | #95 | #65 | Find duplicates summary focus ring: space between ring and text | testing | Test results filtering |
 | T-0045 | #96 | #65 | Collapsed uploads pill: skipped files are not reported as a failed upload | new | Test results filtering |
+| T-0046 | #98 | #65 | Files page phone Upload button at least 44px, matching the uploads pill | new | Test results filtering |

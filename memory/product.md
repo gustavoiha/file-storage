@@ -36,6 +36,7 @@ All open tasks have their own issues (#11-#16, sub-issues of request #5) since 2
 - 2026-11-22 sweep: T-0043 dispatched to engineering (copy fix in `useDockspaceUploadDialog.ts`; rebase on main, PR #89 touches other hunks of the same file). T-0041 stays new until T-0039 (PR #91) and T-0040 (PR #88) are merged; T-0042 stays new until T-0036 (PR #89) is merged. T-0036, T-0038, T-0039 and T-0040 pipelines are running (testing).
 - 2026-11-22 sweep: PRs #88 (T-0040), #89 (T-0036) and #91 (T-0039) are still open, so T-0041, T-0042 and T-0044 stay new; nothing dispatched. T-0036, T-0038, T-0039, T-0043 (testing) and T-0040 (deploying) pipelines are running.
 - 2026-11-22 sweep: PRs #88 (T-0040) and #89 (T-0036) are merged and live, so T-0042 and T-0044 are dispatched to engineering. T-0041 stays new until T-0039 (PR #91) is merged; T-0045 stays new until T-0038 (PR #92) is merged. T-0038, T-0039 and T-0043 pipelines are running.
+- 2026-11-22 sweep: T-0039 (PR #91) and T-0040 (PR #88) are merged and live, so T-0041 is dispatched to engineering. T-0045 and T-0046 stay new until T-0038 (PR #92, deploying) is merged. T-0038 (deploying), T-0042 (engineering), T-0043 and T-0044 (testing) pipelines are running.
 
 ### Shipped
 - 2026-11-22 (prod at 923a617): T-0039 Gallery skipped-files message: correct plural and no internal type name (#83, PR #91): when a gallery pick includes files that are not photos or videos, the uploads card reads "1 file was skipped because this gallery accepts only photos and videos." or "N files were skipped because ..." (no internal type name); the accepted files still upload. Follow-ups T-0043 (#93, files upload invalid-paths singular) and T-0045 (#96, phone pill says "an upload failed" for skipped files).
@@ -124,7 +125,7 @@ All open tasks have their own issues (#11-#16, sub-issues of request #5) since 2
 | T-0038 | #82 | #65 | Phone touch targets at least 44px: uploads pill and gallery selection bar | deploying | Engineering |
 | T-0039 | #83 | #65 | Gallery skipped-files message: correct plural and no internal type name | done | Engineering |
 | T-0040 | #84 | #65 | Gallery Move to trash dialog: focus on open, Tab trap, focus after close | done | Test results filtering |
-| T-0041 | #85 | #65 | Gallery trash messages: correct plurals, success not shown as an error | new | Test results filtering |
+| T-0041 | #85 | #65 | Gallery trash messages: correct plurals, success not shown as an error | engineering | Test results filtering |
 | T-0042 | #90 | #65 | Gallery thumbnail follow-up covers batches larger than one page | engineering | Review judge |
 | T-0043 | #93 | #65 | Files upload invalid-paths message: correct singular | testing | Engineering |
 | T-0044 | #95 | #65 | Find duplicates summary focus ring: space between ring and text | testing | Test results filtering |

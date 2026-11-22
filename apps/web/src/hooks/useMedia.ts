@@ -62,10 +62,11 @@ export const useMediaFiles = (dockspaceId: string) => {
  * albums are not affected, since a new upload belongs to no album.
  *
  * Pass the batch's uploaded paths to also follow up on their thumbnails: they are made asynchronously after the
- * upload, so the refresh usually lists the new items without one. While any of them is loaded without a thumbnail,
- * the gallery's first page is fetched again a bounded number of times and the thumbnails that arrived are copied
- * onto the loaded items (see createMediaThumbnailFollowUp). The follow-up stops when the dockspace or user changes
- * and when the gallery unmounts. `thumbnailFollowUpDelaysMs` replaces its waits (tests); pass a stable array.
+ * upload, so the refresh usually lists the new items without one. While any of them has no thumbnail yet, the
+ * newest items (as many as the batch, up to the API's 200 per request) are fetched again a bounded number of times
+ * and the thumbnails that arrived are copied onto the loaded items, including items loaded after the refresh by
+ * scrolling (see createMediaThumbnailFollowUp). The follow-up stops when the dockspace or user changes and when the
+ * gallery unmounts. `thumbnailFollowUpDelaysMs` replaces its waits (tests); pass a stable array.
  */
 export const useRefreshMediaAfterUploads = (
   dockspaceId: string,
@@ -85,7 +86,8 @@ export const useRefreshMediaAfterUploads = (
     const followUp = createMediaThumbnailFollowUp({
       queryClient,
       queryKey: mediaQueryKey(userId, dockspaceId),
-      fetchLatest: () => listMedia(dockspaceId, { limit: MEDIA_PAGE_SIZE }),
+      fetchPage: (pageOptions) => listMedia(dockspaceId, pageOptions),
+      minPageSize: MEDIA_PAGE_SIZE,
       ...(thumbnailFollowUpDelaysMs ? { delaysMs: thumbnailFollowUpDelaysMs } : {})
     });
     thumbnailFollowUpRef.current = followUp;

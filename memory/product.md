@@ -86,4 +86,4 @@ All open tasks have their own issues (#11-#16, sub-issues of request #5) since 2
 | T-0029 | #66 | #65 | Gallery infinite scroll: no jump on phone, load further ahead on desktop | done | Engineering |
 | T-0030 | #67 | #65 | Gallery layout: no card frame, actions in a menu, gapless grid | engineering | Design |
 | T-0031 | #69 | #65 | Gallery: show loading status while a background refetch delays the next page | testing | Engineering |
-| T-0032 | #70 | #65 | Gallery preview returns focus to its tile on close | engineering | Engineering |
+| T-0032 | #70 | #65 | Gallery preview returns focus to its tile on close | review | Engineering |

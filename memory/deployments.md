@@ -289,3 +289,14 @@ Recorded 2026-11-20 by the setup session from a `cdk diff` of origin/main 5678ad
 - Smoke check: https://dh0djlfa46gz6.cloudfront.net/login serves `index-DlDFZZst.js`, renders the sign-in form, `DockspaceMediaPage-DBeTUYDZ.js` is served (200, JavaScript) and contains "Loading more media", the stylesheet contains `overflow-anchor:none`, and the console shows no errors.
 - Logs: $LOCAL/logs/prod-deploy-diff-pr-20261122T131209Z.log, prod-deploy-diff-20261122T131240Z.log, prod-deploy-web-20261122T131322Z.log, prod-deploy-diff-20261122T131334Z.log.
 - Prod is now at origin/main `c5dfcdf` for both infra and web.
+
+### 2026-11-22 — T-0031 — web
+- origin/main commit: `3a8036d` (PR #71 squash-merged). Run as `dockspace-prod-agent-deployer` via `prod-deploy.sh`.
+- Pre-deploy: PR #71 at `65ef9fd` was MERGEABLE/CLEAN and already contained origin/main `c5dfcdf`, so the merged tree is the one engineering and testing checked. Web only (`VirtualizedMediaGrid.tsx`, `DockspaceMediaPaging.test.tsx`); no API, backend or infra change. `prod-deploy.sh diff-pr 71` showed 0 stacks with differences. Main since the last deploy (`c5dfcdf`) had no commits; `prod-deploy.sh diff` 0 stacks, so no drift.
+- Infra: not run. Post-deploy `prod-deploy.sh diff` at `3a8036d` shows 0 stacks with differences.
+- Web (`prod-deploy.sh web`): built and synced to the prod site bucket; invalidated `/*` on the prod distribution. Entry bundle `index-CDuO8YJ7.js`, `DockspaceMediaPage-Dy0zVVhk.js`, stylesheet `index-DKj7lqav.css`.
+- Shipped: #71 `3a8036d` (T-0031).
+- Smoke check: https://dh0djlfa46gz6.cloudfront.net/login serves `index-CDuO8YJ7.js`, renders the sign-in form, `DockspaceMediaPage-Dy0zVVhk.js` is served (200, JavaScript) and contains "Loading more media", and the console shows no errors.
+- Known pre-existing issues still live: an upload from the media gallery does not refresh it (T-0033, #74); the gallery Move to trash dialog waits for the whole refetch (T-0034, #75).
+- Logs: $LOCAL/logs/prod-deploy-diff-pr-20261122T140532Z.log, prod-deploy-diff-20261122T140601Z.log, prod-deploy-web-20261122T140655Z.log, prod-deploy-diff-20261122T140706Z.log.
+- Prod is now at origin/main `3a8036d` for both infra and web.

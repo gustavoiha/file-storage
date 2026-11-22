@@ -29,6 +29,7 @@ All open tasks have their own issues (#11-#16, sub-issues of request #5) since 2
 - 2026-11-22 sweep: PRs #73 (T-0030), #76 (T-0033), #78 (T-0034) and #80 (T-0035) are still open, so T-0036 to T-0041 stay new; nothing dispatched.
 
 ### Shipped
+- 2026-11-22 (prod at 6781d67): T-0030 Gallery layout: no card frame, actions in a menu, gapless grid (#67, PR #73): the gallery has no card frame and spans the full width; the sidebar is gone, with an album menu button (All media and each album with counts, current one marked), a ⋯ Gallery options menu (Find duplicates / Browse media, Trash, Detailed usage) and a floating uploads card with a toolbar pill while uploads run; tiles are square with no gap, radius or border, and selection and keyboard focus show as an inset ring. Follow-ups T-0038 (#82), T-0039 (#83), T-0040 (#84), T-0041 (#85).
 - 2026-11-22 (prod at 85d6c61): T-0035 Gallery preview takes focus when it opens and keeps Tab inside (#77, PR #80): opening the preview focuses Close preview (focus ring only for keyboard use), Tab and Shift+Tab stay inside the preview (Close, Previous, Next, media controls), focus moves to the other nav button or Close when a nav button is disabled or the focused media unmounts, and T-0032's focus return on close is unchanged. Follow-up T-0037 (#81): arrow keys on the video/audio controls change the item instead of seeking.
 - 2026-11-22 (prod at 4ee9866): T-0033 Gallery shows a file uploaded from the gallery without a reload (#74, PR #76): when a batch of uploads from the gallery Upload button finishes (at least one success), the gallery refetches once, so new files appear without a reload; skipped duplicates send no refetch, and the files page is unchanged. Follow-up T-0036 (#79): the new tile shows a placeholder until its thumbnail exists.
 - 2026-11-22 (prod at 26ed6e9): T-0034 Gallery Move to trash dialog closes without waiting for the gallery refetch (#75, PR #78): after Move to trash (gallery and Find duplicates) the dialog closes and the selection clears as soon as the trash requests succeed; trashed files leave the cached gallery pages, album lists and duplicate groups at once (groups under two files dropped, totals, keeper and summary recomputed) and the refetches run in the background.
@@ -99,7 +100,7 @@ All open tasks have their own issues (#11-#16, sub-issues of request #5) since 2
 | T-0027 | #61 | #57 | Stop the dockspace list request loop when it fails on the files page | done | Engineering |
 | T-0028 | #63 | #57 | Show a load error on the dockspaces and usage pages when the dockspace list fails | done | Engineering |
 | T-0029 | #66 | #65 | Gallery infinite scroll: no jump on phone, load further ahead on desktop | done | Engineering |
-| T-0030 | #67 | #65 | Gallery layout: no card frame, actions in a menu, gapless grid | deploying | Design |
+| T-0030 | #67 | #65 | Gallery layout: no card frame, actions in a menu, gapless grid | done | Deployment |
 | T-0031 | #69 | #65 | Gallery: show loading status while a background refetch delays the next page | done | Engineering |
 | T-0032 | #70 | #65 | Gallery preview returns focus to its tile on close | done | Engineering |
 | T-0033 | #74 | #65 | Gallery shows a file uploaded from the gallery without a reload | done | Engineering |

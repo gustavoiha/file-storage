@@ -344,3 +344,14 @@ Recorded 2026-11-20 by the setup session from a `cdk diff` of origin/main 5678ad
 - Known pre-existing issue still live: arrow keys on the preview's video/audio controls change the item instead of seeking (T-0037, #81).
 - Logs: $LOCAL/logs/prod-deploy-diff-pr-20261122T150620Z.log, prod-deploy-diff-20261122T150650Z.log, prod-deploy-web-20261122T150734Z.log, prod-deploy-diff-20261122T150745Z.log.
 - Prod is now at origin/main `85d6c61` for both infra and web.
+
+### 2026-11-22 — T-0030 — web
+- origin/main commit: `6781d67` (PR #73 squash-merged). Run as `dockspace-prod-agent-deployer` via `prod-deploy.sh`.
+- Pre-deploy: PR #73 at `c4540f1` was MERGEABLE/CLEAN and already contained origin/main `85d6c61`, so the merged tree is the one review round 4 and test round 3 checked (`git diff c4540f1 6781d67` empty). Web only (21 files under `apps/web`: `GalleryAlbumMenu.tsx`, `GalleryOptionsMenu.tsx`, `DockspaceMediaWorkspace.tsx`, `DropdownMenu.tsx`, `UploadsCard.tsx`, `useElementHeight.ts`, grid config, layout.css, tests); no API, backend or infra change. `prod-deploy.sh diff-pr 73` showed 0 stacks with differences. Main since the last deploy (`85d6c61`) had no commits; `prod-deploy.sh diff` 0 stacks, so no drift.
+- Infra: not run. Post-deploy `prod-deploy.sh diff` at `6781d67` shows 0 stacks with differences.
+- Web (`prod-deploy.sh web`): built and synced to the prod site bucket; invalidated `/*` on the prod distribution. Entry bundle `index-1TQEUuxh.js`, `DockspaceMediaPage-zB6p3OW8.js`, stylesheet `index-CEQ7djkD.css`.
+- Shipped: #73 `6781d67` (T-0030).
+- Smoke check: https://dh0djlfa46gz6.cloudfront.net/login serves `index-1TQEUuxh.js` and `index-CEQ7djkD.css`, renders the sign-in form, `DockspaceMediaPage-zB6p3OW8.js` is served (200, JavaScript) and contains "Gallery options" and "All media", and the console shows no errors.
+- Known pre-existing issues still live: phone touch targets under 44px on the uploads pill and selection bar (T-0038, #82); the gallery skipped-files message wording (T-0039, #83); gallery trash dialog focus (T-0040, #84); trash copy plurals (T-0041, #85).
+- Logs: $LOCAL/logs/prod-deploy-diff-pr-20261122T152121Z.log, prod-deploy-diff-20261122T152148Z.log, prod-deploy-web-20261122T152248Z.log, prod-deploy-diff-20261122T152259Z.log.
+- Prod is now at origin/main `6781d67` for both infra and web.

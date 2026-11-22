@@ -82,4 +82,149 @@ describe('useDockspaceUploadDialog invalid upload paths', () => {
     await waitFor(() => expect(uploadFile).toHaveBeenCalledTimes(1));
     expect(uploadFile).toHaveBeenCalledWith(expect.objectContaining({ fullPath: '/docs/ok.txt' }));
   });
+
+  describe('a selection that mixes valid and invalid paths', () => {
+    it('keeps the skipped-files notice while and after the valid files upload (Upload files)', async () => {
+      let finishUpload: () => void = () => {};
+      const uploadFile = vi.fn(
+        () =>
+          new Promise<void>((resolve) => {
+            finishUpload = resolve;
+          })
+      );
+      const { result } = renderHook(() =>
+        useDockspaceUploadDialog({ currentFolderPath: '/docs', uploadFile })
+      );
+
+      act(() => {
+        result.current.stageFiles([
+          new File(['x'], '..', { type: 'text/plain' }),
+          new File(['ok'], 'ok.txt', { type: 'text/plain' })
+        ]);
+      });
+
+      await waitFor(() => expect(uploadFile).toHaveBeenCalledTimes(1));
+      expect(result.current.activeUploads).toHaveLength(1);
+      expect(result.current.validationError).toBe('1 file had an invalid upload path and was skipped.');
+
+      await act(async () => {
+        finishUpload();
+      });
+
+      await waitFor(() => expect(result.current.activeUploads).toHaveLength(0));
+      expect(result.current.validationError).toBe('1 file had an invalid upload path and was skipped.');
+    });
+
+    it('keeps the skipped-files notice after the folders are created and the valid files upload (Upload folder)', async () => {
+      let finishCreateFolder: () => void = () => {};
+      const createFolder = vi.fn(
+        () =>
+          new Promise<void>((resolve) => {
+            finishCreateFolder = resolve;
+          })
+      );
+      const uploadFile = vi.fn(async () => {});
+      const { result } = renderHook(() =>
+        useDockspaceUploadDialog({ currentFolderPath: '/docs', uploadFile, createFolder })
+      );
+
+      act(() => {
+        result.current.stageFolderFiles([
+          fileWithRelativePath('a.txt', 'photos/../a.txt'),
+          fileWithRelativePath('b.txt', 'photos/./b.txt'),
+          fileWithRelativePath('c.txt', 'photos/trip/c.txt')
+        ]);
+      });
+
+      await waitFor(() => expect(createFolder).toHaveBeenCalledWith('/docs/photos/trip'));
+      expect(result.current.isPreparingFolders).toBe(true);
+      expect(result.current.validationError).toBe('2 files had invalid upload paths and were skipped.');
+
+      await act(async () => {
+        finishCreateFolder();
+      });
+
+      await waitFor(() => expect(uploadFile).toHaveBeenCalledTimes(1));
+      expect(uploadFile).toHaveBeenCalledWith(expect.objectContaining({ fullPath: '/docs/photos/trip/c.txt' }));
+      await waitFor(() => expect(result.current.isUploading).toBe(false));
+      expect(result.current.validationError).toBe('2 files had invalid upload paths and were skipped.');
+    });
+
+    it('keeps the skipped-files notice for a folder selection when no folder needs creating', async () => {
+      const { result, uploadFile } = renderUploadDialog();
+
+      act(() => {
+        result.current.stageFolderFiles([
+          fileWithRelativePath('a.txt', 'photos/../a.txt'),
+          fileWithRelativePath('c.txt', 'photos/c.txt')
+        ]);
+      });
+
+      await waitFor(() => expect(uploadFile).toHaveBeenCalledTimes(1));
+      await waitFor(() => expect(result.current.isUploading).toBe(false));
+      expect(result.current.validationError).toBe('1 file had an invalid upload path and was skipped.');
+    });
+
+    it('lets the folder creation failure replace the skipped-files notice', async () => {
+      const createFolder = vi.fn(async () => {
+        throw new Error('boom');
+      });
+      const uploadFile = vi.fn(async () => {});
+      const { result } = renderHook(() =>
+        useDockspaceUploadDialog({ currentFolderPath: '/docs', uploadFile, createFolder })
+      );
+
+      act(() => {
+        result.current.stageFolderFiles([
+          fileWithRelativePath('a.txt', 'photos/../a.txt'),
+          fileWithRelativePath('c.txt', 'photos/trip/c.txt')
+        ]);
+      });
+
+      await waitFor(() =>
+        expect(result.current.validationError).toBe('Could not create the folders for this upload: boom')
+      );
+      expect(uploadFile).not.toHaveBeenCalled();
+    });
+
+    it('lets an upload error replace the skipped-files notice', async () => {
+      const uploadFile = vi.fn(async () => {
+        throw new Error('network');
+      });
+      const { result } = renderHook(() =>
+        useDockspaceUploadDialog({ currentFolderPath: '/docs', uploadFile })
+      );
+
+      act(() => {
+        result.current.stageFiles([
+          new File(['x'], '..', { type: 'text/plain' }),
+          new File(['ok'], 'ok.txt', { type: 'text/plain' })
+        ]);
+      });
+
+      await waitFor(() => expect(result.current.validationError).toBe('network'));
+    });
+  });
+
+  describe('a later selection with only valid paths', () => {
+    it.each([
+      ['Upload files', 'stageFiles'],
+      ['Upload folder', 'stageFolderFiles']
+    ] as const)('clears an older skipped-files notice (%s)', async (_label, stage) => {
+      const { result, uploadFile } = renderUploadDialog();
+
+      act(() => {
+        result.current.stageFiles([new File(['x'], '..', { type: 'text/plain' })]);
+      });
+      expect(result.current.validationError).toBe('1 file had an invalid upload path and was skipped.');
+
+      act(() => {
+        result.current[stage]([fileWithRelativePath('ok.txt', 'ok.txt')]);
+      });
+
+      expect(result.current.validationError).toBeNull();
+      await waitFor(() => expect(uploadFile).toHaveBeenCalledTimes(1));
+      expect(result.current.validationError).toBeNull();
+    });
+  });
 });

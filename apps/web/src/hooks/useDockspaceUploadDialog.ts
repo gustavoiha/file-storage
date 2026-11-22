@@ -81,7 +81,6 @@ export const useDockspaceUploadDialog = ({
     }
 
     setActiveUploads((previous) => previous.concat(nextUploads));
-    setValidationError(null);
   }, []);
 
   const stageFiles = useCallback((selectedFiles: File[]) => {
@@ -112,9 +111,9 @@ export const useDockspaceUploadDialog = ({
       });
     }
 
-    if (skippedCount > 0) {
-      setValidationError(invalidUploadPathsMessage(skippedCount));
-    }
+    // Each selection replaces the previous message: the skipped-files notice when some paths were invalid (it stays
+    // while the valid files upload), otherwise nothing.
+    setValidationError(skippedCount > 0 ? invalidUploadPathsMessage(skippedCount) : null);
 
     enqueueUploads(nextUploads);
   }, [currentFolderPath, enqueueUploads]);
@@ -147,9 +146,9 @@ export const useDockspaceUploadDialog = ({
       });
     }
 
-    if (skippedCount > 0) {
-      setValidationError(invalidUploadPathsMessage(skippedCount));
-    }
+    // Each selection replaces the previous message: the skipped-files notice when some paths were invalid (it stays
+    // while the valid files upload), otherwise nothing.
+    setValidationError(skippedCount > 0 ? invalidUploadPathsMessage(skippedCount) : null);
 
     const folderPaths = createFolder
       ? leafFolderPathsForUploads(

@@ -45,7 +45,7 @@ const mockState = vi.hoisted(() => ({
   clearSkippedUploads: vi.fn(),
   stageFiles: vi.fn(),
   refreshMediaAfterUploads: vi.fn(async () => {}),
-  uploadDialogParams: null as null | { onBatchComplete?: (uploadedCount: number) => void }
+  uploadDialogParams: null as null | { onBatchComplete?: (uploadedCount: number, uploadedPaths: string[]) => void }
 }));
 
 vi.mock('@tanstack/react-router', () => ({
@@ -93,7 +93,7 @@ vi.mock('@/components/files/UploadStagingList', () => ({
 }));
 
 vi.mock('@/hooks/useDockspaceUploadDialog', () => ({
-  useDockspaceUploadDialog: (params: { onBatchComplete?: (uploadedCount: number) => void }) => {
+  useDockspaceUploadDialog: (params: { onBatchComplete?: (uploadedCount: number, uploadedPaths: string[]) => void }) => {
     mockState.uploadDialogParams = params;
     return {
       clearValidationError: vi.fn(),
@@ -190,14 +190,15 @@ describe('DockspaceMediaPage', () => {
     cleanup();
   });
 
-  it('refreshes the gallery once when a batch of uploads finishes', () => {
+  it('refreshes the gallery once when a batch of uploads finishes, following up on its uploaded paths', () => {
     render(<DockspaceMediaPage dockspaceId="dock-1" dockspaceName="Camera Roll" />);
 
     expect(mockState.refreshMediaAfterUploads).not.toHaveBeenCalled();
     act(() => {
-      mockState.uploadDialogParams?.onBatchComplete?.(3);
+      mockState.uploadDialogParams?.onBatchComplete?.(3, ['/a.jpg', '/b.jpg', '/c.mp4']);
     });
     expect(mockState.refreshMediaAfterUploads).toHaveBeenCalledTimes(1);
+    expect(mockState.refreshMediaAfterUploads).toHaveBeenCalledWith(['/a.jpg', '/b.jpg', '/c.mp4']);
   });
 
   it('virtualizes all-media grid by rendering only visible subset', () => {

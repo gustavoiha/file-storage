@@ -63,6 +63,8 @@ const TREE: Record<string, DirectoryChildRecord[]> = {
 };
 
 let failingFolderNodeIds = new Set<string>();
+// Items saved on the server after the page loaded (a create or an upload), listed by later requests.
+let addedItems: Record<string, DirectoryChildRecord[]> = {};
 // Listing requests for these folders wait until the gate's promise resolves.
 let heldFolderNodeIds = new Map<string, Promise<void>>();
 let isPhone = false;
@@ -121,6 +123,7 @@ const renderPage = () =>
 beforeEach(() => {
   setSession({ accessToken: 'a', idToken: 'i', email: 'a@a.com', userId: 'u1' });
   failingFolderNodeIds = new Set();
+  addedItems = {};
   heldFolderNodeIds = new Map();
   isPhone = false;
   unhandledRejections.length = 0;
@@ -136,7 +139,10 @@ beforeEach(() => {
       throw new ApiError('Request failed', 500);
     }
 
-    return { parentFolderNodeId: folderNodeId, items: TREE[folderNodeId] ?? [] };
+    return {
+      parentFolderNodeId: folderNodeId,
+      items: [...(TREE[folderNodeId] ?? []), ...(addedItems[folderNodeId] ?? [])]
+    };
   });
   window.matchMedia = vi.fn((query: string) => ({
     matches: isPhone && query.includes('max-width: 900px'),
@@ -360,13 +366,16 @@ describe('DockspaceFilesPage open folder listing', () => {
     expect(screen.queryByText('Loading...')).not.toBeInTheDocument();
   });
 
-  it('keeps the error and Try again when a folder is created into a folder whose listing failed', async () => {
+  it('keeps the error and Try again when a folder is created into a folder whose listing failed, and says it was created', async () => {
     failingFolderNodeIds = new Set(['root']);
     let finishCreate: () => void = () => {};
     createFolder.mockImplementation(
       (_dockspaceId, folderPath) =>
         new Promise((resolve) => {
-          finishCreate = () => resolve({ folderPath, folderNodeId: 'd_new', created: true });
+          finishCreate = () => {
+            addedItems = { root: [child('folder', 'd_new', 'Receipts', 'root')] };
+            resolve({ folderPath, folderNodeId: 'd_new', created: true });
+          };
         })
     );
     renderPage();
@@ -374,8 +383,12 @@ describe('DockspaceFilesPage open folder listing', () => {
     const column = currentColumn('My Dockspace');
     await within(column).findByRole('alert');
     await settle();
+    const alert = within(column).getByRole('alert');
+    const tryAgain = within(column).getByRole('button', { name: 'Try again' });
 
-    fireEvent.click(screen.getByRole('button', { name: 'New folder' }));
+    const newFolder = screen.getByRole('button', { name: 'New folder' });
+    newFolder.focus();
+    fireEvent.click(newFolder);
     const dialog = screen.getByRole('dialog', { name: 'Add folder' });
     fireEvent.change(within(dialog).getByLabelText('Folder name'), { target: { value: 'Receipts' } });
     fireEvent.click(within(dialog).getByRole('button', { name: 'Create' }));
@@ -383,21 +396,141 @@ describe('DockspaceFilesPage open folder listing', () => {
     // While the create runs, its pending row is shown and the error with Try again stays with it.
     await waitFor(() => expect(createFolder).toHaveBeenCalledWith('v1', '/Receipts'));
     await waitFor(() => expect(within(column).getByText('Receipts')).toBeInTheDocument());
-    expect(within(column).getByRole('alert', { hidden: true })).toHaveTextContent('Request failed');
-    expect(within(column).getByRole('button', { name: 'Try again', hidden: true })).toBeInTheDocument();
+    expect(within(column).getByText('Creating...')).toBeInTheDocument();
+    expect(within(column).getByRole('alert', { hidden: true })).toBe(alert);
     expectNoEmptyState();
 
-    // The create succeeds and the listing is fetched again, which still fails: the row and the error both stay.
+    // The create succeeds and the listing is fetched again, which still fails. During that refetch and after it, the
+    // same error and Try again stay mounted; the pending row gives way to a line saying the folder was created.
     const callsBeforeCreate = callsFor('root');
+    const release = holdListing('root');
     finishCreate();
-    await waitFor(() => expect(screen.queryByRole('dialog', { name: 'Add folder' })).not.toBeInTheDocument());
     await waitFor(() => expect(callsFor('root')).toBeGreaterThan(callsBeforeCreate));
+    expect(within(column).getByRole('alert', { hidden: true })).toBe(alert);
+    expect(within(column).getByRole('button', { name: 'Try again', hidden: true })).toBe(tryAgain);
+    expect(screen.queryByText('Loading...')).not.toBeInTheDocument();
+    release();
+    await waitFor(() => expect(screen.queryByRole('dialog', { name: 'Add folder' })).not.toBeInTheDocument());
     await settle();
-    expect(within(column).getByText('Receipts')).toBeInTheDocument();
-    expect(within(column).getByRole('alert')).toHaveTextContent('Request failed');
-    expect(within(column).getByRole('button', { name: 'Try again' })).toBeInTheDocument();
+    expect(within(column).getByRole('alert')).toBe(alert);
+    expect(alert).toHaveTextContent('Request failed');
+    expect(within(column).getByRole('button', { name: 'Try again' })).toBe(tryAgain);
+    expect(within(column).queryByText('Creating...')).not.toBeInTheDocument();
+    // In a live region, mounted with the error, so screen readers announce it.
+    expect(
+      within(column).getByText('"Receipts" was created. It will show here after Try again.').closest('[role="status"]')
+    ).not.toBeNull();
+    // The new folder has no row to return to: focus goes back to the dialog's opener.
+    await waitFor(() => expect(document.activeElement).toBe(newFolder));
     expectNoEmptyState();
+
+    // Try again loads the listing, which shows the folder; the line goes away with the error.
+    failingFolderNodeIds = new Set();
+    fireEvent.click(tryAgain);
+    await waitFor(() => expect(within(column).queryByRole('alert')).not.toBeInTheDocument());
+    expect(folderButton('Receipts')).toBeInTheDocument();
+    expect(within(column).queryByText('Creating...')).not.toBeInTheDocument();
+    expect(screen.queryByText(/It will show here after Try again/)).not.toBeInTheDocument();
     expect(unhandledRejections).toEqual([]);
+  });
+
+  it.each([
+    ['desktop', false],
+    ['phone', true]
+  ])(
+    'keeps the same error with Try again focused through the refetch after an upload, and says the file was uploaded (%s)',
+    async (_layout, phone) => {
+      isPhone = phone;
+      failingFolderNodeIds = new Set(['root']);
+      let finishUpload: () => void = () => {};
+      uploadFile.mockImplementation(
+        () =>
+          new Promise<void>((resolve) => {
+            finishUpload = () => {
+              addedItems = { root: [child('file', 'f_notes', 'notes.txt', 'root')] };
+              resolve();
+            };
+          })
+      );
+      const { container } = renderPage();
+
+      const column = currentColumn('My Dockspace');
+      await within(column).findByRole('alert');
+      await settle();
+      const alert = within(column).getByRole('alert');
+      const tryAgain = within(column).getByRole('button', { name: 'Try again' });
+      tryAgain.focus();
+
+      // Watch for the alert or Try again leaving the page at any moment, not only when the test looks.
+      let alertRemoved = false;
+      const observer = new MutationObserver(() => {
+        if (!alert.isConnected || !tryAgain.isConnected) {
+          alertRemoved = true;
+        }
+      });
+      observer.observe(container, { childList: true, subtree: true });
+
+      const fileInput = container.querySelector<HTMLInputElement>('input[type="file"][multiple]')!;
+      fireEvent.change(fileInput, { target: { files: [new File(['x'], 'notes.txt')] } });
+      await waitFor(() => expect(within(column).getByText('notes.txt')).toBeInTheDocument());
+
+      // The upload finishes and the listing is fetched again (a background refetch), which still fails.
+      const callsBeforeUpload = callsFor('root');
+      const release = holdListing('root');
+      finishUpload();
+      await waitFor(() => expect(callsFor('root')).toBeGreaterThan(callsBeforeUpload));
+      expect(within(column).getByRole('alert')).toBe(alert);
+      expect(alert).toHaveTextContent('Request failed');
+      // Not the busy state of a retry started from Try again.
+      expect(tryAgain).toHaveTextContent('Try again');
+      expect(tryAgain).not.toHaveAttribute('aria-disabled');
+      expect(document.activeElement).toBe(tryAgain);
+      expect(screen.queryByText('Loading...')).not.toBeInTheDocument();
+      release();
+      await settle();
+      observer.disconnect();
+
+      expect(alertRemoved).toBe(false);
+      expect(within(column).getByRole('alert')).toBe(alert);
+      expect(document.activeElement).toBe(tryAgain);
+      expect(within(column).queryByText('notes.txt')).not.toBeInTheDocument();
+      expect(
+        within(column)
+          .getByText('"notes.txt" was uploaded. It will show here after Try again.')
+          .closest('[role="status"]')
+      ).not.toBeNull();
+      expectNoEmptyState();
+
+      // Try again shows the uploaded file.
+      failingFolderNodeIds = new Set();
+      fireEvent.click(tryAgain);
+      await waitFor(() => expect(within(column).queryByRole('alert')).not.toBeInTheDocument());
+      expect(within(column).getByText('notes.txt')).toBeInTheDocument();
+      expect(screen.queryByText(/It will show here after Try again/)).not.toBeInTheDocument();
+      expect(document.activeElement).toBe(column.querySelector('.dockspace-browser__list'));
+      expect(unhandledRejections).toEqual([]);
+    }
+  );
+
+  it('replaces the error with the contents, focus on the list, when a background refetch loads the listing', async () => {
+    failingFolderNodeIds = new Set(['root']);
+    const { container } = renderPage();
+
+    const column = currentColumn('My Dockspace');
+    await within(column).findByRole('alert');
+    await settle();
+    const tryAgain = within(column).getByRole('button', { name: 'Try again' });
+    tryAgain.focus();
+
+    // An upload whose refetch loads the listing: the contents replace the error, with focus on the list.
+    failingFolderNodeIds = new Set();
+    uploadFile.mockResolvedValue(undefined);
+    const fileInput = container.querySelector<HTMLInputElement>('input[type="file"][multiple]')!;
+    fireEvent.change(fileInput, { target: { files: [new File(['x'], 'notes.txt')] } });
+    await waitFor(() => expect(within(column).queryByRole('alert')).not.toBeInTheDocument());
+    expect(folderButton('Travel')).toBeInTheDocument();
+    expect(document.activeElement).toBe(column.querySelector('.dockspace-browser__list'));
+    expect(screen.queryByText(/It will show here after Try again/)).not.toBeInTheDocument();
   });
 
   it('shows the empty state after a successful retry of a folder that really is empty', async () => {

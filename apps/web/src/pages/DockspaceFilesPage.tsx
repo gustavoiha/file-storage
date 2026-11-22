@@ -156,6 +156,48 @@ const parentFolderPathFromPath = (fullPath: string): string => {
   return `/${segments.slice(0, -1).join('/')}`;
 };
 
+/** A folder created, or a file uploaded, while the listing of the folder it went into had not loaded. */
+interface SavedUnlistedItem {
+  fullPath: string;
+  kind: 'created-folder' | 'uploaded-file';
+}
+
+/** The item directly inside a folder that a saved item is, or that holds it (a folder upload's top folder). */
+interface SavedUnlistedEntry {
+  fullPath: string;
+  name: string;
+  created: boolean;
+}
+
+const childEntryInFolder = (folderPath: string, item: SavedUnlistedItem): SavedUnlistedEntry | null => {
+  const folderSegments = folderPath.split('/').filter(Boolean);
+  const segments = item.fullPath.split('/').filter(Boolean);
+  if (
+    segments.length <= folderSegments.length ||
+    folderSegments.some((segment, index) => segments[index] !== segment)
+  ) {
+    return null;
+  }
+
+  const name = segments[folderSegments.length] ?? '';
+  return {
+    fullPath: `/${segments.slice(0, folderSegments.length + 1).join('/')}`,
+    name,
+    created: item.kind === 'created-folder' && segments.length === folderSegments.length + 1
+  };
+};
+
+const describeSavedUnlistedEntries = (entries: SavedUnlistedEntry[]): string | null => {
+  const [first] = entries;
+  if (!first) {
+    return null;
+  }
+
+  return entries.length === 1
+    ? `"${first.name}" was ${first.created ? 'created' : 'uploaded'}. It will show here after Try again.`
+    : `${entries.length} items were saved. They will show here after Try again.`;
+};
+
 /**
  * Adjusts the known direct file counts of the source and destination folders after files were moved,
  * from the move response alone. Folders not discovered yet keep their unknown count (their discovery
@@ -320,24 +362,48 @@ export const DockspaceFilesPage = () => {
   const unauthorized =
     filesQuery.error instanceof ApiError && filesQuery.error.statusCode === 403;
   // The open folder's listing failed and nothing is known about its contents: the list shows only the error with
-  // Try again, never the empty state. A retry started from Try again keeps that error (and the focused Try again
-  // button) mounted, marked busy, instead of swapping it for the loading state, so keyboard focus is not dropped to
-  // <body> while it runs. React Query clears `error` while a query with no data refetches, so the retry (and the
-  // message it started from) is tracked here.
-  const [listingRetry, setListingRetry] = useState<{ folderNodeId: string; message: string } | null>(null);
+  // Try again, never the empty state. Any refetch of that listing (Try again, or a background one after an upload, a
+  // folder create or discovery) keeps that error (and a focused Try again button) mounted instead of swapping it for
+  // the loading state, so it is not announced again and keyboard focus is not dropped to <body>. React Query clears
+  // `error` while a query with no data refetches, so the last failure (and its message) is tracked here, until the
+  // listing loads or another folder opens. A retry started from Try again also marks the button busy.
+  const [listingRetryFolderNodeId, setListingRetryFolderNodeId] = useState<string | null>(null);
+  const [lastListingFailure, setLastListingFailure] = useState<{ folderNodeId: string; message: string } | null>(
+    null
+  );
   const hasListing = Boolean(filesQuery.data);
+  const currentListingErrorMessage =
+    !hasListing && !unauthorized && filesQuery.error
+      ? filesQuery.error instanceof Error
+        ? filesQuery.error.message
+        : 'Unable to load folder.'
+      : null;
+  if (currentListingErrorMessage !== null) {
+    if (
+      lastListingFailure?.folderNodeId !== currentFolder.folderNodeId ||
+      lastListingFailure.message !== currentListingErrorMessage
+    ) {
+      setLastListingFailure({ folderNodeId: currentFolder.folderNodeId, message: currentListingErrorMessage });
+    }
+  } else if (
+    lastListingFailure &&
+    (lastListingFailure.folderNodeId !== currentFolder.folderNodeId || hasListing || unauthorized)
+  ) {
+    setLastListingFailure(null);
+  }
+  const lastFailureMessage =
+    lastListingFailure?.folderNodeId === currentFolder.folderNodeId ? lastListingFailure.message : null;
+  const isRefetchingFailedListing = filesQuery.isFetching && lastFailureMessage !== null;
   const isRetryingListing =
-    !hasListing && listingRetry?.folderNodeId === currentFolder.folderNodeId && filesQuery.isFetching;
+    !hasListing && listingRetryFolderNodeId === currentFolder.folderNodeId && filesQuery.isFetching;
   const listingFailed =
-    !hasListing && !unauthorized && (isRetryingListing || (Boolean(filesQuery.error) && !filesQuery.isFetching));
-  const listingErrorMessage = filesQuery.error
-    ? filesQuery.error instanceof Error
-      ? filesQuery.error.message
-      : 'Unable to load folder.'
-    : (isRetryingListing ? listingRetry?.message : undefined) ?? 'Unable to load folder.';
+    !hasListing &&
+    !unauthorized &&
+    (currentListingErrorMessage !== null || isRefetchingFailedListing || isRetryingListing);
+  const listingErrorMessage = currentListingErrorMessage ?? lastFailureMessage ?? 'Unable to load folder.';
   const currentColumnRef = useRef<HTMLElement | null>(null);
-  // When the error goes away for the same folder (a retry succeeded, or another refetch swapped it for the loading
-  // state), Try again is unmounted. If it had focus, focus fell to <body>: move it to the folder's list, which stays.
+  // When the error goes away for the same folder (a retry or a background refetch loaded the listing), Try again is
+  // unmounted. If it had focus, focus fell to <body>: move it to the folder's list, which stays.
   const previousListingFailedRef = useRef({ folderNodeId: currentFolder.folderNodeId, listingFailed });
   useLayoutEffect(() => {
     const previous = previousListingFailedRef.current;
@@ -349,6 +415,46 @@ export const DockspaceFilesPage = () => {
       currentColumnRef.current?.querySelector<HTMLElement>(`[${DIALOG_FOCUS_FALLBACK_ATTRIBUTE}]`)?.focus();
     }
   }, [currentFolder.folderNodeId, listingFailed]);
+
+  // Items created or uploaded into the open folder while its listing was not loaded (it failed). The list cannot show
+  // them (and their pending rows would otherwise stay "Creating..." or vanish), so the page says they were saved.
+  // Dropped once that folder's listing loads, which shows them.
+  const [savedUnlistedItems, setSavedUnlistedItems] = useState<SavedUnlistedItem[]>([]);
+  const listingStateRef = useRef({ folderPath: currentFolder.fullPath, hasListing });
+  useLayoutEffect(() => {
+    listingStateRef.current = { folderPath: currentFolder.fullPath, hasListing };
+  }, [currentFolder.fullPath, hasListing]);
+  /** Records an item saved into the open folder while its listing is not loaded. */
+  const recordSavedIfUnlisted = useCallback((item: SavedUnlistedItem) => {
+    const { folderPath, hasListing: listed } = listingStateRef.current;
+    if (listed || !childEntryInFolder(folderPath, item)) {
+      return;
+    }
+    setSavedUnlistedItems((previous) =>
+      previous.some((saved) => saved.fullPath === item.fullPath) ? previous : [...previous, item]
+    );
+  }, []);
+  // The listing may land between the save and its record: drop the open folder's records whenever it is loaded.
+  useEffect(() => {
+    if (!hasListing) {
+      return;
+    }
+    setSavedUnlistedItems((previous) => {
+      const next = previous.filter((item) => !childEntryInFolder(currentFolder.fullPath, item));
+      return next.length === previous.length ? previous : next;
+    });
+  }, [currentFolder.fullPath, hasListing, savedUnlistedItems]);
+  const savedUnlistedEntries = useMemo(() => {
+    const entries = new Map<string, SavedUnlistedEntry>();
+    for (const item of savedUnlistedItems) {
+      const entry = childEntryInFolder(currentFolder.fullPath, item);
+      if (entry && !entries.has(entry.fullPath)) {
+        entries.set(entry.fullPath, entry);
+      }
+    }
+    return Array.from(entries.values());
+  }, [currentFolder.fullPath, savedUnlistedItems]);
+  const savedUnlistedMessage = hasListing ? null : describeSavedUnlistedEntries(savedUnlistedEntries);
 
   const folders = useMemo(
     () =>
@@ -489,10 +595,13 @@ export const DockspaceFilesPage = () => {
   const createFolderAndFocusRow = useCallback(
     async (fullPath: string) => {
       const response = await createFolder.mutateAsync(fullPath);
+      recordSavedIfUnlisted({ fullPath, kind: 'created-folder' });
+      // Into a folder whose listing still failed, the new folder gets no row: the dialog then returns focus to its
+      // opener once it gives up waiting for the row.
       returnFocusToRowAfterSubmit(fullPath);
       return response;
     },
-    [createFolder, returnFocusToRowAfterSubmit]
+    [createFolder, recordSavedIfUnlisted, returnFocusToRowAfterSubmit]
   );
 
   const addFolderDialog = useAddFolderDialog({
@@ -506,9 +615,19 @@ export const DockspaceFilesPage = () => {
     addFolderDialog.openDialog();
   }, [addFolderDialog]);
 
+  const uploadFileMutateAsync = uploadFile.mutateAsync;
+  const uploadFileAndRecord = useCallback(
+    async (params: Parameters<typeof uploadFileMutateAsync>[0]) => {
+      const response = await uploadFileMutateAsync(params);
+      recordSavedIfUnlisted({ fullPath: params.fullPath, kind: 'uploaded-file' });
+      return response;
+    },
+    [recordSavedIfUnlisted, uploadFileMutateAsync]
+  );
+
   const uploadDialog = useDockspaceUploadDialog({
     currentFolderPath: currentFolder.fullPath,
-    uploadFile: uploadFile.mutateAsync,
+    uploadFile: uploadFileAndRecord,
     createFolder: createFolder.mutateAsync
   });
 
@@ -1512,6 +1631,14 @@ export const DockspaceFilesPage = () => {
         })),
     [uploadDialog.activeUploads]
   );
+  // A folder created into a folder whose listing failed is described above the list instead of staying "Creating...".
+  const pendingFolderPathsInList = useMemo(() => {
+    if (hasListing || !savedUnlistedItems.length) {
+      return addFolderDialog.pendingFolderPaths;
+    }
+    const savedPaths = new Set(savedUnlistedItems.map((item) => item.fullPath));
+    return addFolderDialog.pendingFolderPaths.filter((pendingPath) => !savedPaths.has(pendingPath));
+  }, [addFolderDialog.pendingFolderPaths, hasListing, savedUnlistedItems]);
   const pendingUploadFolderPaths = useMemo(() => {
     const folderPaths = new Set<string>();
 
@@ -1613,9 +1740,9 @@ export const DockspaceFilesPage = () => {
       return;
     }
     const folderNodeId = currentFolder.folderNodeId;
-    setListingRetry({ folderNodeId, message: listingErrorMessage });
+    setListingRetryFolderNodeId(folderNodeId);
     void filesQuery.refetch().finally(() => {
-      setListingRetry((current) => (current?.folderNodeId === folderNodeId ? null : current));
+      setListingRetryFolderNodeId((current) => (current === folderNodeId ? null : current));
     });
   };
 
@@ -1641,7 +1768,13 @@ export const DockspaceFilesPage = () => {
   // pending folder create or upload adds one while the listing is still unknown. Kept here, the error and a focused
   // Try again stay mounted when that happens.
   const filesErrorAlert = listingFailed ? (
-    listingErrorState
+    <>
+      {listingErrorState}
+      {/* Mounted with the error, so a later "was created/uploaded" line is announced. */}
+      <div role="status">
+        {savedUnlistedMessage ? <p className="ui-alert ui-alert--info">{savedUnlistedMessage}</p> : null}
+      </div>
+    </>
   ) : filesQuery.error && hasListing && !unauthorized ? (
     // A failed refetch of a folder whose earlier listing is still shown.
     <Alert message={filesQuery.error instanceof Error ? filesQuery.error.message : 'Unable to load folder.'} />
@@ -1656,7 +1789,7 @@ export const DockspaceFilesPage = () => {
       folderFileCounts={folderFileCounts}
       previewedFilePath={visiblePreviewFile?.fullPath ?? null}
       infoFolderPath={visibleInfoFolder && !visibleInfoFolder.isOpenFolder ? infoFolderPath : null}
-      pendingFolderPaths={addFolderDialog.pendingFolderPaths}
+      pendingFolderPaths={pendingFolderPathsInList}
       pendingFolderTrashPaths={pendingFolderTrashPaths}
       pendingUploadFiles={pendingUploadFiles}
       pendingUploadFolderPaths={pendingUploadFolderPaths}

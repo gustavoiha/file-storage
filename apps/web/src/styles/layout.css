@@ -2744,6 +2744,11 @@ a.dockspace-card:focus-visible {
   flex-basis: 100%;
 }
 
+/* Phone touch targets (T-0038): the collapsed uploads pill matches the 44px Upload pill beside it. */
+.media-workspace__floating--phone .dockspace-uploads__pill {
+  min-height: 2.75rem;
+}
+
 .media-workspace__upload {
   display: inline-flex;
   align-items: center;
@@ -2771,6 +2776,11 @@ a.dockspace-card:focus-visible {
 .media-workspace--phone .media-workspace__main-controls[data-bulk-actions='true'] {
   padding-top: 0.6rem;
   padding-bottom: 0.6rem;
+}
+
+/* Phone touch targets (T-0038): Cancel, Add to album and Trash selected in the two-row selection bar. */
+.media-workspace--phone .media-workspace__bulk-actions--phone .ui-button {
+  min-height: 2.75rem;
 }
 
 .media-workspace--phone .gallery-album-menu {
@@ -4465,6 +4475,11 @@ button.dockspace-crumbs__crumb:focus-visible {
 
 .dockspace-files--phone .dockspace-uploads:not(.dockspace-uploads--collapsed) {
   flex-basis: 100%;
+}
+
+/* Phone touch targets (T-0038): the collapsed uploads pill matches the 44px Upload pill beside it. */
+.dockspace-files--phone .dockspace-files__floating .dockspace-uploads__pill {
+  min-height: 2.75rem;
 }
 
 .dockspace-upload-menu--floating {

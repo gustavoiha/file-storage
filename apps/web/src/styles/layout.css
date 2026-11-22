@@ -151,6 +151,693 @@
   text-decoration: none;
 }
 
+/* ---------------------------------------------------------------------------
+ * Dockspace switcher (T-0026): tabs in the top nav (desktop), a bar under the
+ * top nav that opens a full-screen list (phone, max-width 900px).
+ * ------------------------------------------------------------------------- */
+
+.app-shell {
+  --dockspace-switcher-bar-height: 3.9rem;
+}
+
+/* The phone bar sits under the top nav, so the pages below it get that much less height. */
+.app-shell--switcher-bar > .app-shell__body {
+  --app-top-nav-height: calc(3.75rem + var(--dockspace-switcher-bar-height));
+}
+
+.app-header {
+  position: sticky;
+  top: 0;
+  z-index: 30;
+}
+
+.dockspace-switcher__icon {
+  flex-shrink: 0;
+}
+
+.dockspace-switcher__icon-button {
+  width: 2rem;
+  height: 2rem;
+  padding: 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--bg-elevated);
+  color: var(--text);
+  cursor: pointer;
+}
+
+.dockspace-switcher__icon-button:hover,
+.dockspace-switcher__icon-button[aria-expanded='true'] {
+  background: rgba(77, 168, 255, 0.2);
+}
+
+.dockspace-switcher__icon-button--ghost {
+  border-color: transparent;
+  background: transparent;
+}
+
+.dockspace-switcher__icon-button:focus-visible,
+.dockspace-switcher-error__retry:focus-visible,
+.dockspace-switcher__create-menu-item:focus-visible,
+.dockspace-switcher-bar__button:focus-visible,
+.dockspace-tabs__more-button:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+
+.dockspace-switcher__create-menu {
+  position: absolute;
+  right: 0;
+  top: calc(100% + 0.35rem);
+  min-width: 200px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--bg-elevated);
+  box-shadow: 0 10px 24px rgba(0, 0, 0, 0.35);
+  padding: 0.35rem;
+  z-index: 35;
+}
+
+.dockspace-switcher__create-menu-label {
+  padding: 0.35rem 0.6rem 0.25rem;
+  color: var(--text-muted);
+  font-size: 0.72rem;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.dockspace-switcher__create-menu-item {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  width: 100%;
+  border: 0;
+  border-radius: 6px;
+  background: transparent;
+  color: var(--text);
+  font: inherit;
+  text-align: left;
+  padding: 0.45rem 0.6rem;
+  cursor: pointer;
+}
+
+.dockspace-switcher__create-menu-item:hover,
+.dockspace-switcher__create-menu-item:focus-visible {
+  background: var(--bg-soft);
+}
+
+.dockspace-switcher__filter {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--bg-soft);
+  padding: 0.38rem 0.55rem;
+  color: var(--text-muted);
+}
+
+.dockspace-switcher__filter:has(:focus-visible) {
+  outline: 2px solid var(--accent);
+  outline-offset: 1px;
+}
+
+@supports not selector(:has(*)) {
+  .dockspace-switcher__filter:focus-within {
+    outline: 2px solid var(--accent);
+    outline-offset: 1px;
+  }
+}
+
+.dockspace-switcher__filter-input {
+  flex: 1;
+  min-width: 0;
+  border: 0;
+  background: transparent;
+  color: var(--text);
+  font: inherit;
+  font-size: 0.88rem;
+  outline: none;
+}
+
+.dockspace-switcher__empty {
+  margin: 0;
+  padding: 0.5rem 0.45rem;
+  color: var(--text-muted);
+  font-size: 0.86rem;
+}
+
+.dockspace-switcher__skeleton {
+  display: inline-block;
+  height: 1.4rem;
+  border-radius: 6px;
+  background: linear-gradient(
+    90deg,
+    rgba(255, 255, 255, 0.06),
+    rgba(255, 255, 255, 0.14),
+    rgba(255, 255, 255, 0.06)
+  );
+}
+
+.dockspace-switcher-error {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  margin: 0;
+  min-width: 0;
+  padding: 0.35rem 0.65rem;
+  border: 1px solid #8e1435;
+  border-radius: 6px;
+  background: rgba(142, 20, 53, 0.2);
+  font-size: 0.86rem;
+}
+
+.dockspace-switcher-error__icon {
+  flex-shrink: 0;
+}
+
+.dockspace-switcher-error__retry--text {
+  border: 0;
+  padding: 0;
+  background: none;
+  color: #9bcfff;
+  font: inherit;
+  text-decoration: underline;
+  white-space: nowrap;
+  cursor: pointer;
+}
+
+.dockspace-switcher-error__retry[aria-disabled='true'] {
+  opacity: 0.6;
+  cursor: progress;
+}
+
+.dockspace-switcher-error--tabs {
+  align-self: center;
+}
+
+.dockspace-switcher-error--tabs .dockspace-switcher-error__message {
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.dockspace-switcher-error--bar {
+  flex: 1;
+}
+
+.dockspace-switcher-error--bar .dockspace-switcher-error__message {
+  flex: 1;
+  min-width: 0;
+}
+
+.dockspace-switcher-error--bar .dockspace-switcher-error__retry {
+  flex-shrink: 0;
+}
+
+/* Above the top nav and the phone list it is opened from (the base backdrop rule comes later). */
+.dockspace-dialog-backdrop.dockspace-dialog-backdrop--switcher {
+  z-index: 50;
+}
+
+/* Desktop: tabs */
+
+.dockspace-tabs {
+  position: relative;
+  flex: 1 1 auto;
+  min-width: 0;
+  align-self: stretch;
+  display: flex;
+  align-items: flex-end;
+  gap: 0.35rem;
+  margin: 0 0.75rem 0 1.25rem;
+}
+
+.dockspace-tabs__list {
+  display: flex;
+  align-items: flex-end;
+  gap: 0.25rem;
+  flex: 0 1 auto;
+  min-width: 0;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.dockspace-tabs__item {
+  display: flex;
+  min-width: 0;
+}
+
+.dockspace-tab {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 0.45rem;
+  height: 2.6rem;
+  min-width: 96px;
+  max-width: 220px;
+  padding: 0 0.85rem;
+  border: 1px solid transparent;
+  border-bottom: 0;
+  border-radius: 10px 10px 0 0;
+  color: #cfcfd8;
+  font-size: 0.88rem;
+  font-weight: 500;
+  white-space: nowrap;
+  text-decoration: none;
+}
+
+.dockspace-tab:hover {
+  background: rgba(255, 255, 255, 0.04);
+  text-decoration: none;
+}
+
+.dockspace-tab__name {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.dockspace-tab .dockspace-switcher__icon {
+  color: var(--text-muted);
+}
+
+.dockspace-tab--media .dockspace-switcher__icon {
+  color: #ff9f8a;
+}
+
+.dockspace-tab--current,
+.dockspace-tab--current:hover {
+  height: calc(2.6rem + 1px);
+  margin-bottom: -1px;
+  border-color: var(--border);
+  background: #0d0f14;
+  color: var(--text);
+  font-weight: 700;
+}
+
+.dockspace-tab--current::before {
+  content: '';
+  position: absolute;
+  left: 10px;
+  right: 10px;
+  top: -1px;
+  height: 2px;
+  border-radius: 2px;
+  background: var(--accent);
+}
+
+.dockspace-tab--current .dockspace-switcher__icon {
+  color: #9bcfff;
+}
+
+.dockspace-tab:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: -2px;
+}
+
+/* Full name and type: shown after a short hover, and at once on keyboard focus. */
+.dockspace-tab__tip {
+  position: absolute;
+  top: calc(100% + 6px);
+  left: 0;
+  z-index: 36;
+  display: grid;
+  gap: 0.1rem;
+  width: max-content;
+  max-width: 280px;
+  padding: 0.45rem 0.65rem;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--bg-elevated);
+  box-shadow: 0 10px 24px rgba(0, 0, 0, 0.5);
+  color: var(--text);
+  font-size: 0.84rem;
+  font-weight: 500;
+  white-space: normal;
+  pointer-events: none;
+  opacity: 0;
+  visibility: hidden;
+  transition:
+    opacity 0.12s ease,
+    visibility 0s linear 0.12s;
+}
+
+.dockspace-tab__tip strong {
+  font-size: 0.88rem;
+}
+
+.dockspace-tab__tip span {
+  color: var(--text-muted);
+  font-size: 0.78rem;
+}
+
+.dockspace-tab:hover .dockspace-tab__tip {
+  opacity: 1;
+  visibility: visible;
+  transition:
+    opacity 0.12s ease 0.4s,
+    visibility 0s linear 0.4s;
+}
+
+.dockspace-tab:focus-visible .dockspace-tab__tip {
+  opacity: 1;
+  visibility: visible;
+  transition: none;
+}
+
+.dockspace-tabs__loading {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  align-self: center;
+}
+
+.dockspace-tabs__more,
+.dockspace-tabs__create {
+  position: relative;
+  align-self: center;
+  flex-shrink: 0;
+}
+
+.dockspace-tabs__more-button {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+  white-space: nowrap;
+}
+
+.dockspace-tabs__popover {
+  position: absolute;
+  right: 0;
+  top: calc(100% + 0.45rem);
+  z-index: 35;
+  width: 340px;
+  max-width: calc(100vw - 2rem);
+  display: grid;
+  gap: 0.3rem;
+  padding: 0.45rem;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  background: var(--bg-elevated);
+  box-shadow: 0 16px 40px rgba(0, 0, 0, 0.55);
+}
+
+.dockspace-tabs__popover[hidden] {
+  display: none;
+}
+
+.dockspace-tabs__popover-list {
+  max-height: 60vh;
+  overflow-y: auto;
+  display: grid;
+  gap: 0.05rem;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.dockspace-tabs__popover-row {
+  display: flex;
+  align-items: center;
+  gap: 0.55rem;
+  padding: 0.42rem 0.45rem;
+  border-radius: 8px;
+  color: var(--text);
+  font-size: 0.9rem;
+  font-weight: 500;
+  text-decoration: none;
+}
+
+.dockspace-tabs__popover-row:hover {
+  background: var(--bg-soft);
+  text-decoration: none;
+}
+
+.dockspace-tabs__popover-row:focus-visible {
+  background: var(--bg-soft);
+  outline: 2px solid var(--accent);
+  outline-offset: -2px;
+}
+
+.dockspace-tabs__popover-row .dockspace-switcher__icon--generic {
+  color: var(--text-muted);
+}
+
+.dockspace-tabs__popover-row .dockspace-switcher__icon--media {
+  color: #ff9f8a;
+}
+
+.dockspace-tabs__popover-name {
+  flex: 1;
+  min-width: 0;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.dockspace-tabs__popover-type {
+  flex-shrink: 0;
+  color: var(--text-muted);
+  font-size: 0.72rem;
+}
+
+.dockspace-tabs__popover-row--all {
+  color: #cfe6ff;
+}
+
+.dockspace-tabs__popover-separator {
+  height: 1px;
+  margin: 0.1rem 0;
+  background: var(--border);
+}
+
+/* Off-screen copies of the tabs, measured to decide how many fit. The clip keeps them from
+   adding page overflow. */
+.dockspace-tabs__measure {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 0;
+  height: 0;
+  overflow: hidden;
+  visibility: hidden;
+  pointer-events: none;
+}
+
+.dockspace-tabs__measure-row {
+  display: flex;
+  gap: 0.25rem;
+  width: max-content;
+}
+
+/* Phone: bar + full-screen list */
+
+.dockspace-switcher-bar {
+  display: flex;
+  align-items: center;
+  min-height: var(--dockspace-switcher-bar-height);
+  min-width: 0;
+  padding: 0.55rem 0.75rem;
+  border-bottom: 1px solid var(--border);
+  background: rgba(13, 15, 20, 0.9);
+  backdrop-filter: blur(8px);
+}
+
+.dockspace-switcher-bar__loading {
+  flex: 1;
+  display: flex;
+}
+
+.dockspace-switcher-bar__skeleton {
+  flex: 1;
+  height: 2.75rem;
+  border-radius: 10px;
+}
+
+.dockspace-switcher-bar__button {
+  flex: 1;
+  min-width: 0;
+  min-height: 2.75rem;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.5rem 0.65rem;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  background: var(--bg-soft);
+  color: var(--text);
+  font: inherit;
+  font-size: 0.95rem;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.dockspace-switcher-bar__name {
+  flex: 1;
+  min-width: 0;
+  text-align: left;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.dockspace-switcher-bar__count {
+  flex-shrink: 0;
+  color: var(--text-muted);
+  font-size: 0.75rem;
+  font-weight: 500;
+}
+
+.dockspace-switcher-bar .dockspace-switcher__icon--generic,
+.dockspace-switcher-screen__row--generic .dockspace-switcher__icon {
+  color: #9bcfff;
+}
+
+.dockspace-switcher-bar .dockspace-switcher__icon--media,
+.dockspace-switcher-screen__row--media .dockspace-switcher__icon {
+  color: #ff9f8a;
+}
+
+.dockspace-switcher-screen {
+  position: fixed;
+  inset: 0;
+  z-index: 40;
+  display: flex;
+  flex-direction: column;
+  background: linear-gradient(160deg, rgb(14, 14, 18), rgb(4, 4, 6));
+  color: var(--text);
+}
+
+.dockspace-switcher-screen__header {
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
+  padding: 0.55rem 0.5rem;
+  border-bottom: 1px solid var(--border);
+}
+
+.dockspace-switcher-screen__header .dockspace-switcher__icon-button {
+  width: 2.75rem;
+  height: 2.75rem;
+}
+
+.dockspace-switcher-screen__title {
+  flex: 1;
+  margin: 0;
+  font-size: 1.1rem;
+}
+
+.dockspace-switcher-screen__create {
+  position: relative;
+}
+
+.dockspace-switcher-screen__filter {
+  margin: 0.6rem 0.75rem;
+}
+
+.dockspace-switcher-screen__filter .dockspace-switcher__filter-input {
+  font-size: 1rem;
+}
+
+.dockspace-switcher-screen__list {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+}
+
+.dockspace-switcher-screen__list ul {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.dockspace-switcher-screen__list li {
+  border-bottom: 1px solid var(--border);
+}
+
+.dockspace-switcher-screen__list .dockspace-switcher__empty {
+  padding: 0.75rem 0.9rem;
+}
+
+.dockspace-switcher-screen__row {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  min-height: 3.5rem;
+  padding: 0.6rem 0.9rem;
+  color: var(--text);
+  text-decoration: none;
+}
+
+.dockspace-switcher-screen__row:hover {
+  background: rgba(255, 255, 255, 0.03);
+  text-decoration: none;
+}
+
+.dockspace-switcher-screen__row[aria-current='page'] {
+  background: rgba(77, 168, 255, 0.1);
+  box-shadow: inset 3px 0 0 var(--accent);
+}
+
+.dockspace-switcher-screen__row:focus-visible,
+.dockspace-switcher-screen__row[aria-current='page']:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: -2px;
+}
+
+.dockspace-switcher-screen__row-text {
+  flex: 1;
+  min-width: 0;
+  display: grid;
+}
+
+.dockspace-switcher-screen__row-name {
+  font-weight: 700;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.dockspace-switcher-screen__row-type {
+  color: var(--text-muted);
+  font-size: 0.8rem;
+}
+
+.dockspace-switcher-screen__row-chevron {
+  flex-shrink: 0;
+  color: var(--text-muted);
+}
+
+.dockspace-switcher-screen__all {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.4rem;
+  margin: 0.5rem auto 1rem;
+  padding: 0.6rem 1rem;
+  width: max-content;
+  text-decoration: underline;
+}
+
+.dockspace-switcher-screen__all:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .dockspace-tab__tip,
+  .dockspace-tab:hover .dockspace-tab__tip {
+    transition: none;
+  }
+}
+
 .auth-links,
 .inline-links {
   display: flex;
@@ -1113,7 +1800,9 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  z-index: 20;
+  /* Above the sticky header (30) and the phone switcher list (40), so the top nav, the
+     dockspace tabs and the switcher bar can't be clicked while a modal dialog is open. */
+  z-index: 45;
   padding: 1rem;
   overflow-y: auto;
   backdrop-filter: blur(4px);

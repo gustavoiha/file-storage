@@ -1,12 +1,11 @@
 import {
-  Outlet,
   createRoute,
   createRootRoute,
   createRouter,
   lazyRouteComponent,
   redirect
 } from '@tanstack/react-router';
-import { TopNav } from '@/components/ui/TopNav';
+import { AppShell } from '@/components/ui/AppShell';
 import { authStore } from '@/lib/authStore';
 
 const LoginPage = lazyRouteComponent(() => import('@/pages/LoginPage'), 'LoginPage');
@@ -43,14 +42,7 @@ const AuthenticatedLayout = lazyRouteComponent(
 );
 
 const rootRoute = createRootRoute({
-  component: () => (
-    <div className="app-shell">
-      <TopNav />
-      <div className="app-shell__body">
-        <Outlet />
-      </div>
-    </div>
-  )
+  component: AppShell
 });
 
 const indexRoute = createRoute({

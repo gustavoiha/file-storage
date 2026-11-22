@@ -2659,6 +2659,12 @@ a.dockspace-card:focus-visible {
   min-height: 320px;
   overflow-y: auto;
   overscroll-behavior: contain;
+  /* The virtual grid owns every row position, so the browser must not move scrollTop to keep an "anchor" in place.
+     With anchoring on, Chrome anchored to the end-of-list footer when the user waited at the end of the loaded media:
+     a landing page pushed the footer down, Chrome scrolled by the whole page to follow it, the user was at the end
+     again, and every remaining page loaded with no input. Safari has no scroll anchoring, so this also makes the
+     two behave the same. */
+  overflow-anchor: none;
   display: grid;
   align-content: start;
   gap: 0;

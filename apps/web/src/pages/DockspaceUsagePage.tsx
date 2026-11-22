@@ -1,10 +1,13 @@
+import { useRef } from 'react';
 import { Link, useParams } from '@tanstack/react-router';
 import { RequireAuth } from '@/components/auth/RequireAuth';
 import { UnauthorizedNotice } from '@/components/auth/UnauthorizedNotice';
+import { DockspaceListLoadError } from '@/components/files/DockspaceListLoadError';
 import { Card } from '@/components/ui/Card';
 import { Page } from '@/components/ui/Page';
-import { useDockspaces } from '@/hooks/useDockspaces';
-import { ApiError } from '@/lib/apiClient';
+import { useDockspaceListLoad } from '@/hooks/useDockspaceListLoad';
+
+export const DOCKSPACE_USAGE_LOAD_ERROR_MESSAGE = "Couldn't load this dockspace's usage.";
 
 const numberFormatter = new Intl.NumberFormat();
 const dateFormatter = new Intl.DateTimeFormat('en-US', {
@@ -52,17 +55,29 @@ const formatDockspaceType = (dockspaceType: 'GENERIC_FILES' | 'PHOTOS_VIDEOS'): 
 
 export const DockspaceUsagePage = () => {
   const { dockspaceId } = useParams({ from: '/dockspaces/$dockspaceId/usage' });
-  const dockspacesQuery = useDockspaces();
-  const dockspace = dockspacesQuery.data?.find((item) => item.dockspaceId === dockspaceId);
-  const unauthorized =
-    dockspacesQuery.error instanceof ApiError && dockspacesQuery.error.statusCode === 403;
+  const backLinkRef = useRef<HTMLAnchorElement | null>(null);
+  const titleRef = useRef<HTMLHeadingElement | null>(null);
+  const dockspaceList = useDockspaceListLoad({
+    // After Try again loads the list: Back to dockspace (the usage card's stable control). "Dockspace not found." and
+    // Not Authorized (a retry that returns 403) have no control: the page title.
+    getFocusTarget: () => backLinkRef.current ?? titleRef.current
+  });
+  const dockspace = dockspaceList.dockspaces?.find((item) => item.dockspaceId === dockspaceId);
 
   return (
     <RequireAuth>
-      <Page title={dockspace ? `${dockspace.name} usage` : 'Detailed usage'}>
-        {unauthorized ? (
+      <Page title={dockspace ? `${dockspace.name} usage` : 'Detailed usage'} titleRef={titleRef}>
+        {dockspaceList.unauthorized ? (
           <UnauthorizedNotice />
-        ) : dockspacesQuery.isLoading ? (
+        ) : dockspaceList.showLoadError ? (
+          // Without the list nothing is known about this dockspace: an error with Try again, not "not found".
+          <DockspaceListLoadError
+            message={DOCKSPACE_USAGE_LOAD_ERROR_MESSAGE}
+            isRetrying={dockspaceList.isRetrying}
+            onRetry={dockspaceList.retry}
+            focusHandlers={dockspaceList.retryFocusHandlers}
+          />
+        ) : dockspaceList.isLoading ? (
           <p>Loading usage...</p>
         ) : !dockspace ? (
           <p>Dockspace not found.</p>
@@ -90,7 +105,7 @@ export const DockspaceUsagePage = () => {
                 <dd>{formatDateTime(dockspace.createdAt)}</dd>
               </div>
             </dl>
-            <Link to="/dockspaces/$dockspaceId" params={{ dockspaceId }}>
+            <Link ref={backLinkRef} to="/dockspaces/$dockspaceId" params={{ dockspaceId }}>
               Back to dockspace
             </Link>
           </Card>

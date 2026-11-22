@@ -13,7 +13,12 @@ import { PHONE_LAYOUT_QUERY, useMediaQuery } from '@/hooks/useMediaQuery';
 import { GALLERY_ALBUM_TRIGGER_CLASS, GalleryAlbumMenu } from '@/pages/dockspaceMedia/GalleryAlbumMenu';
 import { GalleryOptionsMenu } from '@/pages/dockspaceMedia/GalleryOptionsMenu';
 import { MEDIA_GRID_SIZE_OPTIONS } from '@/pages/dockspaceMedia/mediaGridConfig';
-import { formatBytes, formatTimestamp } from '@/pages/dockspaceMedia/mediaHelpers';
+import {
+  formatBytes,
+  formatDuplicatesSelectedForTrashMessage,
+  formatTimestamp,
+  formatTrashDialogDescription
+} from '@/pages/dockspaceMedia/mediaHelpers';
 import { VirtualizedMediaGrid } from '@/pages/dockspaceMedia/VirtualizedMediaGrid';
 import type { DockspaceMediaController } from '@/pages/dockspaceMedia/useDockspaceMediaController';
 
@@ -82,8 +87,6 @@ export const DockspaceMediaWorkspace = ({ dockspaceId, controller }: DockspaceMe
   const isTrashDialogOpen = trashDialogContext !== null;
   const trashDialogSelectedCount =
     trashDialogContext === 'duplicates' ? selectedDuplicatePaths.length : selectedMediaIds.length;
-  const trashDialogSelectionLabel =
-    trashDialogContext === 'duplicates' ? 'selected duplicate media files' : 'selected media files';
   const closeAddToAlbumDialog = useCallback(() => {
     setIsAddToAlbumDialogOpen(false);
   }, []);
@@ -411,7 +414,9 @@ export const DockspaceMediaWorkspace = ({ dockspaceId, controller }: DockspaceMe
               <p>{duplicateSummary.duplicateItemCount} repeated files.</p>
               <p>{formatBytes(duplicateSummary.reclaimableBytes)} reclaimable.</p>
             </div>
-            {duplicateActionMessage ? <Alert message={duplicateActionMessage} /> : null}
+            {duplicateActionMessage ? (
+              <Alert tone={duplicateActionMessage.tone} message={duplicateActionMessage.message} />
+            ) : null}
             {isDuplicatesLoading ? (
               <p>Loading duplicates...</p>
             ) : duplicateGroups.length === 0 ? (
@@ -480,7 +485,7 @@ export const DockspaceMediaWorkspace = ({ dockspaceId, controller }: DockspaceMe
               </Button>
             ) : null}
             <div className="media-duplicates__footer">
-              <p>{selectedDuplicatePaths.length} items selected for trash.</p>
+              <p>{formatDuplicatesSelectedForTrashMessage(selectedDuplicatePaths.length)}</p>
               <Button
                 ref={moveDuplicatesButtonRef}
                 type="button"
@@ -612,7 +617,7 @@ export const DockspaceMediaWorkspace = ({ dockspaceId, controller }: DockspaceMe
           >
             <h2 className="dockspace-dialog__title">Move to trash</h2>
             <p className="dockspace-dialog__description">
-              This will move {trashDialogSelectedCount} {trashDialogSelectionLabel} to trash.
+              {formatTrashDialogDescription(trashDialogSelectedCount, trashDialogContext ?? 'bulk')}
             </p>
             <div className="dockspace-dialog__actions">
               <Button

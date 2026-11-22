@@ -184,6 +184,7 @@ describe('Move to trash from the gallery', () => {
     expect(api.moveToTrash).toHaveBeenCalledTimes(2);
     expect(api.listMedia).toHaveBeenCalledTimes(3);
     expect(screen.getByRole('alert')).toHaveTextContent('Moved 2 items to trash.');
+    expect(screen.getByRole('alert')).toHaveClass('ui-alert--info');
     // The selection is cleared and selection mode ends.
     expect(screen.queryByRole('button', { name: 'Trash selected' })).not.toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'Select multiple' })).toBeInTheDocument();
@@ -209,6 +210,36 @@ describe('Move to trash from the gallery', () => {
     expect(screen.getByRole('button', { name: 'Open item-0015.jpg' })).toBeInTheDocument();
   });
 
+  it('names one item in the singular, in the dialog and the result (T-0041)', async () => {
+    renderPage();
+    await screen.findByRole('button', { name: 'Open item-0015.jpg' });
+
+    fireEvent.click(screen.getByRole('button', { name: 'Select multiple' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Select item-0001.jpg' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Trash selected' }));
+    const dialog = screen.getByRole('dialog', { name: 'Confirm moving items to trash' });
+    expect(within(dialog).getByText('This will move 1 selected media file to trash.')).toBeInTheDocument();
+    fireEvent.click(within(dialog).getByRole('button', { name: 'Move to trash' }));
+
+    await waitFor(() => expect(screen.getByRole('alert')).toHaveTextContent(/^Moved 1 item to trash\.$/));
+    expect(screen.getByRole('alert')).toHaveClass('ui-alert--info');
+  });
+
+  it('names several items in the plural in the dialog', async () => {
+    renderPage();
+    await screen.findByRole('button', { name: 'Open item-0015.jpg' });
+
+    fireEvent.click(screen.getByRole('button', { name: 'Select multiple' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Select item-0001.jpg' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Select item-0002.jpg' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Trash selected' }));
+    expect(
+      within(screen.getByRole('dialog', { name: 'Confirm moving items to trash' })).getByText(
+        'This will move 2 selected media files to trash.'
+      )
+    ).toBeInTheDocument();
+  });
+
   it('keeps an item whose trash request failed in the gallery and reports the failure', async () => {
     renderPage();
     await screen.findByRole('button', { name: 'Open item-0015.jpg' });
@@ -217,7 +248,7 @@ describe('Move to trash from the gallery', () => {
     const release = holdGalleryRequests();
     trashTiles('item-0001.jpg', 'item-0002.jpg');
 
-    await waitFor(() => expect(screen.getByRole('alert')).toHaveTextContent('Moved 1 items to trash. 1 failed.'));
+    await waitFor(() => expect(screen.getByRole('alert')).toHaveTextContent('Moved 1 item to trash. 1 failed.'));
     expect(screen.queryByRole('button', { name: 'Open item-0001.jpg' })).not.toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'Open item-0002.jpg' })).toBeInTheDocument();
 
@@ -321,6 +352,11 @@ describe('Move selected duplicates to trash', () => {
     const release = holdRequests(api.listMediaDuplicates);
     const duplicateCallsBefore = api.listMediaDuplicates.mock.calls.length;
     fireEvent.click(screen.getByRole('button', { name: 'Move selected to trash' }));
+    expect(
+      within(screen.getByRole('dialog', { name: 'Confirm moving items to trash' })).getByText(
+        'This will move 3 selected duplicate media files to trash.'
+      )
+    ).toBeInTheDocument();
     fireEvent.click(
       within(screen.getByRole('dialog', { name: 'Confirm moving items to trash' })).getByRole('button', {
         name: 'Move to trash'
@@ -333,6 +369,8 @@ describe('Move selected duplicates to trash', () => {
     // The duplicates refetch has started and is still held.
     expect(api.listMediaDuplicates.mock.calls.length).toBe(duplicateCallsBefore + 1);
     expect(screen.getByRole('alert')).toHaveTextContent('Moved 2 items to trash. 1 failed.');
+    // A result with failed files stays in the error style.
+    expect(screen.getByRole('alert')).toHaveClass('ui-alert--error');
     // a-1 left its group, which still has two files; group b has one file left, so it is gone.
     expect(screen.queryByText('a-1.jpg')).not.toBeInTheDocument();
     expect(within(duplicateGroup('aaaaaaaaaaaaaaaa')).getByText('2 files, 100 bytes reclaimable')).toBeInTheDocument();
@@ -341,7 +379,7 @@ describe('Move selected duplicates to trash', () => {
     expect(screen.queryByText('b-1.jpg')).not.toBeInTheDocument();
     // c-1 failed: it stays, still selected, and is the only selected file.
     expect(within(duplicateRow('c-1.jpg')).getByRole('checkbox')).toBeChecked();
-    expect(screen.getByText('1 items selected for trash.')).toBeInTheDocument();
+    expect(screen.getByText('1 item selected for trash.')).toBeInTheDocument();
     expect(screen.getByText('2 duplicate groups found.')).toBeInTheDocument();
     expect(screen.getByText('2 repeated files.')).toBeInTheDocument();
     expect(screen.getByText('500 bytes reclaimable.')).toBeInTheDocument();
@@ -352,6 +390,50 @@ describe('Move selected duplicates to trash', () => {
     await waitFor(() => expect(screen.getByText('2 duplicate groups found.')).toBeInTheDocument());
     expect(screen.queryByText('a-1.jpg')).not.toBeInTheDocument();
     expect(screen.queryByText('Hash bbbbbbbbbbbb...')).not.toBeInTheDocument();
-    expect(screen.getByText('1 items selected for trash.')).toBeInTheDocument();
+    expect(screen.getByText('1 item selected for trash.')).toBeInTheDocument();
+  });
+
+  it('shows a clean result in the info style and names one file in the singular (T-0041)', async () => {
+    renderPage();
+    await screen.findByRole('button', { name: 'Open item-0003.jpg' });
+    fireEvent.click(screen.getByRole('button', { name: 'Gallery options' }));
+    fireEvent.click(screen.getByRole('menuitem', { name: 'Find duplicates' }));
+    await screen.findByText('Hash aaaaaaaaaaaa...');
+
+    // Keep everything but b-1.
+    fireEvent.click(within(duplicateRow('a-1.jpg')).getByRole('checkbox'));
+    fireEvent.click(within(duplicateRow('a-2.jpg')).getByRole('checkbox'));
+    fireEvent.click(within(duplicateRow('c-1.jpg')).getByRole('checkbox'));
+    expect(screen.getByText('1 item selected for trash.')).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole('button', { name: 'Move selected to trash' }));
+    const dialog = screen.getByRole('dialog', { name: 'Confirm moving items to trash' });
+    expect(within(dialog).getByText('This will move 1 selected duplicate media file to trash.')).toBeInTheDocument();
+    fireEvent.click(within(dialog).getByRole('button', { name: 'Move to trash' }));
+
+    await waitFor(() => expect(screen.getByRole('alert')).toHaveTextContent(/^Moved 1 item to trash\.$/));
+    expect(screen.getByRole('alert')).toHaveClass('ui-alert--info');
+    expect(screen.getByText('0 items selected for trash.')).toBeInTheDocument();
+  });
+
+  it('shows a result where every file failed in the error style', async () => {
+    renderPage();
+    await screen.findByRole('button', { name: 'Open item-0003.jpg' });
+    fireEvent.click(screen.getByRole('button', { name: 'Gallery options' }));
+    fireEvent.click(screen.getByRole('menuitem', { name: 'Find duplicates' }));
+    await screen.findByText('Hash aaaaaaaaaaaa...');
+    for (const path of ['/photos/a-1.jpg', '/photos/a-2.jpg', '/photos/b-1.jpg', '/photos/c-1.jpg']) {
+      api.failingPaths.add(path);
+    }
+
+    fireEvent.click(screen.getByRole('button', { name: 'Move selected to trash' }));
+    fireEvent.click(
+      within(screen.getByRole('dialog', { name: 'Confirm moving items to trash' })).getByRole('button', {
+        name: 'Move to trash'
+      })
+    );
+
+    await waitFor(() => expect(screen.getByRole('alert')).toHaveTextContent('Moved 0 items to trash. 4 failed.'));
+    expect(screen.getByRole('alert')).toHaveClass('ui-alert--error');
   });
 });

@@ -339,10 +339,15 @@ describe.each(['desktop', 'phone'] as const)('Gallery Trash selected dialog focu
   });
 });
 
-describe('Find duplicates Move selected to trash dialog focus', () => {
+describe.each(['desktop', 'phone'] as const)('Find duplicates Move selected to trash dialog focus (%s)', (layout) => {
+  beforeEach(() => {
+    useLayout(layout);
+  });
+
   const openDuplicates = async () => {
     renderPage();
     await screen.findByRole('button', { name: 'Open item-0005.jpg' });
+    expect(document.querySelector('.media-workspace--phone') !== null).toBe(layout === 'phone');
     fireEvent.click(screen.getByRole('button', { name: 'Gallery options' }));
     fireEvent.click(screen.getByRole('menuitem', { name: 'Find duplicates' }));
     await screen.findByText('Hash aaaaaaaaaaaa...');

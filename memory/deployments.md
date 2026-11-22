@@ -388,3 +388,14 @@ Recorded 2026-11-20 by the setup session from a `cdk diff` of origin/main 5678ad
 - Known pre-existing issues still live: batches of more than 120 gallery uploads only partly followed for thumbnails (T-0042, #90); duplicates summary focus ring (T-0044, #95); phone touch targets (T-0038, #82); skipped-files wording (T-0039, #83); trash copy plurals (T-0041, #85).
 - Logs: $LOCAL/logs/prod-deploy-diff-pr-20261122T182008Z.log, prod-deploy-diff-20261122T182036Z.log, prod-deploy-web-20261122T182121Z.log, prod-deploy-diff-20261122T182134Z.log.
 - Prod is now at origin/main `974996c` for both infra and web.
+
+### 2026-11-22 — T-0039 — web
+- origin/main commit: `923a617` (PR #91 squash-merged). Run as `dockspace-prod-agent-deployer` via `prod-deploy.sh`.
+- Pre-deploy: PR #91 at `b1ca666` was MERGEABLE/CLEAN with merge base `b2a20d3`; main had moved to `974996c` (T-0040 #88 and T-0036 #89, overlapping `useDockspaceMediaController.ts` and `DockspaceMediaPage.test.tsx` in other hunks). The PR merged onto `974996c` without conflicts and passed web typecheck, tests (67 files, 544 tests) and build in a local merge-check worktree, and the squash-merged tree matches it. Web only (`mediaHelpers.ts`, `useDockspaceMediaController.ts`, two test files); no API, backend or infra change. `prod-deploy.sh diff-pr 91` showed 0 stacks with differences. Main since the last deploy (`974996c`) had no commits; `prod-deploy.sh diff` 0 stacks, so no drift.
+- Infra: not run. Post-deploy `prod-deploy.sh diff` at `923a617` shows 0 stacks with differences.
+- Web (`prod-deploy.sh web`): built and synced to the prod site bucket; invalidated `/*` on the prod distribution. Entry bundle `index-C-c3aL4-.js`, `DockspaceMediaPage-DxHU-9di.js`, stylesheet `index-DrhwRw4c.css`.
+- Shipped: #91 `923a617` (T-0039).
+- Smoke check: https://dh0djlfa46gz6.cloudfront.net/login serves `index-C-c3aL4-.js`, renders the sign-in form, `DockspaceMediaPage-DxHU-9di.js` is served (200, JavaScript) and contains "this gallery accepts only photos and videos" (no "PHOTOS_VIDEOS accepts"), and the console shows no errors.
+- Known pre-existing issues still live: phone pill says "an upload failed" for skipped files (T-0045, #96); files upload invalid-paths singular (T-0043, #93); trash copy plurals (T-0041, #85); phone touch targets (T-0038, #82); batches over 120 uploads (T-0042, #90); duplicates summary focus ring (T-0044, #95).
+- Logs: $LOCAL/logs/prod-deploy-diff-pr-20261122T182437Z.log, prod-deploy-diff-20261122T182503Z.log, prod-deploy-web-20261122T182550Z.log, prod-deploy-diff-20261122T182602Z.log.
+- Prod is now at origin/main `923a617` for both infra and web.

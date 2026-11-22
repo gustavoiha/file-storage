@@ -402,7 +402,7 @@ export const DockspaceMediaWorkspace = ({ dockspaceId, controller }: DockspaceMe
         <div className="media-workspace__alerts">
           {mediaListError ? <Alert message={mediaListError} /> : null}
           {duplicatesVisible && duplicatesListError ? <Alert message={duplicatesListError} /> : null}
-          {bulkActionMessage ? <Alert tone="info" message={bulkActionMessage} /> : null}
+          {bulkActionMessage ? <Alert tone={bulkActionMessage.tone} message={bulkActionMessage.message} /> : null}
           {localError ? <Alert message={localError} /> : null}
         </div>
       ) : null}

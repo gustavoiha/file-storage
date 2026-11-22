@@ -15,7 +15,9 @@ const api = vi.hoisted(() => ({
   failingPaths: new Set<string>(),
   listMedia: vi.fn(),
   listMediaDuplicates: vi.fn(),
-  moveToTrash: vi.fn()
+  moveToTrash: vi.fn(),
+  listAlbums: vi.fn(),
+  assignAlbumMedia: vi.fn()
 }));
 
 const buildItems = (start: number, count: number): MediaFileRecord[] =>
@@ -37,7 +39,8 @@ vi.mock('@/lib/dockspaceApi', async (importOriginal) => ({
   listMedia: api.listMedia,
   moveToTrash: api.moveToTrash,
   listTrash: vi.fn(async () => []),
-  listAlbums: vi.fn(async () => []),
+  listAlbums: api.listAlbums,
+  assignAlbumMedia: api.assignAlbumMedia,
   listAlbumMedia: vi.fn(async () => []),
   listMediaAlbums: vi.fn(async () => []),
   listMediaDuplicates: api.listMediaDuplicates
@@ -127,6 +130,13 @@ const renderPage = () =>
       <DockspaceMediaPage dockspaceId="dock-1" dockspaceName="Camera Roll" />
     </QueryWrapper>
   );
+
+// No albums unless a test serves some.
+beforeEach(() => {
+  api.listAlbums.mockReset();
+  api.listAlbums.mockImplementation(async () => []);
+  api.assignAlbumMedia.mockReset();
+});
 
 const trashTiles = (...names: string[]) => {
   fireEvent.click(screen.getByRole('button', { name: 'Select multiple' }));
@@ -249,12 +259,93 @@ describe('Move to trash from the gallery', () => {
     trashTiles('item-0001.jpg', 'item-0002.jpg');
 
     await waitFor(() => expect(screen.getByRole('alert')).toHaveTextContent('Moved 1 item to trash. 1 failed.'));
+    // A result with failed files shows in the error style, as in Find duplicates (T-0048).
+    expect(screen.getByRole('alert')).toHaveClass('ui-alert--error');
     expect(screen.queryByRole('button', { name: 'Open item-0001.jpg' })).not.toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'Open item-0002.jpg' })).toBeInTheDocument();
 
     await release();
     await waitFor(() => expect(api.listMedia).toHaveBeenCalledTimes(4));
     expect(screen.getByRole('button', { name: 'Open item-0002.jpg' })).toBeInTheDocument();
+  });
+
+  it('shows a result where every file failed in the error style (T-0048)', async () => {
+    renderPage();
+    await screen.findByRole('button', { name: 'Open item-0015.jpg' });
+    api.failingPaths.add('/photos/item-0001.jpg');
+    api.failingPaths.add('/photos/item-0002.jpg');
+
+    trashTiles('item-0001.jpg', 'item-0002.jpg');
+
+    await waitFor(() => expect(screen.getByRole('alert')).toHaveTextContent(/^Moved 0 items to trash\. 2 failed\.$/));
+    expect(screen.getByRole('alert')).toHaveClass('ui-alert--error');
+    expect(screen.getByRole('button', { name: 'Open item-0001.jpg' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Open item-0002.jpg' })).toBeInTheDocument();
+  });
+});
+
+describe('Add to album from the gallery', () => {
+  const album = {
+    albumId: 'album-1',
+    name: 'Holidays',
+    createdAt: '2026-02-01T00:00:00.000Z',
+    updatedAt: '2026-02-01T00:00:00.000Z'
+  };
+
+  beforeEach(() => {
+    setSession({ accessToken: 'a', idToken: 'i', email: 'a@a.com', userId: 'u1' });
+    api.listMedia.mockReset();
+    api.listMedia.mockImplementation(async (_dockspaceId: string, options?: { cursor?: string }) => {
+      const page = api.pages.get(options?.cursor);
+      if (!page) throw new Error(`unexpected cursor ${options?.cursor}`);
+      return page();
+    });
+    serveTwoPages();
+    api.listAlbums.mockImplementation(async () => [album]);
+    api.listMediaDuplicates.mockReset();
+  });
+
+  afterEach(() => {
+    cleanup();
+    clearSession();
+  });
+
+  const addTilesToAlbum = async (...names: string[]) => {
+    renderPage();
+    await screen.findByRole('button', { name: 'Open item-0015.jpg' });
+    fireEvent.click(screen.getByRole('button', { name: 'Select multiple' }));
+    for (const name of names) {
+      fireEvent.click(screen.getByRole('button', { name: `Select ${name}` }));
+    }
+    await waitFor(() => expect(screen.getByRole('button', { name: 'Add to album' })).toBeEnabled());
+    fireEvent.click(screen.getByRole('button', { name: 'Add to album' }));
+    fireEvent.click(
+      within(screen.getByRole('dialog', { name: 'Add selected media to album' })).getByRole('button', {
+        name: 'Add selected items'
+      })
+    );
+  };
+
+  it('shows a successful result in the info style', async () => {
+    api.assignAlbumMedia.mockImplementation(async (_dockspaceId: string, albumId: string, fileNodeIds: string[]) => ({
+      albumId,
+      assignedFileNodeIds: fileNodeIds
+    }));
+
+    await addTilesToAlbum('item-0001.jpg');
+
+    await waitFor(() => expect(screen.getByRole('alert')).toHaveTextContent(/^Added 1 item to album\.$/));
+    expect(screen.getByRole('alert')).toHaveClass('ui-alert--info');
+    expect(api.assignAlbumMedia).toHaveBeenCalledWith('dock-1', 'album-1', ['file-0001']);
+  });
+
+  it('shows a request error in the error style (T-0048)', async () => {
+    api.assignAlbumMedia.mockRejectedValue(new ApiError('Album service unavailable', 500));
+
+    await addTilesToAlbum('item-0001.jpg', 'item-0002.jpg');
+
+    await waitFor(() => expect(screen.getByRole('alert')).toHaveTextContent('Album service unavailable'));
+    expect(screen.getByRole('alert')).toHaveClass('ui-alert--error');
   });
 });
 

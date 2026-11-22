@@ -28,6 +28,7 @@ All open tasks have their own issues (#11-#16, sub-issues of request #5) since 2
 - 2026-11-22: T-0049 (#106) split from T-0047 review round 1: on phone the files page's collapsed uploads pill says "an upload failed" with the red dot when invalid-path files were skipped, now also for mixed selections (files page passes the notice as `uploadErrorMessage`). Build after T-0045 (PR #103, adds `uploadNoticeMessage`) and T-0047 (PR #105) are merged.
 - 2026-11-22: T-0050 (#108) split from T-0045 test round 1 (already on main since T-0030): collapsing or expanding the uploads card drops keyboard focus to the page body; focus should go to the collapsed pill, and from the pill to Collapse uploads (gallery and files page). Coordinate with T-0049 (same card).
 - 2026-11-22: T-0051 (#109) split from T-0047 test round 1 (already on main): opening a menu with Enter or Space leaves focus on the trigger (shared `DropdownMenu` default), so the first item is not focused or announced; keyboard opening should focus the first enabled item (all menus using the default). Independent of the open uploads PRs; touches `DropdownMenu.tsx`.
+- 2026-11-22: T-0052 (#111) split from T-0051 test round 1 (already on main): shared `DropdownMenu` items (Upload, Dockspace / Folder options, row Actions, Account) show the browser default focus outline while New dockspace, Gallery options and album menu items show the app's 2px ring; give `.dropdown-menu__item` the same keyboard-only ring. Touches `layout.css`; build after T-0051 (PR #110) is merged.
 
 - 2026-11-22 sweep: T-0032 is live, so T-0035 is dispatched to engineering (rebase on main; PRs #73, #76, #78 touch the gallery files). T-0036 stays new until T-0033 (PR #76) is merged.
 - 2026-11-22 sweep: PRs #76 (T-0033) and #80 (T-0035) are still open, so T-0036 and T-0037 stay new; nothing dispatched.
@@ -150,4 +151,5 @@ All open tasks have their own issues (#11-#16, sub-issues of request #5) since 2
 | T-0048 | #104 | #65 | Gallery trash result: a partial failure shows as an error | done | Deployment |
 | T-0049 | #106 | #65 | Files page uploads pill: skipped invalid-path files are a notice, not a failed upload | new | Review judge |
 | T-0050 | #108 | #65 | Uploads card keeps keyboard focus when it collapses or expands | new | Test results filtering |
-| T-0051 | #109 | #65 | Menus opened from the keyboard focus their first item | filtering | Engineering |
+| T-0051 | #109 | #65 | Menus opened from the keyboard focus their first item | deploying | Engineering |
+| T-0052 | #111 | #65 | Menu items use one focus ring style in every menu | new | Test results filtering |

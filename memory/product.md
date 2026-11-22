@@ -43,6 +43,7 @@ All open tasks have their own issues (#11-#16, sub-issues of request #5) since 2
 - 2026-11-22 sweep: T-0043 (PR #94) is merged and live, so T-0047 is dispatched to engineering (rebase on main; T-0045 touches the same Uploads card). T-0048 stays new until T-0041 (PR #100, deploying) is merged. T-0041 (deploying), T-0042, T-0045 and T-0046 (testing) pipelines are running.
 - 2026-11-22 sweep: T-0041 (PR #100) is merged and live, so T-0048 is dispatched to engineering (rebase on main). T-0049 stays new until T-0045 (PR #103) and T-0047 (PR #105) are merged. T-0042, T-0045, T-0047 (testing) and T-0046 (deploying) pipelines are running.
 - 2026-11-22 sweep: PRs #103 (T-0045), #105 (T-0047) and #107 (T-0048) are still open, so nothing is dispatched. T-0049 stays new until T-0045 (PR #103) and T-0047 (PR #105) are merged; T-0050 stays new until T-0045 (PR #103, same `UploadsCard.tsx`) is merged, then build it after or alongside T-0049. T-0045 (deploying), T-0047 and T-0048 (testing) pipelines are running.
+- 2026-11-22 sweep: T-0051 dispatched to engineering (shared `DropdownMenu.tsx`, independent of the open uploads PRs; rebase on main). PRs #103 (T-0045), #105 (T-0047) and #107 (T-0048) are still open, so T-0049 and T-0050 stay new (T-0049 until #103 and #105 are merged, T-0050 until #103 is merged). T-0045, T-0048 (testing) and T-0047 (deploying) pipelines are running.
 
 ### Shipped
 - 2026-11-22 (prod at 7f19fe9): T-0042 Gallery thumbnail follow-up covers batches larger than one page (#90, PR #99): after a gallery upload batch, the thumbnail follow-up requests the newest items in pages sized to the batch (120 to 200) and walks on by cursor while an upload is unseen, so every upload of a batch over 120 (tested with 130 and 450) is followed; tiles loaded later by scrolling get their thumbnail within about a second of it being ready, with no reload. Same 13-round bound and early stop; one refresh per batch and paging unchanged.
@@ -147,4 +148,4 @@ All open tasks have their own issues (#11-#16, sub-issues of request #5) since 2
 | T-0048 | #104 | #65 | Gallery trash result: a partial failure shows as an error | testing | Test results filtering |
 | T-0049 | #106 | #65 | Files page uploads pill: skipped invalid-path files are a notice, not a failed upload | new | Review judge |
 | T-0050 | #108 | #65 | Uploads card keeps keyboard focus when it collapses or expands | new | Test results filtering |
-| T-0051 | #109 | #65 | Menus opened from the keyboard focus their first item | new | Test results filtering |
+| T-0051 | #109 | #65 | Menus opened from the keyboard focus their first item | engineering | Engineering |

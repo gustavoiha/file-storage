@@ -89,5 +89,5 @@ All open tasks have their own issues (#11-#16, sub-issues of request #5) since 2
 | T-0030 | #67 | #65 | Gallery layout: no card frame, actions in a menu, gapless grid | engineering | Design |
 | T-0031 | #69 | #65 | Gallery: show loading status while a background refetch delays the next page | done | Engineering |
 | T-0032 | #70 | #65 | Gallery preview returns focus to its tile on close | filtering | Engineering |
-| T-0033 | #74 | #65 | Gallery shows a file uploaded from the gallery without a reload | engineering | Engineering |
+| T-0033 | #74 | #65 | Gallery shows a file uploaded from the gallery without a reload | review | Engineering |
 | T-0034 | #75 | #65 | Gallery Move to trash dialog closes without waiting for the gallery refetch | engineering | Engineering |

@@ -99,7 +99,7 @@ All open tasks have their own issues (#11-#16, sub-issues of request #5) since 2
 | T-0031 | #69 | #65 | Gallery: show loading status while a background refetch delays the next page | done | Engineering |
 | T-0032 | #70 | #65 | Gallery preview returns focus to its tile on close | done | Engineering |
 | T-0033 | #74 | #65 | Gallery shows a file uploaded from the gallery without a reload | testing | Engineering |
-| T-0034 | #75 | #65 | Gallery Move to trash dialog closes without waiting for the gallery refetch | testing | Engineering |
+| T-0034 | #75 | #65 | Gallery Move to trash dialog closes without waiting for the gallery refetch | filtering | Engineering |
 | T-0035 | #77 | #65 | Gallery preview takes focus when it opens and keeps Tab inside | testing | Test results filtering |
 | T-0036 | #79 | #65 | Gallery shows a new upload's thumbnail without a reload | new | Test results filtering |
 | T-0037 | #81 | #65 | Gallery preview arrow keys seek video/audio instead of changing the item | new | Review judge |

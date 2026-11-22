@@ -4503,7 +4503,9 @@ button.dockspace-crumbs__crumb:focus-visible {
   margin-left: auto;
 }
 
+/* Phone touch target (T-0046): the floating Upload pill is 44px, level with the collapsed uploads pill beside it. */
 .dockspace-upload-menu--floating .dockspace-upload-menu__trigger {
+  min-height: 2.75rem;
   border-radius: 999px;
   padding: 0.7rem 1.2rem;
   box-shadow: 0 10px 24px rgba(0, 0, 0, 0.45);

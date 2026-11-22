@@ -1,4 +1,5 @@
-import { act, cleanup, fireEvent, render, screen } from '@testing-library/react';
+import { act, cleanup, fireEvent, render, screen, within } from '@testing-library/react';
+import userEvent from '@testing-library/user-event';
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
 import { DockspaceMediaPage } from '@/pages/DockspaceMediaPage';
 import type { MediaFileRecord } from '@/lib/apiTypes';
@@ -27,7 +28,9 @@ const mockState = vi.hoisted(() => ({
   // Replaced as a whole (never rebuilt per call), so the hook results stay stable between renders.
   mediaData: { pages: [{ items: [] as MediaFileRecord[] }] },
   albumItems: [] as MediaFileRecord[],
-  albumsData: [] as Array<{ albumId: string; name: string }>
+  albumsData: [] as Array<{ albumId: string; name: string }>,
+  // When true, the preview shows a video with native controls (which take Tab) instead of an image.
+  previewIsVideo: false
 }));
 
 vi.mock('@tanstack/react-router', () => ({
@@ -40,7 +43,10 @@ vi.mock('@/components/auth/RequireAuth', () => ({
 
 vi.mock('@/components/files/FilePreviewContent', () => ({
   FilePreviewContent: ({ file }: { file: { fullPath: string } | null }) => (
-    <div data-testid="preview-content">{file?.fullPath ?? ''}</div>
+    <div data-testid="preview-content">
+      {file?.fullPath ?? ''}
+      {mockState.previewIsVideo ? <video data-testid="preview-video" controls /> : null}
+    </div>
   )
 }));
 
@@ -165,6 +171,7 @@ describe('Gallery preview focus return', () => {
     setMediaItems(mockState.buildMediaItems(200));
     mockState.albumItems = [];
     mockState.albumsData = [];
+    mockState.previewIsVideo = false;
   });
 
   afterEach(() => {
@@ -343,5 +350,186 @@ describe('Gallery preview focus return', () => {
 
     expect(screen.getByText('1 item selected')).toBeInTheDocument();
     expect(previewDialog()).toBeNull();
+  });
+});
+
+describe('Gallery preview focus on open and Tab trap', () => {
+  /**
+   * Blur the focused element whenever it gains `disabled`, as the browser does. jsdom ignores blur() on a disabled
+   * element, so enable it for the blur.
+   */
+  let blurOnDisable: MutationObserver | undefined;
+
+  beforeEach(() => {
+    setMediaItems(mockState.buildMediaItems(200));
+    mockState.albumItems = [];
+    mockState.albumsData = [];
+    mockState.previewIsVideo = false;
+    blurOnDisable = new MutationObserver(() => {
+      const active = document.activeElement;
+      if (active instanceof HTMLButtonElement && active.disabled) {
+        active.disabled = false;
+        active.blur();
+        active.disabled = true;
+      }
+    });
+    blurOnDisable.observe(document.body, { attributes: true, attributeFilter: ['disabled'], subtree: true });
+  });
+
+  afterEach(() => {
+    blurOnDisable?.disconnect();
+    cleanup();
+  });
+
+  const closeButton = () => screen.getByRole('button', { name: 'Close preview' });
+  const previousButton = () => screen.getByRole('button', { name: 'Previous media item' });
+  const nextButton = () => screen.getByRole('button', { name: 'Next media item' });
+
+  it('moves focus to Close preview when the preview opens from the keyboard, inside the named dialog', () => {
+    render(<DockspaceMediaPage dockspaceId="dock-1" dockspaceName="Camera Roll" />);
+
+    openWithKeyboard('item-0005.jpg');
+
+    const dialog = screen.getByRole('dialog', { name: 'Preview item-0005.jpg' });
+    expect(dialog).toHaveAttribute('aria-modal', 'true');
+    expect(document.activeElement).toBe(closeButton());
+    expect(within(dialog).getByRole('button', { name: 'Close preview' })).toBe(document.activeElement);
+  });
+
+  it('moves focus to Close preview when the preview opens from a click', async () => {
+    const user = userEvent.setup();
+    render(<DockspaceMediaPage dockspaceId="dock-1" dockspaceName="Camera Roll" />);
+
+    await user.click(screen.getByRole('button', { name: 'Open item-0008.jpg' }));
+
+    expect(previewDialog()).not.toBeNull();
+    expect(document.activeElement).toBe(closeButton());
+  });
+
+  it('keeps Tab and Shift+Tab on the preview controls', async () => {
+    const user = userEvent.setup();
+    render(<DockspaceMediaPage dockspaceId="dock-1" dockspaceName="Camera Roll" />);
+    openWithKeyboard('item-0005.jpg');
+
+    await user.tab();
+    expect(document.activeElement).toBe(previousButton());
+    await user.tab();
+    expect(document.activeElement).toBe(nextButton());
+    await user.tab();
+    expect(document.activeElement).toBe(closeButton());
+
+    await user.tab({ shift: true });
+    expect(document.activeElement).toBe(nextButton());
+    await user.tab({ shift: true });
+    expect(document.activeElement).toBe(previousButton());
+    await user.tab({ shift: true });
+    expect(document.activeElement).toBe(closeButton());
+  });
+
+  it('lets Tab and Shift+Tab move on from the video controls instead of jumping to the ends', () => {
+    // jsdom cannot focus a <video> (browsers can, through its controls) and user-event skips it, so the video is
+    // reported as the focused element and the keys are sent directly. The trap must leave a Tab from the video to
+    // the browser (on to Next), not treat the video as outside the dialog and jump to Close.
+    mockState.previewIsVideo = true;
+    render(<DockspaceMediaPage dockspaceId="dock-1" dockspaceName="Camera Roll" />);
+    openWithKeyboard('item-0005.jpg');
+    const video = screen.getByTestId('preview-video');
+    const activeElement = vi.spyOn(document, 'activeElement', 'get').mockReturnValue(video);
+    try {
+      expect(fireEvent.keyDown(video, { key: 'Tab' })).toBe(true);
+      expect(fireEvent.keyDown(video, { key: 'Tab', shiftKey: true })).toBe(true);
+    } finally {
+      activeElement.mockRestore();
+    }
+    expect(document.activeElement).toBe(closeButton());
+
+    // Next is still the last control: Tab from it wraps to Close.
+    nextButton().focus();
+    expect(fireEvent.keyDown(nextButton(), { key: 'Tab' })).toBe(false);
+    expect(document.activeElement).toBe(closeButton());
+  });
+
+  it('skips the disabled Previous button on the first item', async () => {
+    const user = userEvent.setup();
+    render(<DockspaceMediaPage dockspaceId="dock-1" dockspaceName="Camera Roll" />);
+    openWithKeyboard('item-0000.jpg');
+    expect(previousButton()).toBeDisabled();
+
+    await user.tab();
+    expect(document.activeElement).toBe(nextButton());
+    await user.tab();
+    expect(document.activeElement).toBe(closeButton());
+    await user.tab({ shift: true });
+    expect(document.activeElement).toBe(nextButton());
+  });
+
+  it('brings Tab and Shift+Tab from <body> back into the preview', async () => {
+    const user = userEvent.setup();
+    render(<DockspaceMediaPage dockspaceId="dock-1" dockspaceName="Camera Roll" />);
+    openWithKeyboard('item-0005.jpg');
+
+    // A press on the shown image (which cannot take focus) moves focus to <body>.
+    pressMouseOn(screen.getByTestId('preview-content'));
+    expect(document.activeElement).toBe(document.body);
+    await user.tab();
+    expect(document.activeElement).toBe(closeButton());
+
+    pressMouseOn(screen.getByTestId('preview-content'));
+    await user.tab({ shift: true });
+    expect(document.activeElement).toBe(nextButton());
+  });
+
+  it('moves focus to Previous when Next is disabled while it has focus', async () => {
+    setMediaItems(mockState.buildMediaItems(10));
+    const user = userEvent.setup();
+    render(<DockspaceMediaPage dockspaceId="dock-1" dockspaceName="Camera Roll" />);
+    openWithKeyboard('item-0008.jpg');
+
+    await user.click(nextButton());
+    expect(shownPath()).toBe('/photos/item-0009.jpg');
+    expect(nextButton()).toBeDisabled();
+    expect(document.activeElement).toBe(previousButton());
+
+    await user.tab();
+    expect(document.activeElement).toBe(closeButton());
+  });
+
+  it('moves focus to Next when Previous is disabled while it has focus (arrow key)', async () => {
+    const user = userEvent.setup();
+    render(<DockspaceMediaPage dockspaceId="dock-1" dockspaceName="Camera Roll" />);
+    openWithKeyboard('item-0001.jpg');
+
+    await user.tab();
+    expect(document.activeElement).toBe(previousButton());
+    await user.keyboard('{ArrowLeft}');
+    expect(shownPath()).toBe('/photos/item-0000.jpg');
+    expect(previousButton()).toBeDisabled();
+    expect(document.activeElement).toBe(nextButton());
+  });
+
+  it('leaves focus on Close when navigation disables a button that did not have focus', async () => {
+    const user = userEvent.setup();
+    render(<DockspaceMediaPage dockspaceId="dock-1" dockspaceName="Camera Roll" />);
+    openWithKeyboard('item-0001.jpg');
+
+    await user.keyboard('{ArrowLeft}');
+    expect(previousButton()).toBeDisabled();
+    expect(document.activeElement).toBe(closeButton());
+  });
+
+  it('keeps the focus return to the tile of the item shown last after tabbing inside the preview', async () => {
+    const user = userEvent.setup();
+    render(<DockspaceMediaPage dockspaceId="dock-1" dockspaceName="Camera Roll" />);
+    openWithKeyboard('item-0004.jpg');
+
+    await user.tab();
+    await user.tab();
+    expect(document.activeElement).toBe(nextButton());
+    await user.keyboard('{Enter}');
+    expect(shownPath()).toBe('/photos/item-0005.jpg');
+    await user.keyboard('{Escape}');
+
+    expect(previewDialog()).toBeNull();
+    expect(document.activeElement).toBe(tile(5));
   });
 });

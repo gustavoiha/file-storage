@@ -1,7 +1,8 @@
-import { useEffect } from 'react';
+import { useEffect, useRef } from 'react';
 import { ChevronLeft, ChevronRight, X } from 'lucide-react';
 import { Button } from '@/components/ui/Button';
 import { FilePreviewContent } from '@/components/files/FilePreviewContent';
+import { focusIsLost, isFocusable, useDialogTabTrap } from '@/components/files/useDialogDismiss';
 import type { FileRecord } from '@/lib/apiTypes';
 
 interface FileViewerDialogProps {
@@ -35,6 +36,37 @@ export const FileViewerDialog = ({
 }: FileViewerDialogProps) => {
   const fileName = file ? basename(file.fullPath) : '';
   const isMediaFullscreen = variant === 'media-fullscreen';
+  const dialogRef = useDialogTabTrap<HTMLDialogElement>(isOpen);
+  const closeButtonRef = useRef<HTMLButtonElement>(null);
+  const previousButtonRef = useRef<HTMLButtonElement>(null);
+  const nextButtonRef = useRef<HTMLButtonElement>(null);
+  const navStateRef = useRef({ canPrevious, canNext });
+
+  // Previous or Next is disabled at either end of the gallery. When that happens to the focused button (Next onto
+  // the last item), focus would fall to <body>: move it to the other nav button, else to Close.
+  useEffect(() => {
+    const was = navStateRef.current;
+    navStateRef.current = { canPrevious, canNext };
+    if (!isOpen || !isMediaFullscreen) {
+      return;
+    }
+
+    const lostPrevious = was.canPrevious && !canPrevious;
+    const lostNext = was.canNext && !canNext;
+    if (!lostPrevious && !lostNext) {
+      return;
+    }
+
+    const active = document.activeElement;
+    const disabledButton = lostNext ? nextButtonRef.current : previousButtonRef.current;
+    if (active !== disabledButton && !focusIsLost()) {
+      return;
+    }
+
+    const otherButton = lostNext ? previousButtonRef.current : nextButtonRef.current;
+    const target = [otherButton, closeButtonRef.current].find(isFocusable);
+    target?.focus();
+  }, [canNext, canPrevious, isMediaFullscreen, isOpen]);
 
   useEffect(() => {
     if (!isOpen) {
@@ -91,6 +123,7 @@ export const FileViewerDialog = ({
       }}
     >
       <dialog
+        ref={dialogRef}
         className={
           isMediaFullscreen
             ? 'dockspace-dialog dockspace-dialog--viewer-fullscreen'
@@ -112,16 +145,20 @@ export const FileViewerDialog = ({
       >
         {isMediaFullscreen ? (
           <>
+            {/* Initial focus: the dialog is announced by its name, and Tab stays inside it (useDialogTabTrap). */}
             <button
+              ref={closeButtonRef}
               type="button"
               className="dockspace-file-viewer__close-button"
               aria-label="Close preview"
               title="Close preview"
               onClick={onClose}
+              autoFocus
             >
               <X size={24} />
             </button>
             <button
+              ref={previousButtonRef}
               type="button"
               className="dockspace-file-viewer__nav-button dockspace-file-viewer__nav-button--left"
               aria-label="Previous media item"
@@ -139,6 +176,7 @@ export const FileViewerDialog = ({
               />
             </section>
             <button
+              ref={nextButtonRef}
               type="button"
               className="dockspace-file-viewer__nav-button dockspace-file-viewer__nav-button--right"
               aria-label="Next media item"
@@ -165,7 +203,7 @@ export const FileViewerDialog = ({
             </section>
 
             <div className="dockspace-dialog__actions">
-              <Button type="button" variant="secondary" onClick={onClose}>
+              <Button type="button" variant="secondary" onClick={onClose} autoFocus>
                 Close
               </Button>
             </div>

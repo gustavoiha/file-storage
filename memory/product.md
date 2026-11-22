@@ -131,7 +131,7 @@ All open tasks have their own issues (#11-#16, sub-issues of request #5) since 2
 | T-0041 | #85 | #65 | Gallery trash messages: correct plurals, success not shown as an error | review | Test results filtering |
 | T-0042 | #90 | #65 | Gallery thumbnail follow-up covers batches larger than one page | engineering | Review judge |
 | T-0043 | #93 | #65 | Files upload invalid-paths message: correct singular | done | Deployment |
-| T-0044 | #95 | #65 | Find duplicates summary focus ring: space between ring and text | filtering | Test results filtering |
+| T-0044 | #95 | #65 | Find duplicates summary focus ring: space between ring and text | deploying | Test results filtering |
 | T-0045 | #96 | #65 | Collapsed uploads pill: skipped files are not reported as a failed upload | engineering | Test results filtering |
-| T-0046 | #98 | #65 | Files page phone Upload button at least 44px, matching the uploads pill | engineering | Test results filtering |
+| T-0046 | #98 | #65 | Files page phone Upload button at least 44px, matching the uploads pill | review | Test results filtering |
 | T-0047 | #101 | #65 | Files upload: keep the skipped-files notice when some files still upload | new | Test results filtering |

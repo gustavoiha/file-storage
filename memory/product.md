@@ -13,6 +13,7 @@ Dockspace: a self-hosted, single-tenant cloud file storage app on AWS (minimal G
 ## Roadmap
 ### In progress / next
 All open tasks have their own issues (#11-#16, sub-issues of request #5) since 2026-11-20. 2026-11-20 sweep: the permission and infra-hold blockers are resolved by the setup change (pre-approved prod-deploy.sh, gh pr merge for deployment, drift rules). T-0001, T-0002 and T-0006 have shipped. T-0003 and T-0004 ship with T-0001's deploy of main. Only T-0005 waits on the human (design pick).
+- 2026-11-22: request #65 (gallery UI) split in two: T-0029 (#66) infinite scroll without jumps on phone and loading further ahead on desktop, in engineering; T-0030 (#67) gallery layout without the card frame, sidebar as a menu, gapless grid, in design (3 options for the human). T-0030 must keep T-0029's loading behaviour.
 
 ### Shipped
 - 2026-11-22 (prod at 1127709): T-0028 Show a load error on the dockspaces and usage pages when the dockspace list fails (#63, PR #64): with `GET /dockspaces` failing (non-403), `/dockspaces` shows "Couldn't load dockspaces." and the usage page "Couldn't load this dockspace's usage." with Try again (one request per press, focus kept), instead of an empty-looking list or "Dockspace not found.".
@@ -78,3 +79,5 @@ All open tasks have their own issues (#11-#16, sub-issues of request #5) since 2
 | T-0026 | #58 | #57 | Quick dockspace switcher panel (Slack-style) | done | Deployment |
 | T-0027 | #61 | #57 | Stop the dockspace list request loop when it fails on the files page | done | Engineering |
 | T-0028 | #63 | #57 | Show a load error on the dockspaces and usage pages when the dockspace list fails | done | Engineering |
+| T-0029 | #66 | #65 | Gallery infinite scroll: no jump on phone, load further ahead on desktop | engineering | Engineering |
+| T-0030 | #67 | #65 | Gallery layout: no card frame, actions in a menu, gapless grid | design | Design |

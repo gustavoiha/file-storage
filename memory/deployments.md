@@ -311,3 +311,14 @@ Recorded 2026-11-20 by the setup session from a `cdk diff` of origin/main 5678ad
 - Known pre-existing issue still live: the gallery preview does not take focus on open and has no Tab trap (T-0035, #77).
 - Logs: $LOCAL/logs/prod-deploy-diff-pr-20261122T141220Z.log, prod-deploy-diff-20261122T141246Z.log, prod-deploy-web-20261122T141343Z.log, prod-deploy-diff-20261122T141354Z.log.
 - Prod is now at origin/main `9c3fc64` for both infra and web.
+
+### 2026-11-22 — T-0034 — web
+- origin/main commit: `26ed6e9` (PR #78 squash-merged). Run as `dockspace-prod-agent-deployer` via `prod-deploy.sh`.
+- Pre-deploy: PR #78 at `c76b62a` was MERGEABLE/CLEAN and already contained origin/main `9c3fc64`, so the merged tree is the one review and testing checked (`git diff c76b62a 26ed6e9` empty). Web only (`useFiles.ts`, `useFiles.test.tsx`, `DockspaceMediaTrash.test.tsx`); no API, backend or infra change. `prod-deploy.sh diff-pr 78` showed 0 stacks with differences. Main since the last deploy (`9c3fc64`) had no commits; `prod-deploy.sh diff` 0 stacks, so no drift.
+- Infra: not run. Post-deploy `prod-deploy.sh diff` at `26ed6e9` shows 0 stacks with differences.
+- Web (`prod-deploy.sh web`): built and synced to the prod site bucket; invalidated `/*` on the prod distribution. Entry bundle `index-DjpcUATt.js`, `useFiles-Dt93aHQ0.js`, `DockspaceMediaPage-BKQeDR_Q.js`, stylesheet `index-DKj7lqav.css`.
+- Shipped: #78 `26ed6e9` (T-0034).
+- Smoke check: https://dh0djlfa46gz6.cloudfront.net/login serves `index-DjpcUATt.js`, renders the sign-in form, `useFiles-Dt93aHQ0.js` is served (200, JavaScript) and contains the duplicates cache edit (`defaultKeeperFileNodeId`, `reclaimableBytes`), and the console shows no errors.
+- Known pre-existing issues still live: the gallery trash dialog takes no focus, has no Tab trap and leaves focus on the body after closing (T-0040, #84); "1 items" plurals and the Find duplicates success message in the red alert (T-0041, #85).
+- Logs: $LOCAL/logs/prod-deploy-diff-pr-20261122T145808Z.log, prod-deploy-diff-20261122T145836Z.log, prod-deploy-web-20261122T145932Z.log, prod-deploy-diff-20261122T145944Z.log.
+- Prod is now at origin/main `26ed6e9` for both infra and web.

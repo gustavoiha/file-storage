@@ -15,7 +15,7 @@ Dockspace: a self-hosted, single-tenant cloud file storage app on AWS (minimal G
 All open tasks have their own issues (#11-#16, sub-issues of request #5) since 2026-11-20. 2026-11-20 sweep: the permission and infra-hold blockers are resolved by the setup change (pre-approved prod-deploy.sh, gh pr merge for deployment, drift rules). T-0001, T-0002 and T-0006 have shipped. T-0003 and T-0004 ship with T-0001's deploy of main. Only T-0005 waits on the human (design pick).
 
 - T-0025 Failed folder listing stays steady during uploads and folder creates (issue #56, request #31, from T-0024 test round 1, findings 1 and 2): a background refetch of a failed folder briefly removes the error/Try again and moves focus to the list; created folders stay "Creating..." and uploaded files vanish until the listing loads. T-0024 merged and live on 2026-11-21, dispatched to engineering on 2026-11-22.
-- T-0026 Quick dockspace switcher panel, Slack-style (issue #58, request #57): an always-visible switcher on the dockspace pages (drawer/sheet on phone) to change dockspace in one action without going back to the dockspace list page; the human calls it an experiment. In design (3 options).
+- T-0026 Quick dockspace switcher panel, Slack-style (issue #58, request #57): an always-visible switcher on the dockspace pages (drawer/sheet on phone) to change dockspace in one action without going back to the dockspace list page; the human calls it an experiment. Human picked option 3 (dockspace tabs in the top nav, "More (n)" popover; phone: bar under the top nav opening a full-screen list) on 2026-11-22; design is writing the final spec.
 
 ### Shipped
 - 2026-11-21 (prod at acd41f7): T-0024 Failed folder listing shows the error without the empty state (#52, PR #55): when a folder's listing fails, the page shows only the error with Try again above the list (no "This folder is empty" / upload call to action, desktop and phone); Try again stays mounted and busy during the retry and focus goes to the folder's list after a successful retry; a pending create or upload row no longer hides the error. A truly empty folder still shows the empty state.
@@ -74,4 +74,4 @@ All open tasks have their own issues (#11-#16, sub-issues of request #5) since 2
 | T-0023 | #50 | #5 | Trash page keeps focus on the row after a failed restore | done | Engineering |
 | T-0024 | #52 | #31 | Failed folder listing shows the error without the empty state | done | Engineering |
 | T-0025 | #56 | #31 | Failed folder listing stays steady during uploads and folder creates | review | Test results filtering |
-| T-0026 | #58 | #57 | Quick dockspace switcher panel (Slack-style) | awaiting-human | Product Manager |
+| T-0026 | #58 | #57 | Quick dockspace switcher panel (Slack-style) | design | Design |

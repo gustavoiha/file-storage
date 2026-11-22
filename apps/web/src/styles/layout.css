@@ -3127,6 +3127,11 @@ a.dockspace-card:focus-visible {
   display: flex;
   flex-wrap: wrap;
   gap: 0.75rem;
+  /* Room between the text and the :focus-visible ring below (T-0044). The matching negative margin cancels the
+     padding, so the text stays where it was and the unfocused layout is unchanged; the ring still fits inside
+     .media-duplicates' 1rem padding, so its scroll box does not clip it. */
+  padding: 0.25rem 0.5rem;
+  margin: -0.25rem -0.5rem;
   font-size: 0.82rem;
   color: var(--text-muted);
 }

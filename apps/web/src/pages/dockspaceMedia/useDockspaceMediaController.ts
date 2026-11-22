@@ -27,13 +27,15 @@ export const useDockspaceMediaController = ({ dockspaceId }: UseDockspaceMediaCo
   const [selectedAlbumId, setSelectedAlbumId] = useState<string | null>(null);
   const [selectedMediaId, setSelectedMediaId] = useState<string | null>(null);
   const [localError, setLocalError] = useState<string | null>(null);
+  // Files the media input skipped (not images or videos): shown in the uploads card, not with the page's other errors.
+  const [uploadSelectionError, setUploadSelectionError] = useState<string | null>(null);
   const [duplicateActionMessage, setDuplicateActionMessage] = useState<string | null>(null);
   const [bulkActionMessage, setBulkActionMessage] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   // Where focus goes when the preview closes: the grid's tile for the item shown last (or its scroll box), else,
-  // when no grid is rendered, the Select multiple toggle, which is always rendered above it.
+  // when no grid is rendered, a toolbar control the workspace picks (it is always rendered above the grid).
   const mediaGridFocusRef = useRef<MediaGridFocusHandle>(null);
-  const galleryFallbackFocusRef = useRef<HTMLButtonElement>(null);
+  const galleryFallbackFocusRef = useRef<{ focus: () => void }>(null);
 
   const mediaData = useMediaPageQueries({
     dockspaceId,
@@ -91,7 +93,7 @@ export const useDockspaceMediaController = ({ dockspaceId }: UseDockspaceMediaCo
     assignAlbumMediaMutation.isPending || removeAlbumMediaMutation.isPending;
 
   const uploadErrorMessage =
-    localError ??
+    uploadSelectionError ??
     uploadDialog.validationError ??
     (uploadFileMutation.error instanceof ApiError &&
     uploadFileMutation.error.code === 'UPLOAD_SKIPPED_DUPLICATE'
@@ -155,7 +157,7 @@ export const useDockspaceMediaController = ({ dockspaceId }: UseDockspaceMediaCo
 
   const onUploadButtonClick = useCallback(() => {
     uploadDialog.clearValidationError();
-    setLocalError(null);
+    setUploadSelectionError(null);
     fileInputRef.current?.click();
   }, [uploadDialog]);
 
@@ -219,11 +221,11 @@ export const useDockspaceMediaController = ({ dockspaceId }: UseDockspaceMediaCo
 
       if (rejectedCount > 0) {
         const suffix = rejectedCount === 1 ? '' : 's';
-        setLocalError(
+        setUploadSelectionError(
           `${rejectedCount} file${suffix} were skipped because PHOTOS_VIDEOS accepts only image/video uploads.`
         );
       } else {
-        setLocalError(null);
+        setUploadSelectionError(null);
       }
 
       if (mediaFiles.length > 0) {

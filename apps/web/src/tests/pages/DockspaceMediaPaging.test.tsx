@@ -2,14 +2,14 @@ import { act, cleanup, fireEvent, render, screen, waitFor, within } from '@testi
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
 import { DockspaceMediaPage } from '@/pages/DockspaceMediaPage';
 import { VirtualizedMediaGrid } from '@/pages/dockspaceMedia/VirtualizedMediaGrid';
-import { MEDIA_GRID_GAP_PX, MEDIA_GRID_LAYOUT } from '@/pages/dockspaceMedia/mediaGridConfig';
+import { getMediaGridMetrics, MEDIA_GRID_GAP_PX, MEDIA_GRID_LAYOUT } from '@/pages/dockspaceMedia/mediaGridConfig';
 import { MEDIA_PAGE_SIZE } from '@/hooks/useMedia';
 import { clearSession, setSession } from '@/lib/authStore';
 import type { MediaFileRecord, MediaListResponse } from '@/lib/apiTypes';
 import { createTestQueryClient, QueryWrapper } from '@/tests/testUtils';
 
 // Paging through the real React Query infinite query, with the API mocked. The grid's scroll box measures
-// 800 x 600 (4 medium columns, rows of 198px + 12px gap) and the window is 768px tall, so the lookahead is
+// 800 x 600 (4 medium columns of 200px, so square rows of 200px with no gap) and the window is 768px tall, so the lookahead is
 // 2 x 768 = 1536px while not scrolling.
 const api = vi.hoisted(() => ({
   pages: new Map<string | undefined, () => Promise<MediaListResponse>>(),
@@ -79,6 +79,7 @@ vi.mock('@/hooks/useFiles', () => ({
 }));
 
 const BOX_WIDTH = 800;
+let boxWidth = BOX_WIDTH;
 const BOX_HEIGHT = 600;
 const WINDOW_HEIGHT = 768;
 const originalClientWidth = Object.getOwnPropertyDescriptor(HTMLElement.prototype, 'clientWidth');
@@ -89,7 +90,7 @@ beforeAll(() => {
   Object.defineProperty(HTMLElement.prototype, 'clientWidth', {
     configurable: true,
     get() {
-      return (this as HTMLElement).classList.contains('media-grid-virtual') ? BOX_WIDTH : 0;
+      return (this as HTMLElement).classList.contains('media-grid-virtual') ? boxWidth : 0;
     }
   });
   Object.defineProperty(HTMLElement.prototype, 'clientHeight', {
@@ -434,8 +435,30 @@ describe('Media gallery paging', () => {
   });
 });
 
+const renderGrid = (items: MediaFileRecord[], gridSize: 'small' | 'medium' | 'large' = 'medium') =>
+  render(
+    <VirtualizedMediaGrid
+      items={items}
+      gridSize={gridSize}
+      isMultiSelectMode={false}
+      selectedMediaIds={new Set()}
+      onSelectMedia={vi.fn()}
+      onToggleMediaSelection={vi.fn()}
+      onOpenPreview={vi.fn()}
+      hasNextPage={false}
+      isFetchingNextPage={false}
+      onLoadMore={vi.fn()}
+    />
+  );
+
+const renderedColumnCount = (list: HTMLElement) =>
+  list.style.gridTemplateColumns.match(/repeat\((\d+),/)?.[1] ?? '';
+
 describe('VirtualizedMediaGrid row layout', () => {
-  afterEach(() => cleanup());
+  afterEach(() => {
+    boxWidth = BOX_WIDTH;
+    cleanup();
+  });
 
   it('shows no loading status during a refetch when there is no next page (the end of the list, or an album)', () => {
     // Album views pass hasNextPage false: the album list is not paged.
@@ -445,7 +468,6 @@ describe('VirtualizedMediaGrid row layout', () => {
         gridSize="medium"
         isMultiSelectMode={false}
         selectedMediaIds={new Set()}
-        selectedMediaId={null}
         onSelectMedia={vi.fn()}
         onToggleMediaSelection={vi.fn()}
         onOpenPreview={vi.fn()}
@@ -459,25 +481,58 @@ describe('VirtualizedMediaGrid row layout', () => {
     expect(screen.queryByText('Loading more media...')).toBeNull();
   });
 
-  it('positions rows with the same gap the list uses, so the window can move without shifting tiles', () => {
-    const { rowHeightPx } = MEDIA_GRID_LAYOUT.medium;
-    const stride = rowHeightPx + MEDIA_GRID_GAP_PX;
-    const items = buildItems(0, 400); // 4 columns -> 100 rows
-    render(
-      <VirtualizedMediaGrid
-        items={items}
-        gridSize="medium"
-        isMultiSelectMode={false}
-        selectedMediaIds={new Set()}
-        selectedMediaId={null}
-        onSelectMedia={vi.fn()}
-        onToggleMediaSelection={vi.fn()}
-        onOpenPreview={vi.fn()}
-        hasNextPage={false}
-        isFetchingNextPage={false}
-        onLoadMore={vi.fn()}
-      />
+  it('lays tiles out with no gap', () => {
+    expect(MEDIA_GRID_GAP_PX).toBe(0);
+    renderGrid(buildItems(0, 8));
+    const list = document.querySelector('.media-grid-virtual ul') as HTMLElement;
+    expect(list.style.gap).toBe('0px');
+  });
+
+  it.each([
+    ['small', 6, 800 / 6],
+    ['medium', 4, 200],
+    ['large', 3, 800 / 3]
+  ] as const)('makes %s tiles square: %i columns, each row as tall as a column is wide', (size, columns, side) => {
+    expect(getMediaGridMetrics(800, MEDIA_GRID_LAYOUT[size].minColumnWidthPx)).toEqual({
+      columnCount: columns,
+      rowHeightPx: side,
+      rowStridePx: side
+    });
+
+    renderGrid(buildItems(0, 40), size);
+    const list = document.querySelector('.media-grid-virtual ul') as HTMLElement;
+    expect(renderedColumnCount(list)).toBe(String(columns));
+    const row = list.querySelector('li') as HTMLElement;
+    expect(Number.parseFloat(row.style.height)).toBeCloseTo(side, 5);
+  });
+
+  it('recomputes the columns and the square row size when the scroll box is resized', () => {
+    renderGrid(buildItems(0, 40));
+    const list = document.querySelector('.media-grid-virtual ul') as HTMLElement;
+    expect(renderedColumnCount(list)).toBe('4');
+    expect((list.querySelector('li') as HTMLElement).style.height).toBe('200px');
+
+    boxWidth = 390; // a phone: 2 medium columns of 195px
+    act(() => {
+      window.dispatchEvent(new Event('resize'));
+    });
+
+    expect(renderedColumnCount(list)).toBe('2');
+    expect((list.querySelector('li') as HTMLElement).style.height).toBe('195px');
+  });
+
+  it('keeps the first square row size before the scroll box is measured', () => {
+    expect(getMediaGridMetrics(0, 190)).toEqual({ columnCount: 1, rowHeightPx: 190, rowStridePx: 190 });
+  });
+
+  it('positions rows at the same stride the list uses, so the window can move without shifting tiles', () => {
+    const { rowHeightPx, rowStridePx: stride } = getMediaGridMetrics(
+      BOX_WIDTH,
+      MEDIA_GRID_LAYOUT.medium.minColumnWidthPx
     );
+    expect(stride).toBe(200);
+    const items = buildItems(0, 400); // 4 columns -> 100 rows
+    renderGrid(items);
 
     const scroller = document.querySelector('.media-grid-virtual') as HTMLElement;
     const list = scroller.querySelector('ul') as HTMLElement;

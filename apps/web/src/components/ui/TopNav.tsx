@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { type Ref, useState } from 'react';
 import { Link } from '@tanstack/react-router';
 import { ChevronDown, CircleUserRound } from 'lucide-react';
 import { DockspaceSwitcherBar, DockspaceTabs } from '@/components/ui/DockspaceSwitcher';
@@ -8,7 +8,12 @@ import { useCurrentDockspaceId } from '@/hooks/useCurrentDockspaceId';
 import { PHONE_LAYOUT_QUERY, useMediaQuery } from '@/hooks/useMediaQuery';
 import '@/styles/layout.css';
 
-export const TopNav = () => {
+interface TopNavProps {
+  /** The header element (top nav plus the phone switcher bar), for the app shell to measure. */
+  headerRef?: Ref<HTMLDivElement>;
+}
+
+export const TopNav = ({ headerRef }: TopNavProps = {}) => {
   const { session, isAuthenticated, logout } = useAuth();
   const [isAuthMenuOpen, setIsAuthMenuOpen] = useState(false);
   const currentDockspaceId = useCurrentDockspaceId();
@@ -19,7 +24,7 @@ export const TopNav = () => {
   }
 
   return (
-    <div className="app-header">
+    <div ref={headerRef} className="app-header">
       <header className="top-nav">
         <Link to="/dockspaces" activeOptions={{ exact: true }} className="top-nav__brand top-nav__brand-link">
           Dockspace

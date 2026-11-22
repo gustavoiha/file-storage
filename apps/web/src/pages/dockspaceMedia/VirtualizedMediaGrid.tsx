@@ -1,6 +1,7 @@
 import { type Ref, useEffect, useImperativeHandle, useLayoutEffect, useRef, useState } from 'react';
-import { Film, Image as ImageIcon } from 'lucide-react';
+import { Check, Film, Image as ImageIcon } from 'lucide-react';
 import {
+  getMediaGridMetrics,
   MEDIA_GRID_GAP_PX,
   MEDIA_GRID_LAYOUT,
   MEDIA_GRID_OVERSCAN_ROWS
@@ -31,7 +32,6 @@ interface VirtualizedMediaGridProps {
   gridSize: MediaGridSize;
   isMultiSelectMode: boolean;
   selectedMediaIds: Set<string>;
-  selectedMediaId: string | null;
   onSelectMedia: (fileNodeId: string) => void;
   onToggleMediaSelection: (fileNodeId: string, options?: MediaSelectionOptions) => void;
   onOpenPreview: (item: MediaFileRecord) => void;
@@ -54,7 +54,6 @@ export const VirtualizedMediaGrid = ({
   gridSize,
   isMultiSelectMode,
   selectedMediaIds,
-  selectedMediaId,
   onSelectMedia,
   onToggleMediaSelection,
   onOpenPreview,
@@ -73,9 +72,7 @@ export const VirtualizedMediaGrid = ({
   const scrollSpeedRef = useRef<ScrollSpeedSample | null>(null);
   // Whether the end of the loaded items is within the load-ahead distance, as last measured by the load effect below.
   const [isWithinLoadAhead, setIsWithinLoadAhead] = useState(false);
-  const gridLayout = MEDIA_GRID_LAYOUT[gridSize];
-  const rowHeightPx = gridLayout.rowHeightPx;
-  const minColumnWidthPx = gridLayout.minColumnWidthPx;
+  const minColumnWidthPx = MEDIA_GRID_LAYOUT[gridSize].minColumnWidthPx;
 
   useEffect(() => {
     const element = containerRef.current;
@@ -106,14 +103,12 @@ export const VirtualizedMediaGrid = ({
     };
   }, []);
 
-  const columnCount = Math.max(
-    1,
-    Math.floor((viewportWidth + MEDIA_GRID_GAP_PX) / (minColumnWidthPx + MEDIA_GRID_GAP_PX))
-  );
-  // The rows are laid out with a MEDIA_GRID_GAP_PX gap (set inline on the list below, so CSS and this math agree):
-  // a row starts every rowStridePx. Using rowHeightPx alone as the stride made every tile move by one gap each time
-  // a row left the top of the rendered window (a visible jump on iOS, a scroll position correction in Chrome).
-  const rowStridePx = rowHeightPx + MEDIA_GRID_GAP_PX;
+  // Square tiles: a row is as tall as a column is wide, so the row size follows the scroll box width (recomputed on
+  // every resize). The rows are laid out with a MEDIA_GRID_GAP_PX gap (set inline on the list below, so CSS and this
+  // math agree): a row starts every rowStridePx. Using the row height alone as the stride made every tile move by one
+  // gap each time a row left the top of the rendered window (a visible jump on iOS, a scroll position correction in
+  // Chrome). The gap is 0 today, so the stride is the row height.
+  const { columnCount, rowHeightPx, rowStridePx } = getMediaGridMetrics(viewportWidth, minColumnWidthPx);
   const rowCount = Math.ceil(items.length / columnCount);
   const totalHeight = rowCount > 0 ? rowCount * rowStridePx - MEDIA_GRID_GAP_PX : 0;
   const startRow = Math.max(0, Math.floor(scrollTop / rowStridePx) - MEDIA_GRID_OVERSCAN_ROWS);
@@ -277,9 +272,9 @@ export const VirtualizedMediaGrid = ({
       >
         {visibleItems.map((item, index) => {
           const absoluteIndex = visibleStartIndex + index;
-          const selected = isMultiSelectMode
-            ? selectedMediaIds.has(item.fileNodeId)
-            : selectedMediaId === item.fileNodeId;
+          // Only multi-select picks are marked. The tile last opened in the preview is not: outside selection mode
+          // nothing is selected, and focus returns to that tile when the preview closes.
+          const selected = isMultiSelectMode && selectedMediaIds.has(item.fileNodeId);
           const isImage = item.contentType.startsWith('image/');
 
           return (
@@ -323,7 +318,7 @@ export const VirtualizedMediaGrid = ({
                 </span>
                 {isMultiSelectMode ? (
                   <span className="media-card__selection-indicator" aria-hidden="true">
-                    {selected ? '✓' : ''}
+                    {selected ? <Check size={14} strokeWidth={3} /> : null}
                   </span>
                 ) : null}
               </button>

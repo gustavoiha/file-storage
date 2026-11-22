@@ -304,7 +304,9 @@ describe('Move selected duplicates to trash', () => {
   it('removes the trashed duplicates and their selection when the dialog closes, before the duplicates refetch ends', async () => {
     renderPage();
     await screen.findByRole('button', { name: 'Open item-0003.jpg' });
-    fireEvent.click(screen.getByRole('button', { name: 'Find duplicates' }));
+    // T-0030: Find duplicates lives in the ⋯ Gallery options menu.
+    fireEvent.click(screen.getByRole('button', { name: 'Gallery options' }));
+    fireEvent.click(screen.getByRole('menuitem', { name: 'Find duplicates' }));
     await screen.findByText('Hash aaaaaaaaaaaa...');
     expect(screen.getByText('3 duplicate groups found.')).toBeInTheDocument();
     expect(screen.getByText('4 repeated files.')).toBeInTheDocument();

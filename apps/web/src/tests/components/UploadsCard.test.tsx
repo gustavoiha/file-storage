@@ -64,6 +64,19 @@ describe('UploadsCard', () => {
     expect(onRetryUpload).toHaveBeenCalledWith(3);
   });
 
+  it('moves focus to Collapse when Retry turns the failed row back into a waiting one', () => {
+    const failed = [upload(3, '/Lisbon/IMG_3.jpg', 'failed')];
+    const { rerender } = render(<UploadsCard {...baseProps} activeUploads={failed} />);
+
+    const retry = screen.getByRole('button', { name: 'Retry' });
+    retry.focus();
+    fireEvent.click(retry);
+    rerender(<UploadsCard {...baseProps} activeUploads={[upload(3, '/Lisbon/IMG_3.jpg', 'pending')]} />);
+
+    expect(screen.queryByRole('button', { name: 'Retry' })).not.toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Collapse uploads' })).toHaveFocus();
+  });
+
   it('collapses to a summary pill and expands again', () => {
     render(
       <UploadsCard

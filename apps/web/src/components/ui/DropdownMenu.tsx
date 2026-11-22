@@ -6,6 +6,7 @@ import {
   useCallback,
   useContext,
   useEffect,
+  useLayoutEffect,
   useMemo,
   useRef,
   type ButtonHTMLAttributes,
@@ -37,9 +38,17 @@ type DropdownMenuTriggerProps = Omit<ButtonHTMLAttributes<HTMLButtonElement>, 't
 
 interface DropdownMenuContentProps extends HTMLAttributes<HTMLDivElement> {
   label: string;
+  /**
+   * 'checked' moves focus to the checked radio item (else the first enabled item) when the menu opens. By default
+   * focus stays where it was (the trigger) until an arrow key moves it into the menu.
+   */
+  initialFocus?: 'checked';
 }
 
 type DropdownMenuButtonProps = Omit<ButtonHTMLAttributes<HTMLButtonElement>, 'type'>;
+interface DropdownMenuRadioItemProps extends Omit<ButtonHTMLAttributes<HTMLButtonElement>, 'type' | 'role'> {
+  checked: boolean;
+}
 interface DropdownMenuLinkProps extends HTMLAttributes<HTMLElement> {
   asChild?: boolean;
 }
@@ -49,7 +58,7 @@ const DropdownMenuContext = createContext<DropdownMenuContextValue | null>(null)
 
 const classNames = (...tokens: Array<string | undefined>) => tokens.filter(Boolean).join(' ');
 
-const MENU_ITEM_SELECTOR = '[role="menuitem"]';
+const MENU_ITEM_SELECTOR = '[role="menuitem"], [role="menuitemradio"], [role="menuitemcheckbox"]';
 
 const isItemEnabled = (item: HTMLElement): boolean =>
   !item.hasAttribute('disabled') && item.getAttribute('aria-disabled') !== 'true';
@@ -57,6 +66,20 @@ const isItemEnabled = (item: HTMLElement): boolean =>
 /** Enabled menu items in DOM order. Separators have no menuitem role, so they are never included. */
 const getEnabledItems = (content: HTMLElement | null): HTMLElement[] =>
   content ? Array.from(content.querySelectorAll<HTMLElement>(MENU_ITEM_SELECTOR)).filter(isItemEnabled) : [];
+
+/** The first item after `fromIndex` (wrapping) whose text starts with `character`, for type-ahead. */
+const findItemByFirstCharacter = (items: HTMLElement[], fromIndex: number, character: string): number => {
+  const needle = character.toLocaleLowerCase();
+  for (let offset = 1; offset <= items.length; offset += 1) {
+    const index = (fromIndex + offset + items.length) % items.length;
+    const text = (items[index]?.textContent ?? '').trim().toLocaleLowerCase();
+    if (text.startsWith(needle)) {
+      return index;
+    }
+  }
+
+  return -1;
+};
 
 const useDropdownMenuContext = (): DropdownMenuContextValue => {
   const context = useContext(DropdownMenuContext);
@@ -132,8 +155,17 @@ const DropdownMenuRoot = ({ children, className, isOpen, onOpenChange }: Dropdow
         case 'End':
           nextIndex = items.length - 1;
           break;
-        default:
-          return;
+        default: {
+          // Type-ahead: a printable character moves to the next item starting with it.
+          if (event.key.length !== 1 || event.key === ' ' || event.altKey || event.ctrlKey || event.metaKey) {
+            return;
+          }
+
+          nextIndex = findItemByFirstCharacter(items, currentIndex, event.key);
+          if (nextIndex === -1) {
+            return;
+          }
+        }
       }
 
       event.preventDefault();
@@ -198,8 +230,19 @@ const DropdownMenuTrigger = ({ className, onClick, ...props }: DropdownMenuTrigg
   );
 };
 
-const DropdownMenuContent = ({ className, label, ...props }: DropdownMenuContentProps) => {
+const DropdownMenuContent = ({ className, label, initialFocus, ...props }: DropdownMenuContentProps) => {
   const { isOpen, contentRef } = useDropdownMenuContext();
+
+  useLayoutEffect(() => {
+    if (!isOpen || initialFocus !== 'checked') {
+      return;
+    }
+
+    const items = getEnabledItems(contentRef.current);
+    const target = items.find((item) => item.getAttribute('aria-checked') === 'true') ?? items[0];
+    target?.focus();
+  }, [contentRef, initialFocus, isOpen]);
+
   if (!isOpen) {
     return null;
   }
@@ -223,6 +266,26 @@ const DropdownMenuButton = ({ className, onClick, ...props }: DropdownMenuButton
       {...props}
       type="button"
       role="menuitem"
+      className={classNames('dropdown-menu__item', className)}
+      onClick={(event) => {
+        onClick?.(event);
+        if (!event.defaultPrevented) {
+          close();
+        }
+      }}
+    />
+  );
+};
+
+const DropdownMenuRadioItem = ({ className, onClick, checked, ...props }: DropdownMenuRadioItemProps) => {
+  const { close } = useDropdownMenuContext();
+
+  return (
+    <button
+      {...props}
+      type="button"
+      role="menuitemradio"
+      aria-checked={checked}
       className={classNames('dropdown-menu__item', className)}
       onClick={(event) => {
         onClick?.(event);
@@ -290,6 +353,7 @@ export const DropdownMenu = Object.assign(DropdownMenuRoot, {
   Button: DropdownMenuButton,
   Content: DropdownMenuContent,
   Link: DropdownMenuLink,
+  RadioItem: DropdownMenuRadioItem,
   Separator: DropdownMenuSeparator,
   Trigger: DropdownMenuTrigger
 });

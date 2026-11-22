@@ -721,7 +721,9 @@
   z-index: 40;
   display: flex;
   flex-direction: column;
-  background: linear-gradient(160deg, rgb(14, 14, 18), rgb(4, 4, 6));
+  /* Solid colour first: forced colors drop the gradient image, and the screen must still hide the page behind it. */
+  background-color: rgb(4, 4, 6);
+  background-image: linear-gradient(160deg, rgb(14, 14, 18), rgb(4, 4, 6));
   color: var(--text);
 }
 
@@ -792,13 +794,15 @@
   text-decoration: none;
 }
 
-.dockspace-switcher-screen__row[aria-current='page'] {
+.dockspace-switcher-screen__row[aria-current='page'],
+.dockspace-switcher-screen__row[aria-current='true'] {
   background: rgba(77, 168, 255, 0.1);
   box-shadow: inset 3px 0 0 var(--accent);
 }
 
 .dockspace-switcher-screen__row:focus-visible,
-.dockspace-switcher-screen__row[aria-current='page']:focus-visible {
+.dockspace-switcher-screen__row[aria-current='page']:focus-visible,
+.dockspace-switcher-screen__row[aria-current='true']:focus-visible {
   outline: 2px solid var(--accent);
   outline-offset: -2px;
 }
@@ -2426,33 +2430,48 @@ a.dockspace-card:focus-visible {
 }
 
 .media-workspace {
-  display: grid;
-  gap: 0.85rem;
+  display: flex;
+  flex-direction: column;
+  height: calc(100vh - var(--app-top-nav-height));
+  min-height: 0;
+  min-width: 0;
 }
 
-.media-workspace-shell {
-  min-height: calc(100vh - var(--app-top-nav-height));
+.media-workspace__alerts {
+  display: grid;
+  gap: 0.5rem;
+  margin: 0.75rem 1rem;
 }
 
 .media-workspace__bulk-actions {
   display: flex;
   align-items: center;
-  gap: 0.65rem;
-  flex-wrap: wrap;
+  gap: 0.5rem;
+  min-width: 0;
 }
 
 .media-workspace__bulk-meta {
   margin: 0;
-  font-size: 0.84rem;
-  color: var(--text-muted);
+  font-size: 0.9rem;
+  font-weight: 600;
+  color: var(--text);
+  white-space: nowrap;
 }
 
-.media-workspace__active-source {
-  margin: 0;
-  font-size: 0.86rem;
-  color: var(--text-muted);
-  text-transform: uppercase;
-  letter-spacing: 0.06em;
+.media-workspace__bulk-actions--phone {
+  flex: 1;
+  flex-direction: column;
+  align-items: stretch;
+}
+
+.media-workspace__bulk-row {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.media-workspace__bulk-row .media-workspace__bulk-meta {
+  flex: 1;
 }
 
 .media-workspace__bulk-album-select {
@@ -2490,41 +2509,306 @@ a.dockspace-card:focus-visible {
   color: #edf7ff;
 }
 
+/* No card frame: the toolbar is a plain strip and the grid runs edge to edge under it. */
 .media-workspace__main {
-  display: grid;
-  gap: 0.7rem;
-  border: 1px solid var(--border);
-  border-radius: 10px;
-  padding: 0.75rem;
-  background: #0f1014;
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0;
 }
 
 .media-workspace__main-controls {
   display: flex;
   align-items: center;
-  justify-content: space-between;
-  gap: 0.7rem;
-  flex-wrap: wrap;
-}
-
-.media-workspace__main-controls[data-bulk-actions='true'] {
-  align-items: flex-start;
-}
-
-.media-workspace__heading-slot {
-  flex: 1;
-  min-width: 0;
-}
-
-.media-workspace__heading-slot > * {
-  animation: media-main-heading-fade 180ms ease both;
+  gap: 0.5rem;
+  flex-wrap: nowrap;
+  min-height: 3.35rem;
+  padding: 0.55rem 1rem;
+  border-bottom: 1px solid var(--border);
+  background: rgba(0, 0, 0, 0.35);
+  flex-shrink: 0;
 }
 
 .media-workspace__control-actions {
   display: inline-flex;
   align-items: center;
   gap: 0.4rem;
+  margin-left: auto;
+  flex-shrink: 0;
+}
+
+.media-workspace__message {
+  margin: 0;
+  padding: 1rem;
+}
+
+/* Album menu button (GalleryAlbumMenu). */
+.gallery-album-menu {
+  position: relative;
+  min-width: 0;
+}
+
+.gallery-album-menu .dropdown-menu {
+  position: relative;
+}
+
+.gallery-album-menu__trigger {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.45rem;
+  max-width: 100%;
+  min-width: 0;
+  padding: 0.45rem 0.75rem;
+}
+
+.gallery-album-menu__trigger[aria-expanded='true'] {
+  background: rgba(77, 168, 255, 0.2);
+}
+
+.gallery-album-menu__icon,
+.gallery-album-menu__chevron {
+  flex-shrink: 0;
+  color: var(--text-muted);
+}
+
+.gallery-album-menu__name {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 0.95rem;
+}
+
+.gallery-album-menu__count {
+  flex-shrink: 0;
+  font-size: 0.8rem;
+  font-weight: 500;
+  color: var(--text-muted);
+}
+
+.gallery-album-menu__dropdown {
+  left: 0;
+  right: auto;
+  width: 300px;
+  max-width: calc(100vw - 2rem);
+  max-height: min(60vh, 28rem);
+  overflow-y: auto;
+  z-index: 20;
+}
+
+.gallery-album-menu__item {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  width: 100%;
+  border: 0;
+  background: transparent;
+  color: var(--text);
+  font: inherit;
+  text-align: left;
+  padding: 0.5rem 0.6rem;
+  border-radius: 6px;
+  cursor: pointer;
+}
+
+.gallery-album-menu__item:hover {
+  background: var(--bg-soft);
+}
+
+.gallery-album-menu__item:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: -2px;
+}
+
+.gallery-album-menu__item[aria-checked='true'] {
+  font-weight: 700;
+}
+
+.gallery-album-menu__check {
+  display: inline-flex;
+  width: 16px;
+  flex-shrink: 0;
+  color: var(--accent);
+}
+
+.gallery-album-menu__item-name {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.gallery-album-menu__item-count {
+  flex-shrink: 0;
+  font-size: 0.8rem;
+  font-weight: 500;
+  color: var(--text-muted);
+}
+
+/* Phone album list (reuses the phone dockspace list's screen and rows). */
+.gallery-album-screen__row {
+  width: 100%;
+  border: 0;
+  background: transparent;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.gallery-album-screen__icon {
+  flex-shrink: 0;
+  color: var(--text-muted);
+}
+
+.gallery-album-screen__name {
+  flex: 1;
+  min-width: 0;
+}
+
+.gallery-album-screen__count {
+  flex-shrink: 0;
+  font-size: 0.8rem;
+  color: var(--text-muted);
+}
+
+/* ⋯ Gallery options (GalleryOptionsMenu). */
+.gallery-options-menu__dropdown {
+  min-width: 17rem;
+  z-index: 20;
+}
+
+/* One line per item: in an album, "Find duplicates" and its "All media only" hint share the row. */
+.gallery-options-menu__item {
+  display: flex;
+  align-items: center;
+  gap: 0.55rem;
+  white-space: nowrap;
+}
+
+.gallery-options-menu__item:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: -2px;
+}
+
+.gallery-options-menu__item[aria-disabled='true'] {
+  color: var(--text-muted);
+  cursor: default;
+}
+
+.gallery-options-menu__item[aria-disabled='true']:hover {
+  background: transparent;
+}
+
+.gallery-options-menu__icon {
+  flex-shrink: 0;
+  color: var(--text-muted);
+}
+
+.gallery-options-menu__hint {
+  margin-left: auto;
+  padding-left: 0.75rem;
+  font-size: 0.72rem;
+  color: var(--text-muted);
+}
+
+/* Floating uploads card (and, on phone, the Upload pill beside it). */
+.media-workspace__floating {
+  position: fixed;
+  right: 16px;
+  bottom: 16px;
+  width: 340px;
+  max-width: calc(100vw - 32px);
+  z-index: 15;
+}
+
+.media-workspace__floating--phone {
+  left: 16px;
+  right: 16px;
+  bottom: calc(16px + env(safe-area-inset-bottom));
+  width: auto;
+  max-width: none;
+  display: flex;
   flex-wrap: wrap;
+  align-items: flex-end;
+  gap: 0.6rem;
+  pointer-events: none;
+}
+
+.media-workspace__floating--phone > * {
+  pointer-events: auto;
+}
+
+.media-workspace__floating--phone .dockspace-uploads:not(.dockspace-uploads--collapsed) {
+  flex-basis: 100%;
+}
+
+.media-workspace__upload {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  white-space: nowrap;
+}
+
+.media-workspace__upload-pill {
+  margin-left: auto;
+  min-height: 2.75rem;
+  border-radius: 999px;
+  padding: 0.7rem 1.2rem;
+  box-shadow: 0 10px 24px rgba(0, 0, 0, 0.45);
+}
+
+.media-workspace__upload-pill:focus-visible {
+  outline: 2px solid #fff;
+  outline-offset: 2px;
+}
+
+.media-workspace--phone .media-workspace__main-controls {
+  padding: 0.5rem 0.75rem;
+}
+
+.media-workspace--phone .media-workspace__main-controls[data-bulk-actions='true'] {
+  padding-top: 0.6rem;
+  padding-bottom: 0.6rem;
+}
+
+.media-workspace--phone .gallery-album-menu {
+  flex: 1;
+}
+
+.media-workspace--phone .gallery-album-menu__trigger {
+  width: 100%;
+  min-height: 2.75rem;
+}
+
+.media-workspace--phone .gallery-album-menu__name {
+  text-align: left;
+}
+
+.media-workspace--phone .gallery-album-menu__chevron {
+  margin-left: auto;
+}
+
+.media-workspace--phone .media-workspace__control-actions {
+  margin-left: 0;
+}
+
+.media-workspace--phone .dockspace-page-menu__trigger {
+  width: 2.75rem;
+  height: 2.75rem;
+}
+
+.media-workspace--phone .gallery-options-menu__dropdown {
+  width: 290px;
+  max-width: calc(100vw - 24px);
+}
+
+/* Room after the last row so it can scroll above the floating pills. */
+.media-workspace--phone .media-grid-virtual::after {
+  content: '';
+  display: block;
+  height: calc(4.5rem + env(safe-area-inset-bottom));
 }
 
 .media-workspace__icon-action {
@@ -2537,21 +2821,6 @@ a.dockspace-card:focus-visible {
   background: rgba(91, 181, 255, 0.22);
 }
 
-.media-workspace__bulk-actions--inline {
-  margin: 0;
-}
-
-@keyframes media-main-heading-fade {
-  from {
-    opacity: 0;
-    transform: translateY(3px);
-  }
-
-  to {
-    opacity: 1;
-    transform: translateY(0);
-  }
-}
 
 .media-albums__create-form input {
   border: 1px solid var(--border);
@@ -2579,48 +2848,6 @@ a.dockspace-card:focus-visible {
 .dockspace-sidebar__action-link:focus-visible {
   text-decoration: none;
   background: rgba(255, 255, 255, 0.07);
-}
-
-.media-sidebar__album-list {
-  gap: 0.32rem;
-}
-
-.media-sidebar__album-button {
-  width: 100%;
-  border: 0;
-  background: transparent;
-  color: var(--text);
-  border-radius: 999px;
-  min-height: 1.78rem;
-  padding: 0.12rem 0.32rem 0.12rem 0.6rem;
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 0.5rem;
-  cursor: pointer;
-}
-
-.media-sidebar__album-button:hover,
-.media-sidebar__album-button:focus-visible {
-  background: rgba(255, 255, 255, 0.08);
-}
-
-.media-sidebar__album-button[data-active='true'] {
-  background: rgba(102, 187, 255, 0.14);
-}
-
-.media-sidebar__album-button[data-active='true'] .media-sidebar__album-name {
-  color: #e8f5ff;
-  font-weight: 600;
-}
-
-.media-sidebar__album-name {
-  min-width: 0;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-  font-size: 0.82rem;
-  text-align: left;
 }
 
 .media-albums__list h3,
@@ -2655,9 +2882,13 @@ a.dockspace-card:focus-visible {
   border-radius: 0;
   background: transparent;
   padding: 0;
-  height: min(68vh, 760px);
+  flex: 1;
   min-height: 320px;
   overflow-y: auto;
+  /* Square rows take their height from the box width, so a classic scrollbar that appears and disappears would
+     change the row height, then the content height, then the scrollbar again, and the grid would flicker. Keep the
+     scrollbar's space reserved so the width does not depend on it. */
+  scrollbar-gutter: stable;
   overscroll-behavior: contain;
   /* The virtual grid owns every row position, so the browser must not move scrollTop to keep an "anchor" in place.
      With anchoring on, Chrome anchored to the end-of-list footer when the user waited at the end of the loaded media:
@@ -2686,8 +2917,7 @@ a.dockspace-card:focus-visible {
 
 .media-grid-virtual:focus-visible {
   outline: 2px solid var(--accent);
-  outline-offset: 2px;
-  border-radius: 6px;
+  outline-offset: -2px;
 }
 
 /* Always present while more media can load, with room for the loading text, so showing or hiding that text never
@@ -2697,7 +2927,7 @@ a.dockspace-card:focus-visible {
   align-content: start;
   gap: 0.5rem;
   min-height: 2.5rem;
-  padding-top: 0.6rem;
+  padding: 0.6rem 1rem 0;
 }
 
 .media-grid-virtual__status {
@@ -2720,20 +2950,22 @@ a.dockspace-card:focus-visible {
   min-height: 0;
 }
 
+/* Square tiles with no gap, radius or border. Hover, focus and selection are drawn by an overlay inside the tile, so
+   nothing moves and no gap appears. */
 .media-card {
-  border: 1px solid var(--border);
-  border-radius: 12px;
-  background: rgba(255, 255, 255, 0.02);
+  border: 0;
+  border-radius: 0;
+  background: transparent;
   color: var(--text);
   padding: 0;
   display: block;
   position: relative;
+  isolation: isolate;
   text-align: left;
   width: 100%;
   cursor: pointer;
   overflow: hidden;
   aspect-ratio: 1 / 1;
-  transition: border-color 0.18s ease, transform 0.18s ease;
 }
 
 .media-grid__item--virtual .media-card {
@@ -2741,14 +2973,55 @@ a.dockspace-card:focus-visible {
   aspect-ratio: auto;
 }
 
-.media-card:hover {
-  border-color: rgba(91, 181, 255, 0.55);
-  transform: translateY(-1px);
+.media-card::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
 }
 
-.media-card[data-selected='true'] {
-  border-color: rgba(91, 181, 255, 0.76);
-  box-shadow: inset 0 0 0 1px rgba(91, 181, 255, 0.35);
+/* A transparent outline instead of none: the overlay's box-shadow is the ring normally, and forced-colors mode
+   (which drops box-shadows) draws this outline in a system colour so keyboard focus stays visible. */
+.media-card:focus-visible {
+  outline: 2px solid transparent;
+  outline-offset: -2px;
+}
+
+@media (hover: hover) {
+  .media-card:hover::after {
+    background: rgba(255, 255, 255, 0.1);
+  }
+}
+
+.media-card[data-selected='true']::after {
+  background: rgba(77, 168, 255, 0.24);
+  box-shadow: inset 0 0 0 3px var(--accent);
+}
+
+.media-card:focus-visible::after {
+  box-shadow:
+    inset 0 0 0 2px var(--accent),
+    inset 0 0 0 4px #fff;
+}
+
+.media-card[data-selected='true']:focus-visible::after {
+  box-shadow:
+    inset 0 0 0 3px var(--accent),
+    inset 0 0 0 5px #fff;
+}
+
+/* Forced colors drop the overlay's tint and box-shadow, so selection gets a real outline there too; a selected tile
+   with focus shows a thicker one. */
+@media (forced-colors: active) {
+  .media-card[data-selected='true'] {
+    outline: 3px solid Highlight;
+    outline-offset: -3px;
+  }
+
+  .media-card[data-selected='true']:focus-visible {
+    outline: 5px double Highlight;
+    outline-offset: -5px;
+  }
 }
 
 .media-card__thumbnail {
@@ -2756,7 +3029,7 @@ a.dockspace-card:focus-visible {
   height: 100%;
   aspect-ratio: 1 / 1;
   border-radius: 0;
-  display: inline-flex;
+  display: flex;
   align-items: center;
   justify-content: center;
   background: rgba(77, 168, 255, 0.17);
@@ -2772,19 +3045,24 @@ a.dockspace-card:focus-visible {
 
 .media-card__selection-indicator {
   position: absolute;
-  top: 0.4rem;
-  right: 0.4rem;
-  width: 1.2rem;
-  height: 1.2rem;
+  z-index: 1;
+  top: 0.45rem;
+  right: 0.45rem;
+  width: 1.35rem;
+  height: 1.35rem;
   border-radius: 999px;
-  border: 1px solid rgba(255, 255, 255, 0.44);
-  background: rgba(15, 16, 20, 0.7);
+  border: 1.5px solid rgba(255, 255, 255, 0.85);
+  background: rgba(15, 16, 20, 0.55);
   color: #fff;
-  font-size: 0.75rem;
   line-height: 1;
   display: inline-flex;
   align-items: center;
   justify-content: center;
+}
+
+.media-card[data-selected='true'] .media-card__selection-indicator {
+  border-color: #fff;
+  background: var(--accent-strong);
 }
 
 .media-grid-size-toggle {
@@ -2825,8 +3103,14 @@ a.dockspace-card:focus-visible {
 }
 
 .media-duplicates {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  overscroll-behavior: contain;
   display: grid;
+  align-content: start;
   gap: 0.75rem;
+  padding: 1rem;
 }
 
 .media-duplicates__summary {
@@ -2920,11 +3204,6 @@ a.dockspace-card:focus-visible {
 .media-duplicates__footer p {
   margin: 0;
   color: var(--text-muted);
-}
-
-.media-workspace__uploads {
-  display: grid;
-  gap: 0.45rem;
 }
 
 .media-albums {
@@ -3132,15 +3411,6 @@ a.dockspace-card:focus-visible {
     width: 100%;
     justify-content: space-between;
     flex-wrap: wrap;
-  }
-
-  .media-workspace__bulk-actions {
-    width: 100%;
-    justify-content: flex-start;
-  }
-
-  .media-workspace__main-controls {
-    align-items: flex-start;
   }
 
   .media-duplicates__summary {

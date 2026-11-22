@@ -5,11 +5,12 @@ import { DockspaceMediaPage } from '@/pages/DockspaceMediaPage';
 import type { MediaFileRecord } from '@/lib/apiTypes';
 
 // Focus return when the gallery preview closes. The real FileViewerDialog is rendered (its content is mocked).
-// The grid's scroll box measures 800 x 600: 4 medium columns, rows of 198px + 12px gap (a 210px stride), so at
-// scrollTop 0 the rendered rows are 0..5 (3 visible + 2 overscan), i.e. tiles 0..23.
+// The grid's scroll box measures 800 x 600: 4 medium columns of square 200px tiles with no gap (a 200px stride), so
+// at scrollTop 0 the rendered rows are 0..5 (3 visible + 2 overscan), i.e. tiles 0..23.
 const BOX_WIDTH = 800;
 const BOX_HEIGHT = 600;
-const ROW_STRIDE_PX = 210;
+const ROW_STRIDE_PX = 200;
+const ROW_HEIGHT_PX = 200;
 
 const mockState = vi.hoisted(() => ({
   buildMediaItems: (count: number): MediaFileRecord[] =>
@@ -290,8 +291,8 @@ describe('Gallery preview focus return', () => {
     fireEvent.keyDown(document, { key: 'Escape' });
 
     expect(document.activeElement).toBe(tile(25));
-    // Row 6 in the middle of the box: 6 * 210 - (600 - 198) / 2.
-    expect(scrollBox().scrollTop).toBe(6 * ROW_STRIDE_PX - (BOX_HEIGHT - 198) / 2);
+    // Row 6 in the middle of the box: 6 * 200 - (600 - 200) / 2.
+    expect(scrollBox().scrollTop).toBe(6 * ROW_STRIDE_PX - (BOX_HEIGHT - ROW_HEIGHT_PX) / 2);
   });
 
   it('scrolls back to the opening tile when the grid was scrolled away while the preview was open', () => {
@@ -336,13 +337,60 @@ describe('Gallery preview focus return', () => {
     expect(document.activeElement).toBe(screen.getByRole('button', { name: 'Select multiple' }));
   });
 
+  describe('on phone', () => {
+    const originalMatchMedia = window.matchMedia;
+
+    beforeEach(() => {
+      window.matchMedia = vi.fn((query: string) => ({
+        matches: query.includes('max-width: 900px'),
+        media: query,
+        onchange: null,
+        addEventListener: vi.fn(),
+        removeEventListener: vi.fn(),
+        addListener: vi.fn(),
+        removeListener: vi.fn(),
+        dispatchEvent: vi.fn()
+      })) as unknown as typeof window.matchMedia;
+    });
+
+    afterEach(() => {
+      window.matchMedia = originalMatchMedia;
+    });
+
+    it('returns focus to the opening tile when the close button is pressed', () => {
+      render(<DockspaceMediaPage dockspaceId="dock-1" dockspaceName="Camera Roll" />);
+      expect(screen.queryByRole('button', { name: 'Select multiple' })).toBeNull();
+
+      openWithKeyboard('item-0002.jpg');
+      pressPreviewButton('Close preview');
+
+      expect(previewDialog()).toBeNull();
+      expect(document.activeElement).toBe(tile(2));
+    });
+
+    it('moves focus to the album button when no grid is rendered', () => {
+      const { rerender } = render(<DockspaceMediaPage dockspaceId="dock-1" dockspaceName="Camera Roll" />);
+
+      openWithKeyboard('item-0000.jpg');
+      setMediaItems([]);
+      rerender(<DockspaceMediaPage dockspaceId="dock-1" dockspaceName="Camera Roll" />);
+      expect(document.querySelector('.media-grid-virtual')).toBeNull();
+
+      pressPreviewButton('Close preview');
+
+      expect(previewDialog()).toBeNull();
+      expect(document.activeElement).toBe(screen.getByRole('button', { name: 'Album: All media' }));
+    });
+  });
+
   it('returns focus to the tile in an album view', () => {
     mockState.albumsData = [{ albumId: 'album-1', name: 'Travel' }];
     mockState.albumItems = mockState.buildMediaItems(60).slice(30);
     render(<DockspaceMediaPage dockspaceId="dock-1" dockspaceName="Camera Roll" />);
 
-    fireEvent.click(screen.getByRole('button', { name: /Travel/ }));
-    expect(screen.getByText('Album: Travel')).toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: 'Album: All media' }));
+    fireEvent.click(screen.getByRole('menuitemradio', { name: 'Travel' }));
+    expect(screen.getByRole('button', { name: 'Album: Travel' })).toBeInTheDocument();
 
     openWithKeyboard('item-0032.jpg');
     fireEvent.keyDown(document, { key: 'ArrowRight' });

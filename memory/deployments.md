@@ -454,3 +454,14 @@ Recorded 2026-11-20 by the setup session from a `cdk diff` of origin/main 5678ad
 - Known pre-existing issues still live: gallery partial trash failure shown in the info style (T-0048, #104); mixed valid/invalid upload selection clears the skipped-files notice (T-0047, #101); phone pill says "an upload failed" for skipped files (T-0045, #96; T-0049, #106); batches over 120 uploads (T-0042, #90).
 - Logs: $LOCAL/logs/prod-deploy-diff-pr-20261122T185240Z.log, prod-deploy-diff-20261122T185307Z.log, prod-deploy-web-20261122T185405Z.log, prod-deploy-diff-20261122T185416Z.log.
 - Prod is now at origin/main `475431c` for both infra and web.
+
+### 2026-11-22 — T-0042 — web
+- origin/main commit: `7f19fe9` (PR #99 squash-merged). Run as `dockspace-prod-agent-deployer` via `prod-deploy.sh`.
+- Pre-deploy: PR #99 at `85789f6` was MERGEABLE/CLEAN with merge base `b433bae`; main had moved to `475431c` (T-0043 #94, T-0044 #97, T-0041 #100, T-0046 #102; no file overlap with `useMedia.ts` or `mediaThumbnailFollowUp.ts`). The PR merged onto `475431c` without conflicts and passed typecheck, tests (web 69 files, 587 tests; backend 37 files, 178 tests) and build in a local merge-check worktree, and the squash-merged tree matches it. Web only (`lib/mediaThumbnailFollowUp.ts`, `hooks/useMedia.ts`, two test files); no API, backend or infra change. `prod-deploy.sh diff-pr 99` showed 0 stacks with differences. Main since the last deploy (`475431c`) had no commits; `prod-deploy.sh diff` 0 stacks, so no drift.
+- Infra: not run. Post-deploy `prod-deploy.sh diff` at `7f19fe9` shows 0 stacks with differences.
+- Web (`prod-deploy.sh web`): built and synced to the prod site bucket; invalidated `/*` on the prod distribution. Entry bundle `index-VNuSIq7N.js`, `DockspaceMediaPage-D9z5YlCp.js`, stylesheet `index-Cwg07VRo.css`.
+- Shipped: #99 `7f19fe9` (T-0042).
+- Smoke check: https://dh0djlfa46gz6.cloudfront.net/login serves `index-VNuSIq7N.js`, renders the sign-in form, `DockspaceMediaPage-D9z5YlCp.js` is served (200, JavaScript), and the console shows no errors.
+- Known pre-existing issues still live: gallery partial trash failure shown in the info style (T-0048, #104); mixed valid/invalid upload selection clears the skipped-files notice (T-0047, #101); phone pill says "an upload failed" for skipped files (T-0045, #96; T-0049, #106).
+- Logs: $LOCAL/logs/prod-deploy-diff-pr-20261122T190224Z.log, prod-deploy-diff-20261122T190304Z.log, prod-deploy-web-20261122T190352Z.log, prod-deploy-diff-20261122T190402Z.log.
+- Prod is now at origin/main `7f19fe9` for both infra and web.

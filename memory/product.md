@@ -42,6 +42,7 @@ All open tasks have their own issues (#11-#16, sub-issues of request #5) since 2
 - 2026-11-22 sweep: T-0041 (PR #100) is merged and live, so T-0048 is dispatched to engineering (rebase on main). T-0049 stays new until T-0045 (PR #103) and T-0047 (PR #105) are merged. T-0042, T-0045, T-0047 (testing) and T-0046 (deploying) pipelines are running.
 
 ### Shipped
+- 2026-11-22 (prod at 7f19fe9): T-0042 Gallery thumbnail follow-up covers batches larger than one page (#90, PR #99): after a gallery upload batch, the thumbnail follow-up requests the newest items in pages sized to the batch (120 to 200) and walks on by cursor while an upload is unseen, so every upload of a batch over 120 (tested with 130 and 450) is followed; tiles loaded later by scrolling get their thumbnail within about a second of it being ready, with no reload. Same 13-round bound and early stop; one refresh per batch and paging unchanged.
 - 2026-11-22 (prod at 475431c): T-0046 Files page phone Upload button at least 44px, matching the uploads pill (#98, PR #102): on phone the files page's floating Upload button is 44px tall and level with the collapsed uploads pill beside it (in-progress and failed states); the menu still opens above it, desktop sizes and focus styles are unchanged.
 - 2026-11-22 (prod at fa05f2e): T-0041 Gallery trash messages: correct plurals, success not shown as an error (#85, PR #100): trash results read "Moved 1 item to trash." / "Moved N items to trash." (+ " M failed.") in the gallery and Find duplicates, the duplicates footer "1 item selected for trash.", the dialog "This will move 1 selected media file to trash.", and the Find duplicates summary and group lines "1 duplicate group found.", "1 repeated file.", "1 file, 1 byte reclaimable"; a clean Find duplicates trash result shows in the blue info alert (failures stay red). Follow-up: gallery partial failure still shows in the info style (T-0048, #104).
 - 2026-11-22 (prod at b472015): T-0044 Find duplicates summary focus ring: space between ring and text (#95, PR #97): the duplicates summary's keyboard focus ring now sits about 10px from the text inline and 6px above and below, on desktop and phone, without clipping; the text and the items below stay where they were, and the ring still shows only for keyboard focus.
@@ -134,7 +135,7 @@ All open tasks have their own issues (#11-#16, sub-issues of request #5) since 2
 | T-0039 | #83 | #65 | Gallery skipped-files message: correct plural and no internal type name | done | Engineering |
 | T-0040 | #84 | #65 | Gallery Move to trash dialog: focus on open, Tab trap, focus after close | done | Test results filtering |
 | T-0041 | #85 | #65 | Gallery trash messages: correct plurals, success not shown as an error | done | Deployment |
-| T-0042 | #90 | #65 | Gallery thumbnail follow-up covers batches larger than one page | deploying | Review judge |
+| T-0042 | #90 | #65 | Gallery thumbnail follow-up covers batches larger than one page | done | Review judge |
 | T-0043 | #93 | #65 | Files upload invalid-paths message: correct singular | done | Deployment |
 | T-0044 | #95 | #65 | Find duplicates summary focus ring: space between ring and text | done | Deployment |
 | T-0045 | #96 | #65 | Collapsed uploads pill: skipped files are not reported as a failed upload | testing | Test results filtering |

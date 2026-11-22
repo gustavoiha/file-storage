@@ -273,17 +273,27 @@ describe('Media gallery paging', () => {
     });
     await waitFor(() => expect(api.listMedia).toHaveBeenCalledTimes(7));
 
-    // The user reaches the bottom during the refetch and stops scrolling: no next page is asked for yet.
+    // The user reaches the bottom during the refetch and stops scrolling: no next page is asked for yet, and the
+    // reserved footer says why.
     const scroller = document.querySelector('.media-grid-virtual') as HTMLElement;
+    const status = scroller.querySelector('.media-grid-virtual__footer [role="status"]') as HTMLElement;
+    expect(status).toHaveTextContent('Loading more media...');
     fireEvent.scroll(scroller, { target: { scrollTop: 6 * 420 - 12 - BOX_HEIGHT } });
     await settle();
     expect(api.listMedia).toHaveBeenCalledTimes(7);
+    expect(status).toHaveTextContent('Loading more media...');
 
     // When the refetch ends, the next page is requested with no further scroll event.
     await releaseRefetch();
     await waitFor(() => expect(requestedCursors()).toContain('c6'));
     expect(requestedCursors().slice(6, 13)).toEqual([undefined, 'c1', 'c2', 'c3', 'c4', 'c5', 'c6']);
     expect(api.maxInFlight).toBe(1);
+
+    // Once the lookahead is filled and nothing is loading, the status is empty again.
+    await waitFor(() => expect(status.textContent).toBe(''));
+    await settle();
+    expect(api.inFlight).toBe(0);
+    expect(status.textContent).toBe('');
   });
 
   it('keeps Try again busy during a background refetch, and a press then sends nothing', async () => {
@@ -308,6 +318,8 @@ describe('Media gallery paging', () => {
     await settle();
     expect(api.listMedia).toHaveBeenCalledTimes(4);
     expect(document.activeElement).toBe(tryAgain);
+    // The error says what happened: no loading text next to it while the refetch runs.
+    expect(screen.getByRole('status').textContent).toBe('');
 
     // The refetch succeeds, which clears the error: automatic loading resumes with one request for the next page.
     restore();
@@ -387,6 +399,28 @@ describe('Media gallery paging', () => {
 
 describe('VirtualizedMediaGrid row layout', () => {
   afterEach(() => cleanup());
+
+  it('shows no loading status during a refetch when there is no next page (the end of the list, or an album)', () => {
+    // Album views pass hasNextPage false: the album list is not paged.
+    render(
+      <VirtualizedMediaGrid
+        items={buildItems(0, 8)}
+        gridSize="medium"
+        isMultiSelectMode={false}
+        selectedMediaIds={new Set()}
+        selectedMediaId={null}
+        onSelectMedia={vi.fn()}
+        onToggleMediaSelection={vi.fn()}
+        onOpenPreview={vi.fn()}
+        hasNextPage={false}
+        isFetchingNextPage={false}
+        isFetching
+        onLoadMore={vi.fn()}
+      />
+    );
+    expect(screen.queryByRole('status')).toBeNull();
+    expect(screen.queryByText('Loading more media...')).toBeNull();
+  });
 
   it('positions rows with the same gap the list uses, so the window can move without shifting tiles', () => {
     const { rowHeightPx } = MEDIA_GRID_LAYOUT.medium;

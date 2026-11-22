@@ -171,6 +171,9 @@ export const VirtualizedMediaGrid = ({
   }, [items.length, nextPageError]);
 
   const showFooter = hasNextPage || Boolean(nextPageError);
+  // A background refetch also holds back the next page (it re-requests every loaded page, one after another, which
+  // can take a few seconds), so the status shows during it too, not only while the next page itself loads.
+  const showLoadingStatus = !nextPageError && (isFetchingNextPage || (hasNextPage && isFetching));
 
   return (
     <div
@@ -280,7 +283,7 @@ export const VirtualizedMediaGrid = ({
             </div>
           ) : null}
           <p className="media-grid-virtual__status" role="status">
-            {isFetchingNextPage && !nextPageError ? 'Loading more media...' : ''}
+            {showLoadingStatus ? 'Loading more media...' : ''}
           </p>
         </div>
       ) : null}

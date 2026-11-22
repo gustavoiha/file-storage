@@ -38,6 +38,7 @@ All open tasks have their own issues (#11-#16, sub-issues of request #5) since 2
 - 2026-11-22 sweep: PRs #88 (T-0040), #89 (T-0036) and #91 (T-0039) are still open, so T-0041, T-0042 and T-0044 stay new; nothing dispatched. T-0036, T-0038, T-0039, T-0043 (testing) and T-0040 (deploying) pipelines are running.
 - 2026-11-22 sweep: PRs #88 (T-0040) and #89 (T-0036) are merged and live, so T-0042 and T-0044 are dispatched to engineering. T-0041 stays new until T-0039 (PR #91) is merged; T-0045 stays new until T-0038 (PR #92) is merged. T-0038, T-0039 and T-0043 pipelines are running.
 - 2026-11-22 sweep: T-0039 (PR #91) and T-0040 (PR #88) are merged and live, so T-0041 is dispatched to engineering. T-0045 and T-0046 stay new until T-0038 (PR #92, deploying) is merged. T-0038 (deploying), T-0042 (engineering), T-0043 and T-0044 (testing) pipelines are running.
+- 2026-11-22 sweep: T-0038 (PR #92) is merged and live, so T-0045 and T-0046 are dispatched to engineering (both near the phone uploads pill: T-0045 in `UploadsCard.tsx`, T-0046 in the Upload button CSS; each rebases on main). T-0047 stays new until T-0043 (PR #94, deploying) is merged. T-0041 (engineering), T-0042 (review), T-0043 (deploying) and T-0044 (testing) pipelines are running.
 
 ### Shipped
 - 2026-11-22 (prod at b433bae): T-0038 Phone touch targets at least 44px: uploads pill and gallery selection bar (#82, PR #92): on phone the collapsed uploads pill (gallery and files page) and the gallery selection bar buttons (Cancel, Add to album, Trash selected) are at least 44px tall; desktop sizes, labels, failure dot and focus styles are unchanged. Follow-up T-0046 (#98): the files page's phone Upload button beside the pill is 37.4px.
@@ -131,6 +132,6 @@ All open tasks have their own issues (#11-#16, sub-issues of request #5) since 2
 | T-0042 | #90 | #65 | Gallery thumbnail follow-up covers batches larger than one page | review | Review judge |
 | T-0043 | #93 | #65 | Files upload invalid-paths message: correct singular | deploying | Test results filtering |
 | T-0044 | #95 | #65 | Find duplicates summary focus ring: space between ring and text | testing | Test results filtering |
-| T-0045 | #96 | #65 | Collapsed uploads pill: skipped files are not reported as a failed upload | new | Test results filtering |
-| T-0046 | #98 | #65 | Files page phone Upload button at least 44px, matching the uploads pill | new | Test results filtering |
+| T-0045 | #96 | #65 | Collapsed uploads pill: skipped files are not reported as a failed upload | engineering | Test results filtering |
+| T-0046 | #98 | #65 | Files page phone Upload button at least 44px, matching the uploads pill | engineering | Test results filtering |
 | T-0047 | #101 | #65 | Files upload: keep the skipped-files notice when some files still upload | new | Test results filtering |

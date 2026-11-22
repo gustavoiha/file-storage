@@ -19,6 +19,7 @@ All open tasks have their own issues (#11-#16, sub-issues of request #5) since 2
 - 2026-11-22: T-0029 is live, so T-0031 and T-0032 are dispatched to engineering. The human picked option 1 for T-0030 (album menu button, ⋯ Gallery options, floating uploads card); it goes to design-decision for the final spec, then engineering. All three touch the gallery files, so each rebases on main before its PR.
 - 2026-11-22: T-0033 (#74) and T-0034 (#75) split from T-0031 test round 1, both already on main: an upload from the media gallery does not refresh the gallery (`useUploadFile` does not invalidate `media`), and the gallery Move to trash dialog stays on "Moving..." until the whole gallery refetch ends. Both dispatched to engineering on the next sweep; they touch `useFiles.ts` and the gallery files, so each rebases on main before its PR.
 - 2026-11-22: T-0035 (#77) split from T-0032 test round 1, already on main: the gallery preview does not take focus when it opens and has no Tab trap, so Tab walks the hidden gallery first. Build after T-0032 (PR #72) is merged; it touches the gallery files, so rebase on main before its PR.
+- 2026-11-22: T-0036 (#79) split from T-0033 test round 1: a tile uploaded from the gallery shows the placeholder until a reload, because the post-batch refetch runs before the thumbnail exists; add a bounded follow-up refresh. Build after T-0033 (PR #76) is merged; it touches the gallery files, so rebase on main before its PR.
 
 ### Shipped
 - 2026-11-22 (prod at 9c3fc64): T-0032 Gallery preview returns focus to its tile on close (#70, PR #72): every close of the full-screen preview (Escape, Close preview, the empty area around the media) moves focus to the tile of the item shown last, scrolling a virtualized tile back into view first; fallbacks are the grid scroll box, then the Select multiple toggle, so focus never ends on the page body. The ring shows for keyboard closes only (`:focus-visible`).
@@ -91,6 +92,7 @@ All open tasks have their own issues (#11-#16, sub-issues of request #5) since 2
 | T-0030 | #67 | #65 | Gallery layout: no card frame, actions in a menu, gapless grid | testing | Design |
 | T-0031 | #69 | #65 | Gallery: show loading status while a background refetch delays the next page | done | Engineering |
 | T-0032 | #70 | #65 | Gallery preview returns focus to its tile on close | done | Engineering |
-| T-0033 | #74 | #65 | Gallery shows a file uploaded from the gallery without a reload | filtering | Engineering |
+| T-0033 | #74 | #65 | Gallery shows a file uploaded from the gallery without a reload | deploying | Engineering |
 | T-0034 | #75 | #65 | Gallery Move to trash dialog closes without waiting for the gallery refetch | review | Engineering |
 | T-0035 | #77 | #65 | Gallery preview takes focus when it opens and keeps Tab inside | new | Test results filtering |
+| T-0036 | #79 | #65 | Gallery shows a new upload's thumbnail without a reload | new | Test results filtering |

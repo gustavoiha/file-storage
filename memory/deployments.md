@@ -487,3 +487,14 @@ Recorded 2026-11-20 by the setup session from a `cdk diff` of origin/main 5678ad
 - Known pre-existing issues still live: phone pill says "an upload failed" for skipped files, also for mixed selections (T-0045, #96; T-0049, #106); uploads card collapse/expand drops focus (T-0050, #108); menus opened with Enter keep focus on the trigger (T-0051, #109).
 - Logs: $LOCAL/logs/prod-deploy-diff-pr-20261122T191533Z.log, prod-deploy-diff-20261122T191622Z.log, prod-deploy-web-20261122T191707Z.log, prod-deploy-diff-20261122T191719Z.log.
 - Prod is now at origin/main `c941162` for both infra and web.
+
+### 2026-11-22 — T-0051 — web
+- origin/main commit: `066729c` (PR #110 squash-merged). Run as `dockspace-prod-agent-deployer` via `prod-deploy.sh`.
+- Pre-deploy: PR #110 at `4c4baac` was MERGEABLE/CLEAN with merge base `7f19fe9`; main had moved to `c941162` (T-0047 #105, T-0048 #107; no file overlap with `DropdownMenu.tsx` or its tests). The PR merged onto `c941162` without conflicts and passed typecheck, tests (web 69 files, 611 tests; backend 37 files, 178 tests) and build in a local merge-check worktree. Web only (`DropdownMenu.tsx`, two test files); no API, backend or infra change. `prod-deploy.sh diff-pr 110` showed 0 stacks with differences. Main since the last deploy (`c941162`) had no commits; `prod-deploy.sh diff` 0 stacks, so no drift.
+- Infra: not run. Post-deploy `prod-deploy.sh diff` at `066729c` shows 0 stacks with differences.
+- Web (`prod-deploy.sh web`): built and synced to the prod site bucket; invalidated `/*` on the prod distribution. Entry bundle `index-3PIIQY8a.js`, stylesheet `index-Cwg07VRo.css`.
+- Shipped: #110 `066729c` (T-0051).
+- Smoke check: https://dh0djlfa46gz6.cloudfront.net/login serves `index-3PIIQY8a.js` (200, JavaScript, contains the keyboard-open `detail===0` check), renders the sign-in form, and the console shows no errors.
+- Known pre-existing issues still live: phone pill says "an upload failed" for skipped files, also for mixed selections (T-0045, #96; T-0049, #106); uploads card collapse/expand drops focus (T-0050, #108); menu item focus ring styles differ between menus (T-0052, #111).
+- Logs: $LOCAL/logs/prod-deploy-diff-pr-20261122T192853Z.log, prod-deploy-diff-20261122T192931Z.log, prod-deploy-web-20261122T193013Z.log, prod-deploy-diff-20261122T193024Z.log.
+- Prod is now at origin/main `066729c` for both infra and web.

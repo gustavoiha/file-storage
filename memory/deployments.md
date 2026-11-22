@@ -377,3 +377,14 @@ Recorded 2026-11-20 by the setup session from a `cdk diff` of origin/main 5678ad
 - Known pre-existing issues still live: duplicates summary focus ring touches the text (T-0044, #95); tile placeholder after a gallery upload (T-0036, #79); phone touch targets (T-0038, #82); skipped-files wording (T-0039, #83); trash copy plurals (T-0041, #85).
 - Logs: $LOCAL/logs/prod-deploy-diff-pr-20261122T180719Z.log, prod-deploy-diff-20261122T180747Z.log, prod-deploy-web-20261122T180839Z.log, prod-deploy-diff-20261122T180852Z.log.
 - Prod is now at origin/main `6dfc382` for both infra and web.
+
+### 2026-11-22 — T-0036 — web
+- origin/main commit: `974996c` (PR #89 squash-merged). Run as `dockspace-prod-agent-deployer` via `prod-deploy.sh`.
+- Pre-deploy: PR #89 at `5304562` was MERGEABLE/CLEAN with merge base `e5b701e`; main had moved to `6dfc382` (T-0037 #87 and T-0040 #88, no overlapping files). The PR merged onto `6dfc382` passed web typecheck, tests (66 files, 540 tests) and build in a local merge-check worktree, and the squash-merged tree matches it (`git diff` empty). Web only (`mediaThumbnailFollowUp.ts`, `useMedia.ts`, `useDockspaceUploadDialog.ts`, `useDockspaceMediaController.ts`, tests); no API, backend or infra change. `prod-deploy.sh diff-pr 89` showed 0 stacks with differences. Main since the last deploy (`6dfc382`) had no commits; `prod-deploy.sh diff` 0 stacks, so no drift.
+- Infra: not run. Post-deploy `prod-deploy.sh diff` at `974996c` shows 0 stacks with differences.
+- Web (`prod-deploy.sh web`): built and synced to the prod site bucket; invalidated `/*` on the prod distribution. Entry bundle `index-DpL82-Nk.js`, `DockspaceMediaPage-C5M8ZF5j.js`, stylesheet `index-DrhwRw4c.css`.
+- Shipped: #89 `974996c` (T-0036).
+- Smoke check: https://dh0djlfa46gz6.cloudfront.net/login serves `index-DpL82-Nk.js` and `index-DrhwRw4c.css`, renders the sign-in form, `DockspaceMediaPage-C5M8ZF5j.js` is served (200, JavaScript) and contains the follow-up waits (`1500,2e3,3e3,4e3`), and the console shows no errors.
+- Known pre-existing issues still live: batches of more than 120 gallery uploads only partly followed for thumbnails (T-0042, #90); duplicates summary focus ring (T-0044, #95); phone touch targets (T-0038, #82); skipped-files wording (T-0039, #83); trash copy plurals (T-0041, #85).
+- Logs: $LOCAL/logs/prod-deploy-diff-pr-20261122T182008Z.log, prod-deploy-diff-20261122T182036Z.log, prod-deploy-web-20261122T182121Z.log, prod-deploy-diff-20261122T182134Z.log.
+- Prod is now at origin/main `974996c` for both infra and web.

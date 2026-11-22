@@ -113,7 +113,7 @@ All open tasks have their own issues (#11-#16, sub-issues of request #5) since 2
 | T-0036 | #79 | #65 | Gallery shows a new upload's thumbnail without a reload | testing | Test results filtering |
 | T-0037 | #81 | #65 | Gallery preview arrow keys seek video/audio instead of changing the item | done | Review judge |
 | T-0038 | #82 | #65 | Phone touch targets at least 44px: uploads pill and gallery selection bar | engineering | Engineering |
-| T-0039 | #83 | #65 | Gallery skipped-files message: correct plural and no internal type name | engineering | Engineering |
+| T-0039 | #83 | #65 | Gallery skipped-files message: correct plural and no internal type name | review | Engineering |
 | T-0040 | #84 | #65 | Gallery Move to trash dialog: focus on open, Tab trap, focus after close | testing | Test results filtering |
 | T-0041 | #85 | #65 | Gallery trash messages: correct plurals, success not shown as an error | new | Test results filtering |
 | T-0042 | #90 | #65 | Gallery thumbnail follow-up covers batches larger than one page | new | Review judge |

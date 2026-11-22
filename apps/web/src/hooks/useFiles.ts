@@ -8,7 +8,13 @@ import {
 import { useStore } from '@tanstack/react-store';
 import { authStore } from '@/lib/authStore';
 import { ApiError } from '@/lib/apiClient';
-import type { DirectoryChildrenRecord, MediaFileRecord, MediaListResponse } from '@/lib/apiTypes';
+import type {
+  DirectoryChildrenRecord,
+  MediaDuplicateGroupRecord,
+  MediaDuplicatesResponse,
+  MediaFileRecord,
+  MediaListResponse
+} from '@/lib/apiTypes';
 import {
   createFolder,
   listFolderChildren,
@@ -162,9 +168,92 @@ export const useRenameFolder = (dockspaceId: string, folder: string) => {
 };
 
 /**
- * Takes trashed files out of the cached gallery (every loaded page) and album lists at once, so their tiles leave
- * without waiting for a refetch. The refetch that follows cannot bring them back: the server has already trashed
- * them, and invalidating cancels any gallery request that was in flight when the trash succeeded.
+ * A duplicate group without the given files, recomputed the way the server builds it (items stay in its order, the
+ * first one is the default keeper), or null when fewer than two files are left and it is no longer a duplicate group.
+ */
+const withoutTrashedDuplicates = (
+  group: MediaDuplicateGroupRecord,
+  keep: (item: MediaFileRecord) => boolean
+): MediaDuplicateGroupRecord | null => {
+  const items = group.items.filter(keep);
+  if (items.length < 2) {
+    return null;
+  }
+
+  const totalGroupSizeBytes = items.reduce((sum, item) => sum + item.size, 0);
+  return {
+    ...group,
+    items,
+    duplicateCount: items.length - 1,
+    totalGroupSizeBytes,
+    reclaimableBytes: totalGroupSizeBytes - (items[0]?.size ?? 0),
+    defaultKeeperFileNodeId: items[0]?.fileNodeId ?? group.defaultKeeperFileNodeId
+  };
+};
+
+/** Takes trashed files out of every loaded page of the cached duplicate groups, and their totals out of the summary. */
+const removeTrashedDuplicates = (
+  data: InfiniteData<MediaDuplicatesResponse> | undefined,
+  keep: (item: MediaFileRecord) => boolean
+) => {
+  if (!data?.pages || data.pages.every((page) => page.items.every((group) => group.items.every(keep)))) {
+    return data;
+  }
+
+  let removedGroups = 0;
+  let removedDuplicateItems = 0;
+  let removedReclaimableBytes = 0;
+  const pages = data.pages.map((page) => {
+    if (page.items.every((group) => group.items.every(keep))) {
+      return page;
+    }
+
+    const groups: MediaDuplicateGroupRecord[] = [];
+    for (const group of page.items) {
+      if (group.items.every(keep)) {
+        groups.push(group);
+        continue;
+      }
+
+      const next = withoutTrashedDuplicates(group, keep);
+      removedDuplicateItems += group.duplicateCount - (next?.duplicateCount ?? 0);
+      removedReclaimableBytes += group.reclaimableBytes - (next?.reclaimableBytes ?? 0);
+      if (next) {
+        groups.push(next);
+      } else {
+        removedGroups += 1;
+      }
+    }
+
+    return { ...page, items: groups };
+  });
+
+  // The summary covers every group, loaded or not; it is read from the first page.
+  const [firstPage, ...otherPages] = pages;
+  if (!firstPage) {
+    return { ...data, pages };
+  }
+
+  return {
+    ...data,
+    pages: [
+      {
+        ...firstPage,
+        summary: {
+          groupCount: Math.max(0, firstPage.summary.groupCount - removedGroups),
+          duplicateItemCount: Math.max(0, firstPage.summary.duplicateItemCount - removedDuplicateItems),
+          reclaimableBytes: Math.max(0, firstPage.summary.reclaimableBytes - removedReclaimableBytes)
+        }
+      },
+      ...otherPages
+    ]
+  };
+};
+
+/**
+ * Takes trashed files out of the cached gallery (every loaded page), the duplicate groups and album lists at once, so
+ * they leave without waiting for a refetch. The refetch that follows cannot bring them back: the server has already
+ * trashed them, and invalidating cancels any request that was in flight when the trash succeeded.
  */
 const removeTrashedMedia = (
   queryClient: QueryClient,
@@ -188,6 +277,11 @@ const removeTrashedMedia = (
         )
       };
     }
+  );
+
+  queryClient.setQueriesData<InfiniteData<MediaDuplicatesResponse>>(
+    { queryKey: ['media-duplicates', userId, dockspaceId] },
+    (data) => removeTrashedDuplicates(data, keep)
   );
 
   queryClient.setQueriesData<MediaFileRecord[]>(

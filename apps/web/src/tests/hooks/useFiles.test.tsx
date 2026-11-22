@@ -15,7 +15,7 @@ import {
   useUploadFile
 } from '@/hooks/useFiles';
 import { useMediaFiles } from '@/hooks/useMedia';
-import type { MediaFileRecord, MediaListResponse } from '@/lib/apiTypes';
+import type { MediaDuplicatesResponse, MediaFileRecord, MediaListResponse } from '@/lib/apiTypes';
 import { clearSession, setSession } from '@/lib/authStore';
 import { createTestQueryClient, QueryWrapper } from '@/tests/testUtils';
 
@@ -300,6 +300,52 @@ describe('useFiles', () => {
 
       await act(async () => releaseGate());
       await waitFor(() => expect(galleryIsFetching()).toBe(false));
+    });
+
+    it('useTrashFilesBatch takes moved files out of every loaded page of duplicate groups and their summary', async () => {
+      const client = createTestQueryClient();
+      const group = (contentHash: string, paths: string[], size: number) => ({
+        contentHash,
+        items: paths.map((fullPath) => ({ ...mediaItem(fullPath), contentHash, size })),
+        duplicateCount: paths.length - 1,
+        totalGroupSizeBytes: paths.length * size,
+        reclaimableBytes: (paths.length - 1) * size,
+        defaultKeeperFileNodeId: `node-${paths[0]}`
+      });
+      const duplicatesKey = ['media-duplicates', 'u1', 'v1', 20];
+      client.setQueryData<InfiniteData<MediaDuplicatesResponse>>(duplicatesKey, {
+        pageParams: [undefined, 'c1'],
+        pages: [
+          {
+            items: [group('h1', ['/x1.jpg', '/x2.jpg', '/x3.jpg'], 10), group('h2', ['/y1.jpg', '/y2.jpg'], 20)],
+            summary: { groupCount: 3, duplicateItemCount: 4, reclaimableBytes: 70 },
+            nextCursor: 'c1'
+          },
+          {
+            items: [group('h3', ['/z1.jpg', '/z2.jpg'], 30)],
+            summary: { groupCount: 3, duplicateItemCount: 4, reclaimableBytes: 70 }
+          }
+        ]
+      });
+      const { result } = renderHook(() => useTrashFilesBatch('v1'), {
+        wrapper: ({ children }) => <QueryWrapper client={client}>{children}</QueryWrapper>
+      });
+
+      // The group's default keeper /x1.jpg goes too: the next file becomes the default, as the server would pick.
+      await act(async () => {
+        await result.current.mutateAsync(['/x1.jpg', '/z2.jpg']);
+      });
+
+      const data = client.getQueryData<InfiniteData<MediaDuplicatesResponse>>(duplicatesKey);
+      expect(data?.pages.map((page) => page.items.map((item) => item.contentHash))).toEqual([['h1', 'h2'], []]);
+      expect(data?.pages[0]?.items[0]).toMatchObject({
+        items: [{ fullPath: '/x2.jpg' }, { fullPath: '/x3.jpg' }],
+        duplicateCount: 1,
+        totalGroupSizeBytes: 20,
+        reclaimableBytes: 10,
+        defaultKeeperFileNodeId: 'node-/x2.jpg'
+      });
+      expect(data?.pages[0]?.summary).toEqual({ groupCount: 2, duplicateItemCount: 2, reclaimableBytes: 30 });
     });
 
     it('useMoveToTrash still waits for the open folder listing, which the files page needs to move focus', async () => {

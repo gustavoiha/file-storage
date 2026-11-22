@@ -1,9 +1,9 @@
-import { act, cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { act, cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
 import { DockspaceMediaPage } from '@/pages/DockspaceMediaPage';
 import { ApiError } from '@/lib/apiClient';
 import { clearSession, setSession } from '@/lib/authStore';
-import type { MediaFileRecord, MediaListResponse } from '@/lib/apiTypes';
+import type { MediaDuplicatesResponse, MediaFileRecord, MediaListResponse } from '@/lib/apiTypes';
 import { createTestQueryClient, QueryWrapper } from '@/tests/testUtils';
 
 // Move to trash from the gallery, through the real React Query hooks (useMediaFiles, useTrashFilesBatch) with the API
@@ -14,6 +14,7 @@ const api = vi.hoisted(() => ({
   trashed: new Set<string>(),
   failingPaths: new Set<string>(),
   listMedia: vi.fn(),
+  listMediaDuplicates: vi.fn(),
   moveToTrash: vi.fn()
 }));
 
@@ -39,10 +40,7 @@ vi.mock('@/lib/dockspaceApi', async (importOriginal) => ({
   listAlbums: vi.fn(async () => []),
   listAlbumMedia: vi.fn(async () => []),
   listMediaAlbums: vi.fn(async () => []),
-  listMediaDuplicates: vi.fn(async () => ({
-    items: [],
-    summary: { groupCount: 0, duplicateItemCount: 0, reclaimableBytes: 0 }
-  }))
+  listMediaDuplicates: api.listMediaDuplicates
 }));
 
 vi.mock('@tanstack/react-router', () => ({
@@ -108,17 +106,20 @@ const serveTwoPages = () => {
   api.pages.set('c1', async () => ({ items: buildItems(8, 8) }));
 };
 
-/** Every gallery request from now on waits until the returned release function is called. */
-const holdGalleryRequests = () => {
+/** Every request of the mocked API function from now on waits until the returned release function is called. */
+const holdRequests = (mock: typeof api.listMedia) => {
   let release!: () => void;
   const gate = new Promise<void>((resolve) => (release = resolve));
-  const previous = api.listMedia.getMockImplementation();
-  api.listMedia.mockImplementation(async (...args: unknown[]) => {
+  const previous = mock.getMockImplementation();
+  mock.mockImplementation(async (...args: unknown[]) => {
     await gate;
     return previous?.(...args);
   });
   return () => act(() => release());
 };
+
+/** Every gallery request from now on waits until the returned release function is called. */
+const holdGalleryRequests = () => holdRequests(api.listMedia);
 
 const renderPage = () =>
   render(
@@ -156,6 +157,11 @@ describe('Move to trash from the gallery', () => {
       api.trashed.add(fullPath);
     });
     serveTwoPages();
+    api.listMediaDuplicates.mockReset();
+    api.listMediaDuplicates.mockImplementation(async () => ({
+      items: [],
+      summary: { groupCount: 0, duplicateItemCount: 0, reclaimableBytes: 0 }
+    }));
   });
 
   afterEach(() => {
@@ -218,5 +224,132 @@ describe('Move to trash from the gallery', () => {
     await release();
     await waitFor(() => expect(api.listMedia).toHaveBeenCalledTimes(4));
     expect(screen.getByRole('button', { name: 'Open item-0002.jpg' })).toBeInTheDocument();
+  });
+});
+
+const duplicateItem = (name: string, contentHash: string, size: number): MediaFileRecord => ({
+  fileNodeId: `node-${name}`,
+  fullPath: `/photos/${name}.jpg`,
+  size,
+  contentType: 'image/jpeg',
+  contentHash,
+  updatedAt: '2026-02-01T00:00:00.000Z',
+  state: 'ACTIVE'
+});
+
+/**
+ * Three duplicate groups, built from the files not yet trashed the way the API builds them (the first item is the
+ * default keeper; a group needs at least two files).
+ */
+const serveDuplicateGroups = async (): Promise<MediaDuplicatesResponse> => {
+  const sources = [
+    ['a-0', 'a-1', 'a-2'].map((name) => duplicateItem(name, 'aaaaaaaaaaaaaaaa', 100)),
+    ['b-0', 'b-1'].map((name) => duplicateItem(name, 'bbbbbbbbbbbbbbbb', 200)),
+    ['c-0', 'c-1'].map((name) => duplicateItem(name, 'cccccccccccccccc', 400))
+  ];
+  const items = sources
+    .map((files) => files.filter((file) => !api.trashed.has(file.fullPath)))
+    .filter((files) => files.length >= 2)
+    .map((files) => {
+      const totalGroupSizeBytes = files.reduce((sum, file) => sum + file.size, 0);
+      return {
+        contentHash: files[0]!.contentHash,
+        items: files,
+        duplicateCount: files.length - 1,
+        totalGroupSizeBytes,
+        reclaimableBytes: totalGroupSizeBytes - files[0]!.size,
+        defaultKeeperFileNodeId: files[0]!.fileNodeId
+      };
+    });
+
+  return {
+    items,
+    summary: {
+      groupCount: items.length,
+      duplicateItemCount: items.reduce((sum, group) => sum + group.duplicateCount, 0),
+      reclaimableBytes: items.reduce((sum, group) => sum + group.reclaimableBytes, 0)
+    }
+  };
+};
+
+const duplicateGroup = (contentHash: string) =>
+  screen.getByText(`Hash ${contentHash.slice(0, 12)}...`).closest('li') as HTMLElement;
+
+const duplicateRow = (name: string) => screen.getByText(name).closest('li') as HTMLElement;
+
+describe('Move selected duplicates to trash', () => {
+  beforeEach(() => {
+    setSession({ accessToken: 'a', idToken: 'i', email: 'a@a.com', userId: 'u1' });
+    api.trashed.clear();
+    api.failingPaths.clear();
+    serveTwoPages();
+    api.listMedia.mockReset();
+    api.listMedia.mockImplementation(async () => ({ items: buildItems(0, 4) }));
+    api.listMediaDuplicates.mockReset();
+    api.listMediaDuplicates.mockImplementation(serveDuplicateGroups);
+    api.moveToTrash.mockReset();
+    api.moveToTrash.mockImplementation(async (_dockspaceId: string, { fullPath }: { fullPath: string }) => {
+      if (api.failingPaths.has(fullPath)) {
+        throw new ApiError('Storage unavailable', 500);
+      }
+      api.trashed.add(fullPath);
+    });
+  });
+
+  afterEach(() => {
+    cleanup();
+    clearSession();
+  });
+
+  it('removes the trashed duplicates and their selection when the dialog closes, before the duplicates refetch ends', async () => {
+    renderPage();
+    await screen.findByRole('button', { name: 'Open item-0003.jpg' });
+    fireEvent.click(screen.getByRole('button', { name: 'Find duplicates' }));
+    await screen.findByText('Hash aaaaaaaaaaaa...');
+    expect(screen.getByText('3 duplicate groups found.')).toBeInTheDocument();
+    expect(screen.getByText('4 repeated files.')).toBeInTheDocument();
+    expect(screen.getByText('800 bytes reclaimable.')).toBeInTheDocument();
+    expect(screen.getByText('4 items selected for trash.')).toBeInTheDocument();
+
+    // Keep a-2 as well; c-1 will fail to move.
+    fireEvent.click(within(duplicateRow('a-2.jpg')).getByRole('checkbox'));
+    expect(screen.getByText('3 items selected for trash.')).toBeInTheDocument();
+    api.failingPaths.add('/photos/c-1.jpg');
+
+    const release = holdRequests(api.listMediaDuplicates);
+    const duplicateCallsBefore = api.listMediaDuplicates.mock.calls.length;
+    fireEvent.click(screen.getByRole('button', { name: 'Move selected to trash' }));
+    fireEvent.click(
+      within(screen.getByRole('dialog', { name: 'Confirm moving items to trash' })).getByRole('button', {
+        name: 'Move to trash'
+      })
+    );
+
+    await waitFor(() =>
+      expect(screen.queryByRole('dialog', { name: 'Confirm moving items to trash' })).not.toBeInTheDocument()
+    );
+    // The duplicates refetch has started and is still held.
+    expect(api.listMediaDuplicates.mock.calls.length).toBe(duplicateCallsBefore + 1);
+    expect(screen.getByRole('alert')).toHaveTextContent('Moved 2 items to trash. 1 failed.');
+    // a-1 left its group, which still has two files; group b has one file left, so it is gone.
+    expect(screen.queryByText('a-1.jpg')).not.toBeInTheDocument();
+    expect(within(duplicateGroup('aaaaaaaaaaaaaaaa')).getByText('2 files, 100 bytes reclaimable')).toBeInTheDocument();
+    expect(within(duplicateRow('a-2.jpg')).getByRole('checkbox')).not.toBeChecked();
+    expect(screen.queryByText('Hash bbbbbbbbbbbb...')).not.toBeInTheDocument();
+    expect(screen.queryByText('b-1.jpg')).not.toBeInTheDocument();
+    // c-1 failed: it stays, still selected, and is the only selected file.
+    expect(within(duplicateRow('c-1.jpg')).getByRole('checkbox')).toBeChecked();
+    expect(screen.getByText('1 items selected for trash.')).toBeInTheDocument();
+    expect(screen.getByText('2 duplicate groups found.')).toBeInTheDocument();
+    expect(screen.getByText('2 repeated files.')).toBeInTheDocument();
+    expect(screen.getByText('500 bytes reclaimable.')).toBeInTheDocument();
+
+    // The refetch lands with the same groups.
+    await release();
+    await waitFor(() => expect(api.listMediaDuplicates.mock.calls.length).toBe(duplicateCallsBefore + 1));
+    await waitFor(() => expect(screen.getByText('2 duplicate groups found.')).toBeInTheDocument());
+    expect(screen.queryByText('a-1.jpg')).not.toBeInTheDocument();
+    expect(screen.queryByText('Hash bbbbbbbbbbbb...')).not.toBeInTheDocument();
+    expect(screen.getByText('1 items selected for trash.')).toBeInTheDocument();
   });
 });

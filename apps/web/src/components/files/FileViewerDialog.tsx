@@ -22,6 +22,14 @@ const basename = (fullPath: string): string => {
   const segments = fullPath.split('/').filter(Boolean);
   return segments[segments.length - 1] ?? fullPath;
 };
+
+// Elements that use ArrowLeft/ArrowRight themselves: media controls seek, form fields move the caret or change the
+// value. A key press from one of them keeps its native behaviour instead of changing the shown item.
+const OWNS_ARROW_KEYS_SELECTOR = 'audio, video, input, textarea, select, iframe';
+
+const keyBelongsToTarget = (event: KeyboardEvent): boolean =>
+  event.target instanceof Element && event.target.closest(OWNS_ARROW_KEYS_SELECTOR) !== null;
+
 export const FileViewerDialog = ({
   file,
   isOpen,
@@ -96,6 +104,10 @@ export const FileViewerDialog = ({
       if (event.key === 'Escape') {
         event.preventDefault();
         onClose();
+        return;
+      }
+
+      if ((event.key === 'ArrowLeft' || event.key === 'ArrowRight') && keyBelongsToTarget(event)) {
         return;
       }
 

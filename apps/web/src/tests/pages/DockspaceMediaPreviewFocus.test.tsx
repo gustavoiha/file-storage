@@ -34,7 +34,9 @@ const mockState = vi.hoisted(() => ({
   previewIsVideo: false,
   // The one item whose preview holds a focusable control: a video with controls, or the "Open file in a new tab"
   // link of a file too large to preview. Other items show only the (unfocusable) image.
-  focusableContentFor: null as { fullPath: string; control: 'video' | 'link' } | null
+  focusableContentFor: null as { fullPath: string; control: 'video' | 'link' } | null,
+  // Extra elements that use the arrow keys themselves (media controls, form fields), shown with every item.
+  arrowKeyOwners: false
 }));
 
 vi.mock('@tanstack/react-router', () => ({
@@ -59,6 +61,21 @@ vi.mock('@/components/files/FilePreviewContent', () => ({
             Open file in a new tab
           </a>
         )
+      ) : null}
+      {mockState.arrowKeyOwners ? (
+        <>
+          <video data-testid="owner-video" controls tabIndex={0}>
+            <track data-testid="owner-video-track" kind="captions" />
+          </video>
+          <audio data-testid="owner-audio" controls tabIndex={0} />
+          <input data-testid="owner-input" aria-label="Field" />
+          <textarea data-testid="owner-textarea" aria-label="Notes" />
+          <select data-testid="owner-select" aria-label="Choice">
+            {/* No option text: the tests read the shown path from the preview's text. */}
+            <option value="one" aria-label="One" />
+          </select>
+          <iframe data-testid="owner-iframe" title="Embedded file" />
+        </>
       ) : null}
     </div>
   )
@@ -175,6 +192,11 @@ const pressMouseOn = (element: Element) => {
   }
 };
 
+/** A click that leaves focus where it was, like Safari's click on a button. */
+const clickWithoutFocus = (element: Element) => {
+  fireEvent.click(element);
+};
+
 const scrollGridTo = (scrollTop: number) => {
   act(() => {
     fireEvent.scroll(scrollBox(), { target: { scrollTop } });
@@ -188,6 +210,7 @@ describe('Gallery preview focus return', () => {
     mockState.albumsData = [];
     mockState.previewIsVideo = false;
     mockState.focusableContentFor = null;
+    mockState.arrowKeyOwners = false;
   });
 
   afterEach(() => {
@@ -429,6 +452,7 @@ describe('Gallery preview focus on open and Tab trap', () => {
     mockState.albumsData = [];
     mockState.previewIsVideo = false;
     mockState.focusableContentFor = null;
+    mockState.arrowKeyOwners = false;
     blurOnDisable = new MutationObserver(() => {
       const active = document.activeElement;
       if (active instanceof HTMLButtonElement && active.disabled) {
@@ -590,7 +614,9 @@ describe('Gallery preview focus on open and Tab trap', () => {
     video.focus();
     expect(document.activeElement).toBe(video);
 
-    fireEvent.keyDown(video, { key: 'ArrowRight' });
+    // Arrow keys from the video seek it, so the item changes by a click on Next that leaves focus on the video
+    // (Safari does not focus a button on click).
+    clickWithoutFocus(nextButton());
 
     expect(shownPath()).toBe('/photos/item-0006.jpg');
     expect(video.isConnected).toBe(false);
@@ -628,7 +654,8 @@ describe('Gallery preview focus on open and Tab trap', () => {
 
     const video = screen.getByTestId('preview-focusable-video');
     video.focus();
-    fireEvent.keyDown(video, { key: 'ArrowRight' });
+    clickWithoutFocus(nextButton());
+    expect(video.isConnected).toBe(false);
 
     expect(shownPath()).toBe('/photos/item-0009.jpg');
     expect(nextButton()).toBeDisabled();
@@ -649,5 +676,82 @@ describe('Gallery preview focus on open and Tab trap', () => {
 
     expect(previewDialog()).toBeNull();
     expect(document.activeElement).toBe(tile(5));
+  });
+});
+
+describe('Gallery preview arrow keys', () => {
+  beforeEach(() => {
+    setMediaItems(mockState.buildMediaItems(200));
+    mockState.albumItems = [];
+    mockState.albumsData = [];
+    mockState.previewIsVideo = false;
+    mockState.focusableContentFor = null;
+    mockState.arrowKeyOwners = true;
+  });
+
+  afterEach(() => {
+    cleanup();
+  });
+
+  it.each([
+    ['the video controls', 'owner-video'],
+    ['an element inside the video', 'owner-video-track'],
+    ['the audio controls', 'owner-audio'],
+    ['a text field', 'owner-input'],
+    ['a text area', 'owner-textarea'],
+    ['a select', 'owner-select'],
+    ['an embedded frame', 'owner-iframe']
+  ])('leaves ArrowLeft and ArrowRight from %s to the browser and keeps the shown item', (_label, testId) => {
+    render(<DockspaceMediaPage dockspaceId="dock-1" dockspaceName="Camera Roll" />);
+    openWithKeyboard('item-0005.jpg');
+
+    const owner = screen.getByTestId(testId);
+    owner.focus();
+    const focusedBefore = document.activeElement;
+
+    // fireEvent returns false when a handler called preventDefault(), which would stop the native seek.
+    expect(fireEvent.keyDown(owner, { key: 'ArrowRight' })).toBe(true);
+    expect(fireEvent.keyDown(owner, { key: 'ArrowLeft' })).toBe(true);
+    expect(fireEvent.keyDown(owner, { key: 'ArrowRight' })).toBe(true);
+
+    expect(shownPath()).toBe('/photos/item-0005.jpg');
+    expect(document.activeElement).toBe(focusedBefore);
+  });
+
+  it('still closes the preview with Escape from the video controls', () => {
+    render(<DockspaceMediaPage dockspaceId="dock-1" dockspaceName="Camera Roll" />);
+    openWithKeyboard('item-0005.jpg');
+
+    const video = screen.getByTestId('owner-video');
+    video.focus();
+    expect(fireEvent.keyDown(video, { key: 'Escape' })).toBe(false);
+
+    expect(previewDialog()).toBeNull();
+    expect(document.activeElement).toBe(tile(5));
+  });
+
+  it.each([
+    ['Close preview', () => screen.getByRole('button', { name: 'Close preview' })],
+    ['Previous', () => screen.getByRole('button', { name: 'Previous media item' })],
+    ['Next', () => screen.getByRole('button', { name: 'Next media item' })],
+    ['nothing in particular', () => document.body]
+  ])('changes the item with ArrowLeft and ArrowRight when focus is on %s', (_label, getTarget) => {
+    render(<DockspaceMediaPage dockspaceId="dock-1" dockspaceName="Camera Roll" />);
+    openWithKeyboard('item-0005.jpg');
+
+    const target = getTarget();
+    if (target === document.body) {
+      pressMouseOn(screen.getByTestId('preview-content'));
+    } else {
+      target.focus();
+    }
+    expect(document.activeElement).toBe(target);
+
+    expect(fireEvent.keyDown(target, { key: 'ArrowRight' })).toBe(false);
+    expect(shownPath()).toBe('/photos/item-0006.jpg');
+    expect(fireEvent.keyDown(document.activeElement ?? document.body, { key: 'ArrowRight' })).toBe(false);
+    expect(shownPath()).toBe('/photos/item-0007.jpg');
+    expect(fireEvent.keyDown(document.activeElement ?? document.body, { key: 'ArrowLeft' })).toBe(false);
+    expect(shownPath()).toBe('/photos/item-0006.jpg');
   });
 });

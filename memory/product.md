@@ -149,4 +149,4 @@ All open tasks have their own issues (#11-#16, sub-issues of request #5) since 2
 | T-0048 | #104 | #65 | Gallery trash result: a partial failure shows as an error | deploying | Test results filtering |
 | T-0049 | #106 | #65 | Files page uploads pill: skipped invalid-path files are a notice, not a failed upload | new | Review judge |
 | T-0050 | #108 | #65 | Uploads card keeps keyboard focus when it collapses or expands | new | Test results filtering |
-| T-0051 | #109 | #65 | Menus opened from the keyboard focus their first item | engineering | Engineering |
+| T-0051 | #109 | #65 | Menus opened from the keyboard focus their first item | review | Engineering |

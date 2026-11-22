@@ -12,6 +12,10 @@ vi.mock('@/hooks/useAuth', () => ({
   })
 }));
 
+vi.mock('@/hooks/useCurrentDockspaceId', () => ({
+  useCurrentDockspaceId: () => null
+}));
+
 vi.mock('@tanstack/react-router', () => ({
   Link: ({ children }: { children?: unknown }) => <a>{children as any}</a>
 }));

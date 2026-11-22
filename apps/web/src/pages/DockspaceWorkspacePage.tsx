@@ -30,17 +30,19 @@ export const DockspaceWorkspacePage = () => {
     );
   }
 
+  // Keyed by dockspace: switching dockspaces (same route, new id) starts the page fresh, so no
+  // open folder, preview, info panel, selection or status message carries over.
   if (dockspace?.dockspaceType === 'PHOTOS_VIDEOS') {
     return (
       <Suspense fallback={<SuspenseLoader label="Loading dockspace..." />}>
-        <DockspaceMediaPage dockspaceId={dockspaceId} dockspaceName={dockspace.name} />
+        <DockspaceMediaPage key={dockspaceId} dockspaceId={dockspaceId} dockspaceName={dockspace.name} />
       </Suspense>
     );
   }
 
   return (
     <Suspense fallback={<SuspenseLoader label="Loading dockspace..." />}>
-      <DockspaceFilesPage />
+      <DockspaceFilesPage key={dockspaceId} />
     </Suspense>
   );
 };

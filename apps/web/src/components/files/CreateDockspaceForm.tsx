@@ -1,10 +1,6 @@
-import { useMemo, useState, type FormEvent } from 'react';
+import { useState } from 'react';
 import { Plus } from 'lucide-react';
-import { Alert } from '@/components/ui/Alert';
-import { Button } from '@/components/ui/Button';
-import { InputField } from '@/components/ui/InputField';
-import { useDialogDismiss } from '@/components/files/useDialogDismiss';
-import { useCreateDockspace } from '@/hooks/useDockspaces';
+import { CreateDockspaceDialog } from '@/components/files/CreateDockspaceDialog';
 import type { DockspaceType } from '@/lib/apiTypes';
 
 interface CreateDockspaceFormProps {
@@ -12,71 +8,23 @@ interface CreateDockspaceFormProps {
 }
 
 export const CreateDockspaceForm = ({ disabled = false }: CreateDockspaceFormProps) => {
-  const createDockspace = useCreateDockspace();
-  const [name, setName] = useState('');
   const [selectedType, setSelectedType] = useState<DockspaceType | null>(null);
-  const isDisabled = disabled || createDockspace.isPending;
-  const title = useMemo(() => {
-    if (selectedType === 'PHOTOS_VIDEOS') {
-      return 'Create Photos & Videos Dockspace';
-    }
-
-    return 'Create Generic Files Dockspace';
-  }, [selectedType]);
-  const confirmButtonLabel = useMemo(() => {
-    if (selectedType === 'PHOTOS_VIDEOS') {
-      return createDockspace.isPending ? 'Creating...' : 'Create Media Dockspace';
-    }
-
-    return createDockspace.isPending ? 'Creating...' : 'Create Generic Dockspace';
-  }, [createDockspace.isPending, selectedType]);
-  const selectedTypeDescription = useMemo(() => {
-    if (selectedType === 'PHOTOS_VIDEOS') {
-      return 'Folderless media workspace with album organization and media-only upload rules.';
-    }
-
-    return 'Structured folders and files for documents, source code, archives, and everything else.';
-  }, [selectedType]);
 
   const openDialog = (dockspaceType: DockspaceType) => {
-    if (isDisabled) {
+    if (disabled) {
       return;
     }
 
-    setName('');
     setSelectedType(dockspaceType);
-  };
-
-  const closeDialog = () => {
-    setName('');
-    setSelectedType(null);
-  };
-  const isDialogOpen = selectedType !== null;
-  const { onBackdropMouseDown } = useDialogDismiss({ isOpen: isDialogOpen, onClose: closeDialog });
-
-  const onSubmit = async (event: FormEvent<HTMLFormElement>) => {
-    event.preventDefault();
-
-    if (isDisabled || !selectedType || !name.trim()) {
-      return;
-    }
-
-    await createDockspace.mutateAsync({
-      name: name.trim(),
-      dockspaceType: selectedType
-    });
-    setName('');
-    setSelectedType(null);
   };
 
   return (
     <>
-      {createDockspace.error instanceof Error ? <Alert message={createDockspace.error.message} /> : null}
       <div className="dockspace-create-picker dockspace-create-picker--in-grid">
         <button
           type="button"
           className="dockspace-card dockspace-card--create dockspace-card--generic"
-          disabled={isDisabled}
+          disabled={disabled}
           onClick={() => openDialog('GENERIC_FILES')}
         >
           <span className="dockspace-card__create-plus" aria-hidden="true">
@@ -87,7 +35,7 @@ export const CreateDockspaceForm = ({ disabled = false }: CreateDockspaceFormPro
         <button
           type="button"
           className="dockspace-card dockspace-card--create dockspace-card--media"
-          disabled={isDisabled}
+          disabled={disabled}
           onClick={() => openDialog('PHOTOS_VIDEOS')}
         >
           <span className="dockspace-card__create-plus" aria-hidden="true">
@@ -97,43 +45,7 @@ export const CreateDockspaceForm = ({ disabled = false }: CreateDockspaceFormPro
         </button>
       </div>
 
-      {selectedType ? (
-        <div className="dockspace-dialog-backdrop" onMouseDown={onBackdropMouseDown}>
-          <dialog
-            className="dockspace-dialog"
-            open
-            aria-modal="true"
-            aria-label={title}
-            onCancel={(event) => {
-              event.preventDefault();
-              closeDialog();
-            }}
-          >
-            <h2 className="dockspace-dialog__title">{title}</h2>
-            <p className="dockspace-dialog__description">{selectedTypeDescription}</p>
-            <p className="dockspace-dialog__description">Choose a name to continue.</p>
-            <form onSubmit={onSubmit}>
-              <InputField
-                id="dockspace-name"
-                label="Dockspace Name"
-                value={name}
-                onChange={(event) => setName(event.target.value)}
-                placeholder={selectedType === 'PHOTOS_VIDEOS' ? 'Camera Roll' : 'Personal Docs'}
-                required
-                disabled={isDisabled}
-              />
-              <div className="dockspace-dialog__actions">
-                <Button type="button" variant="secondary" disabled={isDisabled} onClick={closeDialog}>
-                  Cancel
-                </Button>
-                <Button type="submit" disabled={isDisabled || !name.trim()}>
-                  {confirmButtonLabel}
-                </Button>
-              </div>
-            </form>
-          </dialog>
-        </div>
-      ) : null}
+      <CreateDockspaceDialog dockspaceType={selectedType} onClose={() => setSelectedType(null)} />
     </>
   );
 };

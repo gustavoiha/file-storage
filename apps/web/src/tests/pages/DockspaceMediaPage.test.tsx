@@ -63,8 +63,23 @@ vi.mock('@/components/auth/UnauthorizedNotice', () => ({
 }));
 
 vi.mock('@/components/files/FileViewerDialog', () => ({
-  FileViewerDialog: ({ isOpen, file }: { isOpen: boolean; file: { fullPath?: string } | null }) =>
-    isOpen ? <div>{`FileViewerDialog:${file?.fullPath ?? 'none'}`}</div> : null
+  FileViewerDialog: ({
+    isOpen,
+    file,
+    onClose
+  }: {
+    isOpen: boolean;
+    file: { fullPath?: string } | null;
+    onClose?: () => void;
+  }) =>
+    isOpen ? (
+      <div>
+        {`FileViewerDialog:${file?.fullPath ?? 'none'}`}
+        <button type="button" onClick={onClose}>
+          Close preview
+        </button>
+      </div>
+    ) : null
 }));
 
 vi.mock('@/components/files/FilePreviewContent', () => ({
@@ -238,6 +253,33 @@ describe('DockspaceMediaPage', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Open item-0001.jpg' }));
 
     expect(screen.getByText('FileViewerDialog:/photos/item-0001.jpg')).toBeInTheDocument();
+  });
+
+  it('marks no tile as selected after the preview opens and closes outside selection mode', () => {
+    mockState.mediaData = {
+      pages: [
+        {
+          items: mockState.buildMediaItems(8)
+        }
+      ]
+    };
+
+    render(<DockspaceMediaPage dockspaceId="dock-1" dockspaceName="Camera Roll" />);
+
+    fireEvent.click(screen.getByRole('button', { name: 'Open item-0002.jpg' }));
+    expect(document.querySelector('.media-card[data-selected="true"]')).toBeNull();
+    fireEvent.click(screen.getByRole('button', { name: 'Close preview' }));
+
+    expect(screen.queryByText('FileViewerDialog:/photos/item-0002.jpg')).not.toBeInTheDocument();
+    expect(document.querySelector('.media-card[data-selected="true"]')).toBeNull();
+    expect(screen.getByRole('button', { name: 'Open item-0002.jpg' })).toHaveAttribute('data-selected', 'false');
+
+    // Selection mode still marks its picks.
+    fireEvent.click(screen.getByRole('button', { name: 'Select multiple' }));
+    expect(document.querySelector('.media-card[data-selected="true"]')).toBeNull();
+    fireEvent.click(screen.getByRole('button', { name: 'Select item-0003.jpg' }));
+    expect(screen.getByRole('button', { name: 'Select item-0003.jpg' })).toHaveAttribute('data-selected', 'true');
+    expect(screen.getByRole('button', { name: 'Select item-0002.jpg' })).toHaveAttribute('data-selected', 'false');
   });
 
   it('replaces default actions with multi-selection actions and can trash selected media', async () => {

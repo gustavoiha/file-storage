@@ -23,7 +23,6 @@ interface VirtualizedMediaGridProps {
   gridSize: MediaGridSize;
   isMultiSelectMode: boolean;
   selectedMediaIds: Set<string>;
-  selectedMediaId: string | null;
   onSelectMedia: (fileNodeId: string) => void;
   onToggleMediaSelection: (fileNodeId: string, options?: MediaSelectionOptions) => void;
   onOpenPreview: (item: MediaFileRecord) => void;
@@ -45,7 +44,6 @@ export const VirtualizedMediaGrid = ({
   gridSize,
   isMultiSelectMode,
   selectedMediaIds,
-  selectedMediaId,
   onSelectMedia,
   onToggleMediaSelection,
   onOpenPreview,
@@ -205,9 +203,9 @@ export const VirtualizedMediaGrid = ({
       >
         {visibleItems.map((item, index) => {
           const absoluteIndex = visibleStartIndex + index;
-          const selected = isMultiSelectMode
-            ? selectedMediaIds.has(item.fileNodeId)
-            : selectedMediaId === item.fileNodeId;
+          // Only multi-select picks are marked. The tile last opened in the preview is not: outside selection mode
+          // nothing is selected, and focus returns to that tile when the preview closes.
+          const selected = isMultiSelectMode && selectedMediaIds.has(item.fileNodeId);
           const isImage = item.contentType.startsWith('image/');
 
           return (

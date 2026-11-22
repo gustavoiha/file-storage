@@ -2881,6 +2881,10 @@ a.dockspace-card:focus-visible {
   flex: 1;
   min-height: 320px;
   overflow-y: auto;
+  /* Square rows take their height from the box width, so a classic scrollbar that appears and disappears would
+     change the row height, then the content height, then the scrollbar again, and the grid would flicker. Keep the
+     scrollbar's space reserved so the width does not depend on it. */
+  scrollbar-gutter: stable;
   overscroll-behavior: contain;
   /* The virtual grid owns every row position, so the browser must not move scrollTop to keep an "anchor" in place.
      With anchoring on, Chrome anchored to the end-of-list footer when the user waited at the end of the loaded media:
@@ -2972,8 +2976,11 @@ a.dockspace-card:focus-visible {
   pointer-events: none;
 }
 
+/* A transparent outline instead of none: the overlay's box-shadow is the ring normally, and forced-colors mode
+   (which drops box-shadows) draws this outline in a system colour so keyboard focus stays visible. */
 .media-card:focus-visible {
-  outline: none;
+  outline: 2px solid transparent;
+  outline-offset: -2px;
 }
 
 @media (hover: hover) {
@@ -2997,6 +3004,20 @@ a.dockspace-card:focus-visible {
   box-shadow:
     inset 0 0 0 3px var(--accent),
     inset 0 0 0 5px #fff;
+}
+
+/* Forced colors drop the overlay's tint and box-shadow, so selection gets a real outline there too; a selected tile
+   with focus shows a thicker one. */
+@media (forced-colors: active) {
+  .media-card[data-selected='true'] {
+    outline: 3px solid Highlight;
+    outline-offset: -3px;
+  }
+
+  .media-card[data-selected='true']:focus-visible {
+    outline: 5px double Highlight;
+    outline-offset: -5px;
+  }
 }
 
 .media-card__thumbnail {

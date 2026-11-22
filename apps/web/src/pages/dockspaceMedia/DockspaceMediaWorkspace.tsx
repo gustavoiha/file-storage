@@ -26,7 +26,6 @@ export const DockspaceMediaWorkspace = ({ dockspaceId, controller }: DockspaceMe
     selectedMediaIds,
     selectedMediaIdSet,
     selectedAlbumId,
-    selectedMediaId,
     setSelectedMediaId,
     localError,
     duplicateActionMessage,
@@ -451,7 +450,6 @@ export const DockspaceMediaWorkspace = ({ dockspaceId, controller }: DockspaceMe
             gridSize={mediaGridSize}
             isMultiSelectMode={isMultiSelectMode}
             selectedMediaIds={selectedMediaIdSet}
-            selectedMediaId={selectedMediaId}
             onSelectMedia={setSelectedMediaId}
             onToggleMediaSelection={onToggleMediaSelection}
             onOpenPreview={openPreview}

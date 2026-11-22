@@ -465,3 +465,14 @@ Recorded 2026-11-20 by the setup session from a `cdk diff` of origin/main 5678ad
 - Known pre-existing issues still live: gallery partial trash failure shown in the info style (T-0048, #104); mixed valid/invalid upload selection clears the skipped-files notice (T-0047, #101); phone pill says "an upload failed" for skipped files (T-0045, #96; T-0049, #106).
 - Logs: $LOCAL/logs/prod-deploy-diff-pr-20261122T190224Z.log, prod-deploy-diff-20261122T190304Z.log, prod-deploy-web-20261122T190352Z.log, prod-deploy-diff-20261122T190402Z.log.
 - Prod is now at origin/main `7f19fe9` for both infra and web.
+
+### 2026-11-22 — T-0047 — web
+- origin/main commit: `accf211` (PR #105 squash-merged). Run as `dockspace-prod-agent-deployer` via `prod-deploy.sh`.
+- Pre-deploy: PR #105 at `c8051c7` was MERGEABLE/CLEAN with merge base `fa05f2e`; main had moved to `7f19fe9` (T-0046 #102, T-0042 #99; no file overlap with `useDockspaceUploadDialog.ts` or its test). The PR merged onto `7f19fe9` without conflicts and passed typecheck, tests (web 69 files, 594 tests; backend 37 files, 178 tests) and build in a local merge-check worktree. Web only (`useDockspaceUploadDialog.ts`, one test file); no API, backend or infra change. `prod-deploy.sh diff-pr 105` showed 0 stacks with differences. Main since the last deploy (`7f19fe9`) had no commits; `prod-deploy.sh diff` 0 stacks, so no drift.
+- Infra: not run. Post-deploy `prod-deploy.sh diff` at `accf211` shows 0 stacks with differences.
+- Web (`prod-deploy.sh web`): built and synced to the prod site bucket; invalidated `/*` on the prod distribution. Entry bundle `index-1t_zYrgK.js`, `useDockspaceUploadDialog-BDjHZXom.js`, stylesheet `index-Cwg07VRo.css`.
+- Shipped: #105 `accf211` (T-0047).
+- Smoke check: https://dh0djlfa46gz6.cloudfront.net/login serves `index-1t_zYrgK.js`, renders the sign-in form, `useDockspaceUploadDialog-BDjHZXom.js` is served (200, JavaScript) and contains the invalid upload path notice, and the console shows no errors.
+- Known pre-existing issues still live: phone pill says "an upload failed" for skipped files, now also for mixed selections (T-0045, #96; T-0049, #106); uploads card collapse/expand drops focus (T-0050, #108); menus opened with Enter keep focus on the trigger (T-0051, #109); gallery partial trash failure shown in the info style (T-0048, #104).
+- Logs: $LOCAL/logs/prod-deploy-diff-pr-20261122T191228Z.log, prod-deploy-diff-20261122T191304Z.log, prod-deploy-web-20261122T191347Z.log, prod-deploy-diff-20261122T191359Z.log.
+- Prod is now at origin/main `accf211` for both infra and web.

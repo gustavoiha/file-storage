@@ -65,9 +65,10 @@ export const useDockspaceMediaController = ({ dockspaceId }: UseDockspaceMediaCo
   const uploadDialog = useDockspaceUploadDialog({
     currentFolderPath: '/',
     uploadFile: uploadFileMutation.mutateAsync,
-    // One gallery refetch when a batch of uploads finishes, not one per file (the gallery is paged).
-    onBatchComplete: () => {
-      void refreshMediaAfterUploads();
+    // One gallery refetch when a batch of uploads finishes, not one per file (the gallery is paged), then a bounded
+    // follow-up for the new items' thumbnails, which are made asynchronously after the upload.
+    onBatchComplete: (_uploadedCount, uploadedPaths) => {
+      void refreshMediaAfterUploads(uploadedPaths);
     }
   });
 

@@ -350,7 +350,14 @@ describe('useDockspaceUploadDialog', () => {
 
     await waitFor(() => expect(result.current.activeUploads).toHaveLength(0));
     await waitFor(() => expect(onBatchComplete).toHaveBeenCalledTimes(1));
-    expect(onBatchComplete).toHaveBeenCalledWith(4);
+    expect(onBatchComplete).toHaveBeenCalledWith(4, expect.any(Array));
+    // The uploaded files' paths, without the skipped duplicate (in the order they finished).
+    expect([...(onBatchComplete.mock.calls[0]?.[1] as string[])].sort()).toEqual([
+      '/media/a.jpg',
+      '/media/b.jpg',
+      '/media/c.jpg',
+      '/media/e.jpg'
+    ]);
     expect(uploadFile).toHaveBeenCalledTimes(5);
   });
 

@@ -47,11 +47,11 @@ interface UseDockspaceUploadDialogParams {
   createFolder?: (folderPath: string) => Promise<unknown>;
   /**
    * Called once when the upload queue drains (nothing pending or uploading) after at least one upload
-   * succeeded since the last drain, with the number of files uploaded. Lets a page refresh an expensive
-   * listing (e.g. the paged media gallery) once per batch instead of once per file. Failed uploads left in
-   * the queue do not hold it back; a later successful retry starts a new batch.
+   * succeeded since the last drain, with the number of files uploaded and their full paths (in the order they
+   * finished). Lets a page refresh an expensive listing (e.g. the paged media gallery) once per batch instead of
+   * once per file. Failed uploads left in the queue do not hold it back; a later successful retry starts a new batch.
    */
-  onBatchComplete?: (uploadedCount: number) => void;
+  onBatchComplete?: (uploadedCount: number, uploadedPaths: string[]) => void;
 }
 
 export const useDockspaceUploadDialog = ({
@@ -66,8 +66,8 @@ export const useDockspaceUploadDialog = ({
   const [isPreparingFolders, setIsPreparingFolders] = useState(false);
   const nextUploadIdRef = useRef(1);
   const runningUploadIdsRef = useRef<Set<number>>(new Set());
-  // Uploads that succeeded since the queue last drained.
-  const uploadedSinceDrainRef = useRef(0);
+  // Full paths of the uploads that succeeded since the queue last drained.
+  const uploadedSinceDrainRef = useRef<string[]>([]);
   // Bumped after every settled upload, once runningUploadIdsRef is updated, so the drain check below always
   // runs with the final running set (a failure only changes an item's status, which may render earlier).
   const [settledUploadCount, setSettledUploadCount] = useState(0);
@@ -231,7 +231,7 @@ export const useDockspaceUploadDialog = ({
         }
       })
         .then(() => {
-          uploadedSinceDrainRef.current += 1;
+          uploadedSinceDrainRef.current.push(nextUpload.fullPath);
         })
         .catch((error) => {
           const duplicateType = error instanceof ApiError ? error.duplicateType : null;
@@ -275,7 +275,7 @@ export const useDockspaceUploadDialog = ({
   }, [activeUploads, uploadFile]);
 
   useEffect(() => {
-    if (uploadedSinceDrainRef.current === 0 || runningUploadIdsRef.current.size > 0) {
+    if (uploadedSinceDrainRef.current.length === 0 || runningUploadIdsRef.current.size > 0) {
       return;
     }
 
@@ -283,9 +283,9 @@ export const useDockspaceUploadDialog = ({
       return;
     }
 
-    const uploadedCount = uploadedSinceDrainRef.current;
-    uploadedSinceDrainRef.current = 0;
-    onBatchCompleteRef.current?.(uploadedCount);
+    const uploadedPaths = uploadedSinceDrainRef.current;
+    uploadedSinceDrainRef.current = [];
+    onBatchCompleteRef.current?.(uploadedPaths.length, uploadedPaths);
   }, [activeUploads, settledUploadCount]);
 
   const clearValidationError = useCallback(() => {

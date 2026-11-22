@@ -1,4 +1,4 @@
-import { useCallback } from 'react';
+import { useCallback, useEffect, useRef } from 'react';
 import { useInfiniteQuery, useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useStore } from '@tanstack/react-store';
 import { authStore } from '@/lib/authStore';
@@ -14,6 +14,10 @@ import {
   removeAlbumMedia,
   renameAlbum
 } from '@/lib/dockspaceApi';
+import {
+  createMediaThumbnailFollowUp,
+  type MediaThumbnailFollowUp
+} from '@/lib/mediaThumbnailFollowUp';
 
 export const mediaQueryKey = (userId: string, dockspaceId: string) =>
   ['media', userId, dockspaceId] as const;
@@ -56,18 +60,55 @@ export const useMediaFiles = (dockspaceId: string) => {
  * were uploaded to the dockspace. Call it once per finished upload batch, not once per file: the gallery is paged,
  * so each call re-requests all loaded pages. Duplicate groups are refreshed per upload by useUploadFile already;
  * albums are not affected, since a new upload belongs to no album.
+ *
+ * Pass the batch's uploaded paths to also follow up on their thumbnails: they are made asynchronously after the
+ * upload, so the refresh usually lists the new items without one. While any of them is loaded without a thumbnail,
+ * the gallery's first page is fetched again a bounded number of times and the thumbnails that arrived are copied
+ * onto the loaded items (see createMediaThumbnailFollowUp). The follow-up stops when the dockspace or user changes
+ * and when the gallery unmounts. `thumbnailFollowUpDelaysMs` replaces its waits (tests); pass a stable array.
  */
-export const useRefreshMediaAfterUploads = (dockspaceId: string) => {
+export const useRefreshMediaAfterUploads = (
+  dockspaceId: string,
+  options?: { thumbnailFollowUpDelaysMs?: readonly number[] }
+) => {
   const queryClient = useQueryClient();
   const { session } = useStore(authStore);
   const userId = session?.userId ?? '';
+  const thumbnailFollowUpRef = useRef<MediaThumbnailFollowUp | null>(null);
+  const thumbnailFollowUpDelaysMs = options?.thumbnailFollowUpDelaysMs;
 
-  return useCallback(async () => {
+  useEffect(() => {
+    if (!userId || !dockspaceId) {
+      return;
+    }
+
+    const followUp = createMediaThumbnailFollowUp({
+      queryClient,
+      queryKey: mediaQueryKey(userId, dockspaceId),
+      fetchLatest: () => listMedia(dockspaceId, { limit: MEDIA_PAGE_SIZE }),
+      ...(thumbnailFollowUpDelaysMs ? { delaysMs: thumbnailFollowUpDelaysMs } : {})
+    });
+    thumbnailFollowUpRef.current = followUp;
+
+    return () => {
+      followUp.dispose();
+      if (thumbnailFollowUpRef.current === followUp) {
+        thumbnailFollowUpRef.current = null;
+      }
+    };
+  }, [dockspaceId, queryClient, thumbnailFollowUpDelaysMs, userId]);
+
+  return useCallback(async (uploadedPaths: readonly string[] = []) => {
     if (!userId) {
       return;
     }
 
+    // Taken before the refetch: if the dockspace changes meanwhile, this one is disposed and start does nothing.
+    const thumbnailFollowUp = thumbnailFollowUpRef.current;
     await queryClient.invalidateQueries({ queryKey: mediaQueryKey(userId, dockspaceId) });
+    if (uploadedPaths.length > 0) {
+      thumbnailFollowUp?.start(uploadedPaths);
+    }
   }, [dockspaceId, queryClient, userId]);
 };
 

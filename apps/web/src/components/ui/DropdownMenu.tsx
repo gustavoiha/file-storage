@@ -25,6 +25,7 @@ interface DropdownMenuContextValue {
   triggerRef: RefObject<HTMLButtonElement>;
   contentRef: RefObject<HTMLDivElement>;
   openedFromTriggerRef: MutableRefObject<boolean>;
+  openedWithKeyboardRef: MutableRefObject<boolean>;
 }
 
 interface DropdownMenuProps {
@@ -39,8 +40,9 @@ type DropdownMenuTriggerProps = Omit<ButtonHTMLAttributes<HTMLButtonElement>, 't
 interface DropdownMenuContentProps extends HTMLAttributes<HTMLDivElement> {
   label: string;
   /**
-   * 'checked' moves focus to the checked radio item (else the first enabled item) when the menu opens. By default
-   * focus stays where it was (the trigger) until an arrow key moves it into the menu.
+   * 'checked' moves focus to the checked radio item (else the first enabled item) whenever the menu opens. By
+   * default, a menu opened from the keyboard (Enter or Space on the trigger) focuses its first enabled item, and a
+   * menu opened with a mouse click or a tap keeps focus on the trigger until an arrow key moves it into the menu.
    */
   initialFocus?: 'checked';
 }
@@ -97,6 +99,8 @@ const DropdownMenuRoot = ({ children, className, isOpen, onOpenChange }: Dropdow
   // True only when the menu was opened with the trigger button. Menus opened another way
   // (e.g. the phone long-press on a row) let their owner decide where focus goes on close.
   const openedFromTriggerRef = useRef(false);
+  // True when the trigger opened the menu from the keyboard (or assistive technology), so the first item takes focus.
+  const openedWithKeyboardRef = useRef(false);
 
   const close = useCallback(() => {
     onOpenChange(false);
@@ -184,6 +188,7 @@ const DropdownMenuRoot = ({ children, className, isOpen, onOpenChange }: Dropdow
   useEffect(() => {
     if (!isOpen) {
       openedFromTriggerRef.current = false;
+      openedWithKeyboardRef.current = false;
     }
   }, [isOpen]);
 
@@ -194,7 +199,8 @@ const DropdownMenuRoot = ({ children, className, isOpen, onOpenChange }: Dropdow
       toggle,
       triggerRef,
       contentRef,
-      openedFromTriggerRef
+      openedFromTriggerRef,
+      openedWithKeyboardRef
     }),
     [close, isOpen, toggle]
   );
@@ -209,7 +215,7 @@ const DropdownMenuRoot = ({ children, className, isOpen, onOpenChange }: Dropdow
 };
 
 const DropdownMenuTrigger = ({ className, onClick, ...props }: DropdownMenuTriggerProps) => {
-  const { isOpen, toggle, triggerRef, openedFromTriggerRef } = useDropdownMenuContext();
+  const { isOpen, toggle, triggerRef, openedFromTriggerRef, openedWithKeyboardRef } = useDropdownMenuContext();
 
   return (
     <button
@@ -223,6 +229,9 @@ const DropdownMenuTrigger = ({ className, onClick, ...props }: DropdownMenuTrigg
         onClick?.(event);
         if (!event.defaultPrevented) {
           openedFromTriggerRef.current = !isOpen;
+          // Enter and Space on a button, and activation by assistive technology, fire a click with detail 0;
+          // a mouse click or a tap counts its presses (detail >= 1).
+          openedWithKeyboardRef.current = !isOpen && event.detail === 0;
           toggle();
         }
       }}
@@ -231,17 +240,21 @@ const DropdownMenuTrigger = ({ className, onClick, ...props }: DropdownMenuTrigg
 };
 
 const DropdownMenuContent = ({ className, label, initialFocus, ...props }: DropdownMenuContentProps) => {
-  const { isOpen, contentRef } = useDropdownMenuContext();
+  const { isOpen, contentRef, openedWithKeyboardRef } = useDropdownMenuContext();
 
   useLayoutEffect(() => {
-    if (!isOpen || initialFocus !== 'checked') {
+    if (!isOpen) {
       return;
     }
 
     const items = getEnabledItems(contentRef.current);
-    const target = items.find((item) => item.getAttribute('aria-checked') === 'true') ?? items[0];
-    target?.focus();
-  }, [contentRef, initialFocus, isOpen]);
+    if (initialFocus === 'checked') {
+      const target = items.find((item) => item.getAttribute('aria-checked') === 'true') ?? items[0];
+      target?.focus();
+    } else if (openedWithKeyboardRef.current) {
+      items[0]?.focus();
+    }
+  }, [contentRef, initialFocus, isOpen, openedWithKeyboardRef]);
 
   if (!isOpen) {
     return null;

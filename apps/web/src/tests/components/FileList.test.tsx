@@ -762,15 +762,32 @@ describe('FileList', () => {
       await waitFor(() => expect(row).toHaveFocus());
     });
 
-    it('keeps the ⋯ trigger menu behaviour: focus stays on the trigger', () => {
+    it('keeps the ⋯ trigger menu behaviour: a mouse click leaves focus on the trigger', () => {
       renderDesktopList();
       const trigger = screen.getByRole('button', { name: 'Actions for x.txt' });
       act(() => {
         trigger.focus();
       });
 
-      fireEvent.click(trigger);
+      fireEvent.click(trigger, { detail: 1 });
       expect(screen.getByRole('menu', { name: 'Actions for x.txt' })).toBeInTheDocument();
+      expect(trigger).toHaveFocus();
+    });
+
+    it('opening the ⋯ trigger menu from the keyboard focuses its first item; Escape returns to the trigger', () => {
+      renderDesktopList();
+      const trigger = screen.getByRole('button', { name: 'Actions for x.txt' });
+      act(() => {
+        trigger.focus();
+      });
+
+      // Enter or Space on a button fires a click with detail 0.
+      fireEvent.click(trigger, { detail: 0 });
+      const menu = screen.getByRole('menu', { name: 'Actions for x.txt' });
+      expect(within(menu).getAllByRole('menuitem')[0]).toHaveFocus();
+
+      fireEvent.keyDown(document.activeElement ?? document.body, { key: 'Escape' });
+      expect(screen.queryByRole('menu', { name: 'Actions for x.txt' })).not.toBeInTheDocument();
       expect(trigger).toHaveFocus();
     });
   });

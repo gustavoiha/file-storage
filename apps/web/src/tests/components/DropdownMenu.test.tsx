@@ -22,21 +22,132 @@ const TestMenu = ({ initialOpen = false }: { initialOpen?: boolean }) => {
   );
 };
 
+// A mouse click or a tap reports its press count in `detail`; Enter and Space on a button (and activation by
+// assistive technology) fire a click with detail 0.
+const MOUSE_CLICK = { detail: 1 };
+const KEYBOARD_CLICK = { detail: 0 };
+
 const openMenu = ({ renderMenu = true }: { renderMenu?: boolean } = {}) => {
   if (renderMenu) {
     render(<TestMenu />);
   }
   const trigger = screen.getByRole('button', { name: 'Open actions' });
   trigger.focus();
-  fireEvent.click(trigger);
+  fireEvent.click(trigger, MOUSE_CLICK);
+  return trigger;
+};
+
+/** Enter or Space on the focused trigger: the browser fires keydown, then a click with detail 0. */
+const openMenuWithKeyboard = (key: 'Enter' | ' ', name = 'Open actions') => {
+  const trigger = screen.getByRole('button', { name });
+  trigger.focus();
+  fireEvent.keyDown(trigger, { key });
+  fireEvent.click(trigger, KEYBOARD_CLICK);
+  if (key === ' ') {
+    fireEvent.keyUp(trigger, { key });
+  }
   return trigger;
 };
 
 const item = (name: string) => screen.getByRole('menuitem', { name });
 const press = (key: string) => fireEvent.keyDown(document.activeElement ?? document.body, { key });
 
+describe('DropdownMenu opened from the keyboard', () => {
+  afterEach(cleanup);
+
+  it.each([
+    ['Enter', 'Enter'],
+    ['Space', ' ']
+  ] as const)('%s on the trigger opens the menu with focus on the first enabled item', (_name, key) => {
+    render(<TestMenu />);
+    const trigger = openMenuWithKeyboard(key);
+
+    expect(screen.getByRole('menu', { name: 'Actions' })).toBeInTheDocument();
+    expect(trigger).toHaveAttribute('aria-expanded', 'true');
+    expect(item('Rename')).toHaveFocus();
+  });
+
+  it('skips disabled items and separators to reach the first enabled item', () => {
+    const DisabledFirstMenu = () => {
+      const [isOpen, setIsOpen] = useState(false);
+      return (
+        <DropdownMenu isOpen={isOpen} onOpenChange={setIsOpen}>
+          <DropdownMenu.Trigger aria-label="Open actions">⋯</DropdownMenu.Trigger>
+          <DropdownMenu.Content label="Actions">
+            <DropdownMenu.Button disabled>Download</DropdownMenu.Button>
+            <DropdownMenu.Button aria-disabled="true">Share</DropdownMenu.Button>
+            <DropdownMenu.Separator />
+            <DropdownMenu.Button>Move</DropdownMenu.Button>
+          </DropdownMenu.Content>
+        </DropdownMenu>
+      );
+    };
+    render(<DisabledFirstMenu />);
+    openMenuWithKeyboard('Enter');
+
+    expect(item('Move')).toHaveFocus();
+  });
+
+  it('arrow keys, Home and End keep working from the first item, with wrap-around', () => {
+    render(<TestMenu />);
+    openMenuWithKeyboard('Enter');
+
+    press('ArrowDown');
+    expect(item('Move')).toHaveFocus();
+    press('End');
+    expect(item('Trash')).toHaveFocus();
+    press('ArrowDown');
+    expect(item('Rename')).toHaveFocus();
+    press('ArrowUp');
+    expect(item('Trash')).toHaveFocus();
+    press('Home');
+    expect(item('Rename')).toHaveFocus();
+  });
+
+  it('Escape closes the menu and returns focus to the trigger', () => {
+    render(<TestMenu />);
+    const trigger = openMenuWithKeyboard('Enter');
+    expect(item('Rename')).toHaveFocus();
+
+    press('Escape');
+    expect(screen.queryByRole('menu')).not.toBeInTheDocument();
+    expect(trigger).toHaveFocus();
+  });
+
+  it('a mouse click after a keyboard open does not move focus into the menu', () => {
+    render(<TestMenu />);
+    const trigger = openMenuWithKeyboard('Enter');
+    press('Escape');
+
+    fireEvent.click(trigger, MOUSE_CLICK);
+    expect(screen.getByRole('menu', { name: 'Actions' })).toBeInTheDocument();
+    expect(trigger).toHaveFocus();
+  });
+
+  it('a menu opened without the trigger does not move focus', () => {
+    render(
+      <>
+        <TestMenu initialOpen />
+        <input aria-label="Search" />
+      </>
+    );
+    const search = screen.getByRole('textbox', { name: 'Search' });
+    search.focus();
+
+    expect(screen.getByRole('menu', { name: 'Actions' })).toBeInTheDocument();
+    expect(search).toHaveFocus();
+  });
+});
+
 describe('DropdownMenu keyboard navigation', () => {
   afterEach(cleanup);
+
+  it('a mouse click or a tap leaves focus on the trigger', () => {
+    const trigger = openMenu();
+
+    expect(screen.getByRole('menu', { name: 'Actions' })).toBeInTheDocument();
+    expect(trigger).toHaveFocus();
+  });
 
   it('ArrowDown from the trigger focuses the first item, then moves down skipping disabled items and separators', () => {
     openMenu();
@@ -178,11 +289,21 @@ describe('DropdownMenu radio items', () => {
 
   it('opens with focus on the checked item and marks it with aria-checked', () => {
     render(<RadioMenu />);
-    fireEvent.click(screen.getByRole('button', { name: 'Album' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Album' }), MOUSE_CLICK);
 
     expect(screen.getByRole('menu', { name: 'Albums' })).toBeInTheDocument();
     expect(radio('Japan')).toHaveAttribute('aria-checked', 'true');
     expect(radio('Lisbon')).toHaveAttribute('aria-checked', 'false');
+    expect(radio('Japan')).toHaveFocus();
+  });
+
+  it.each([
+    ['Enter', 'Enter'],
+    ['Space', ' ']
+  ] as const)('opened with %s, focuses the checked item, not the first one', (_name, key) => {
+    render(<RadioMenu />);
+    openMenuWithKeyboard(key, 'Album');
+
     expect(radio('Japan')).toHaveFocus();
   });
 

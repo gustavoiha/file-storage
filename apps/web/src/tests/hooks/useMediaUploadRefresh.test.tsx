@@ -27,12 +27,13 @@ vi.mock('@/lib/dockspaceApi', () => ({
 // The real follow-up waits about a minute in all (covered with fake timers in mediaThumbnailFollowUp.test.ts); these
 // tests keep the same number of rounds with short waits.
 const FOLLOW_UP_DELAYS_MS: readonly number[] = Array.from({ length: 5 }, () => 40);
+const LARGE_BATCH_FOLLOW_UP_DELAYS_MS: readonly number[] = Array.from({ length: 30 }, () => 40);
 
-const useGalleryUploads = (dockspaceId: string) => {
+const useGalleryUploads = (dockspaceId: string, followUpDelaysMs: readonly number[] = FOLLOW_UP_DELAYS_MS) => {
   const media = useMediaFiles(dockspaceId);
   const upload = useUploadFile(dockspaceId, '/');
   const refreshMediaAfterUploads = useRefreshMediaAfterUploads(dockspaceId, {
-    thumbnailFollowUpDelaysMs: FOLLOW_UP_DELAYS_MS
+    thumbnailFollowUpDelaysMs: followUpDelaysMs
   });
   const uploadDialog = useDockspaceUploadDialog({
     currentFolderPath: '/',
@@ -74,10 +75,10 @@ afterEach(() => {
   clearSession();
 });
 
-const renderGallery = () => {
+const renderGallery = (followUpDelaysMs?: readonly number[]) => {
   const client = createTestQueryClient();
   const invalidateSpy = vi.spyOn(client, 'invalidateQueries');
-  const rendered = renderHook(() => useGalleryUploads('v1'), {
+  const rendered = renderHook(() => useGalleryUploads('v1', followUpDelaysMs), {
     wrapper: ({ children }) => <QueryWrapper client={client}>{children}</QueryWrapper>
   });
   const mediaInvalidations = () =>
@@ -323,5 +324,71 @@ describe('media gallery uploads: thumbnail follow-up', () => {
     expect(callsAtUnmount).toBeLessThan(2 + FOLLOW_UP_DELAYS_MS.length);
     await waitPastFollowUp();
     expect(listMedia).toHaveBeenCalledTimes(callsAtUnmount);
+  });
+
+  it('follows a batch larger than one gallery page, including uploads loaded by scrolling afterwards', async () => {
+    // More rounds than the other tests, so the follow-up is still running when the test scrolls.
+    const { result, mediaInvalidations } = renderGallery(LARGE_BATCH_FOLLOW_UP_DELAYS_MS);
+    await waitFor(() => expect(result.current.media.isSuccess).toBe(true));
+
+    const names = Array.from({ length: 130 }, (_, index) => `upload-${String(index).padStart(3, '0')}.jpg`);
+    let scrollCall = Number.POSITIVE_INFINITY;
+    // A listing like the API's: the uploads (newest first) above 20 older items, paged by cursor and limit. Uploads
+    // 0-119 have their thumbnail from the first follow-up request on (call 3); uploads 120-129 only from the request
+    // after the one that loads them by scrolling.
+    listMedia.mockImplementation(async (_dockspaceId, options) => {
+      const call = listMedia.mock.calls.length;
+      if (options?.cursor) {
+        scrollCall = Math.min(scrollCall, call);
+      }
+      const all = [
+        ...names.map((name, index) => media(name, index < 120 ? call >= 3 : call > scrollCall)),
+        ...Array.from({ length: 20 }, (_, index) => media(`older-${index}.jpg`, true))
+      ];
+      const start = options?.cursor ? Number(options.cursor) : 0;
+      const items = all.slice(start, start + (options?.limit ?? 60));
+      const end = start + items.length;
+      return { items, nextCursor: end < all.length ? String(end) : undefined };
+    });
+    await uploadAndRefresh(result, names, mediaInvalidations);
+    const loadedUploads = () =>
+      result.current.media.data?.pages.flatMap((page) => page.items).filter((item) => item.fullPath.startsWith('/upload-')) ??
+      [];
+
+    // The batch refresh loads the gallery's first page (120 items); one follow-up request of 130 covers the batch.
+    await waitFor(() => expect(loadedUploads().filter((item) => item.thumbnail)).toHaveLength(120));
+    expect(loadedUploads()).toHaveLength(120);
+    expect(listMedia).toHaveBeenNthCalledWith(2, 'v1', { limit: 120 });
+    expect(listMedia).toHaveBeenNthCalledWith(3, 'v1', { limit: 130 });
+
+    // The user scrolls: the next page lists uploads 120-129 still without a thumbnail.
+    await act(async () => {
+      await result.current.media.fetchNextPage();
+    });
+    expect(listMedia).toHaveBeenNthCalledWith(scrollCall, 'v1', { cursor: '120', limit: 120 });
+    await waitFor(() => expect(loadedUploads()).toHaveLength(130));
+    const scrollResponse = (await listMedia.mock.results[scrollCall - 1]?.value) as
+      | { items: Array<Partial<MediaFileRecord>> }
+      | undefined;
+    expect(scrollResponse?.items.slice(0, 10).map((item) => [item.fullPath, item.thumbnail])).toEqual(
+      names.slice(120).map((name) => [`/${name}`, undefined])
+    );
+
+    await waitFor(() => expect(loadedUploads().filter((item) => item.thumbnail)).toHaveLength(130));
+    const callsWhenShown = listMedia.mock.calls.length;
+    // Every follow-up request asked for 130 items (the scroll is the only request with a cursor).
+    const followUpLimits = listMedia.mock.calls
+      .slice(2)
+      .filter(([, options]) => !options?.cursor)
+      .map(([, options]) => options?.limit);
+    expect(new Set(followUpLimits)).toEqual(new Set([130]));
+
+    // Stops once every upload has its thumbnail; the gallery query was refetched only once for the batch.
+    await act(async () => {
+      await new Promise((resolve) => setTimeout(resolve, LARGE_BATCH_FOLLOW_UP_DELAYS_MS.length * 40 + 150));
+    });
+    expect(listMedia).toHaveBeenCalledTimes(callsWhenShown);
+    expect(mediaInvalidations()).toBe(1);
+    expect(result.current.media.data?.pages).toHaveLength(2);
   });
 });

@@ -30,6 +30,7 @@ All open tasks have their own issues (#11-#16, sub-issues of request #5) since 2
 - 2026-11-22 sweep: PRs #73 (T-0030), #76 (T-0033), #78 (T-0034) and #80 (T-0035) are still open, so T-0036 to T-0041 stay new; nothing dispatched.
 
 ### Shipped
+- 2026-11-22 (prod at 4ee9866): T-0033 Gallery shows a file uploaded from the gallery without a reload (#74, PR #76): when a batch of uploads from the gallery Upload button finishes (at least one success), the gallery refetches once, so new files appear without a reload; skipped duplicates send no refetch, and the files page is unchanged. Follow-up T-0036 (#79): the new tile shows a placeholder until its thumbnail exists.
 - 2026-11-22 (prod at 26ed6e9): T-0034 Gallery Move to trash dialog closes without waiting for the gallery refetch (#75, PR #78): after Move to trash (gallery and Find duplicates) the dialog closes and the selection clears as soon as the trash requests succeed; trashed files leave the cached gallery pages, album lists and duplicate groups at once (groups under two files dropped, totals, keeper and summary recomputed) and the refetches run in the background.
 - 2026-11-22 (prod at 9c3fc64): T-0032 Gallery preview returns focus to its tile on close (#70, PR #72): every close of the full-screen preview (Escape, Close preview, the empty area around the media) moves focus to the tile of the item shown last, scrolling a virtualized tile back into view first; fallbacks are the grid scroll box, then the Select multiple toggle, so focus never ends on the page body. The ring shows for keyboard closes only (`:focus-visible`).
 - 2026-11-22 (prod at 3a8036d): T-0031 Gallery loading status while a background refetch delays the next page (#69, PR #71): when the user reaches the end of the loaded media while a background refetch holds the next page back, the reserved footer's `role="status"` shows "Loading more media..." (only within the load-ahead distance, so nothing is announced at the top of the gallery; not shown next to Try again or in album views).
@@ -101,7 +102,7 @@ All open tasks have their own issues (#11-#16, sub-issues of request #5) since 2
 | T-0030 | #67 | #65 | Gallery layout: no card frame, actions in a menu, gapless grid | testing | Design |
 | T-0031 | #69 | #65 | Gallery: show loading status while a background refetch delays the next page | done | Engineering |
 | T-0032 | #70 | #65 | Gallery preview returns focus to its tile on close | done | Engineering |
-| T-0033 | #74 | #65 | Gallery shows a file uploaded from the gallery without a reload | deploying | Engineering |
+| T-0033 | #74 | #65 | Gallery shows a file uploaded from the gallery without a reload | done | Engineering |
 | T-0034 | #75 | #65 | Gallery Move to trash dialog closes without waiting for the gallery refetch | done | Engineering |
 | T-0035 | #77 | #65 | Gallery preview takes focus when it opens and keeps Tab inside | testing | Test results filtering |
 | T-0036 | #79 | #65 | Gallery shows a new upload's thumbnail without a reload | new | Test results filtering |

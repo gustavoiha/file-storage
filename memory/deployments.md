@@ -322,3 +322,14 @@ Recorded 2026-11-20 by the setup session from a `cdk diff` of origin/main 5678ad
 - Known pre-existing issues still live: the gallery trash dialog takes no focus, has no Tab trap and leaves focus on the body after closing (T-0040, #84); "1 items" plurals and the Find duplicates success message in the red alert (T-0041, #85).
 - Logs: $LOCAL/logs/prod-deploy-diff-pr-20261122T145808Z.log, prod-deploy-diff-20261122T145836Z.log, prod-deploy-web-20261122T145932Z.log, prod-deploy-diff-20261122T145944Z.log.
 - Prod is now at origin/main `26ed6e9` for both infra and web.
+
+### 2026-11-22 — T-0033 — web
+- origin/main commit: `4ee9866` (PR #76 squash-merged). Run as `dockspace-prod-agent-deployer` via `prod-deploy.sh`.
+- Pre-deploy: PR #76 at `9cbbeb9` was MERGEABLE/CLEAN but based on `9c3fc64`; main had moved to `26ed6e9` (T-0034, PR #78). The merge was conflict-free, and the merged tree passed typecheck, the web tests (60 files, 432 tests) and the web build in a local merge-check worktree; that tree is identical to the squash-merged `4ee9866`. Web only (`useDockspaceUploadDialog.ts`, `useMedia.ts`, `useDockspaceMediaController.ts`, tests); no API, backend or infra change. `prod-deploy.sh diff-pr 76` showed 0 stacks with differences. Main since the last deploy (`26ed6e9`) had no commits; `prod-deploy.sh diff` 0 stacks, so no drift.
+- Infra: not run. Post-deploy `prod-deploy.sh diff` at `4ee9866` shows 0 stacks with differences.
+- Web (`prod-deploy.sh web`): built and synced to the prod site bucket; invalidated `/*` on the prod distribution. Entry bundle `index-D6tsvVWX.js`, `DockspaceMediaPage-BpHglevI.js`, `useDockspaceUploadDialog-CQQf_Mx7.js`, stylesheet `index-DKj7lqav.css`.
+- Shipped: #76 `4ee9866` (T-0033).
+- Smoke check: https://dh0djlfa46gz6.cloudfront.net/login serves `index-D6tsvVWX.js`, renders the sign-in form, `DockspaceMediaPage-BpHglevI.js` is served (200, JavaScript) and contains the media query invalidation, and the console shows no errors.
+- Known pre-existing issue still live: a tile uploaded from the gallery shows the placeholder until a reload (T-0036, #79).
+- Logs: $LOCAL/logs/prod-deploy-diff-pr-20261122T150156Z.log, prod-deploy-diff-20261122T150222Z.log, prod-deploy-web-20261122T150309Z.log, prod-deploy-diff-20261122T150319Z.log.
+- Prod is now at origin/main `4ee9866` for both infra and web.

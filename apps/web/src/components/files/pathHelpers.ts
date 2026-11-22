@@ -37,6 +37,12 @@ export const isValidUploadPath = (path: string): boolean => {
   });
 };
 
+/** The notice shown when some selected files were skipped because their upload paths are invalid. */
+export const invalidUploadPathsMessage = (skippedCount: number): string =>
+  skippedCount === 1
+    ? '1 file had an invalid upload path and was skipped.'
+    : `${skippedCount} files had invalid upload paths and were skipped.`;
+
 export const normalizeNodeName = (name: string): string =>
   name.trim().normalize('NFKC').replace(/\s+/g, '-').toLocaleLowerCase();
 

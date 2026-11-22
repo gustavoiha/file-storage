@@ -126,5 +126,5 @@ All open tasks have their own issues (#11-#16, sub-issues of request #5) since 2
 | T-0041 | #85 | #65 | Gallery trash messages: correct plurals, success not shown as an error | new | Test results filtering |
 | T-0042 | #90 | #65 | Gallery thumbnail follow-up covers batches larger than one page | engineering | Review judge |
 | T-0043 | #93 | #65 | Files upload invalid-paths message: correct singular | testing | Engineering |
-| T-0044 | #95 | #65 | Find duplicates summary focus ring: space between ring and text | engineering | Test results filtering |
+| T-0044 | #95 | #65 | Find duplicates summary focus ring: space between ring and text | review | Test results filtering |
 | T-0045 | #96 | #65 | Collapsed uploads pill: skipped files are not reported as a failed upload | new | Test results filtering |

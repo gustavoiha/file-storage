@@ -83,6 +83,9 @@ export const FileViewerDialog = ({
       }
       onMouseDown={(event) => {
         if (event.target === event.currentTarget) {
+          // The press lands on an element that cannot take focus, so its default action would blur whatever the
+          // close just focused (the gallery tile) and leave focus on <body>.
+          event.preventDefault();
           onClose();
         }
       }}
@@ -102,6 +105,7 @@ export const FileViewerDialog = ({
         }}
         onMouseDown={(event) => {
           if (isMediaFullscreen && event.target === event.currentTarget) {
+            event.preventDefault();
             onClose();
           }
         }}

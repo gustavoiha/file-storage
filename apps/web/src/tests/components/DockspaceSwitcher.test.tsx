@@ -506,6 +506,54 @@ describe('DockspaceSwitcherBar (phone)', () => {
     expect(screen.getByRole('dialog', { name: 'Dockspaces' })).toBeInTheDocument();
   });
 
+  it('creates a dockspace from + in the list, then opens it, closes the list and focuses the bar', async () => {
+    const created = dockspace('d7', 'Recipes');
+    mocks.mutateAsync.mockImplementation(async () => {
+      // The real hook resolves after the refreshed list (with the new dockspace) has loaded.
+      dockspacesStore.set({ data: [...DOCKSPACES, created] });
+      return created;
+    });
+    const router = await renderApp('/dockspaces/d1/trash');
+
+    fireEvent.click(barButton());
+    const list = screen.getByRole('dialog', { name: 'Dockspaces' });
+    expect(document.body.style.overflow).toBe('hidden');
+    fireEvent.click(within(list).getByRole('button', { name: 'New dockspace' }));
+    fireEvent.click(within(list).getByRole('menuitem', { name: 'Generic Files' }));
+
+    const dialog = screen.getByRole('dialog', { name: 'Create Generic Files Dockspace' });
+    fireEvent.change(within(dialog).getByLabelText('Dockspace Name'), { target: { value: 'Recipes' } });
+    fireEvent.click(within(dialog).getByRole('button', { name: 'Create Generic Dockspace' }));
+
+    expect(await screen.findByText('Files page: d7')).toBeInTheDocument();
+    expect(mocks.mutateAsync).toHaveBeenCalledWith({ name: 'Recipes', dockspaceType: 'GENERIC_FILES' });
+    expect(router.state.location.pathname).toBe('/dockspaces/d7');
+    await waitFor(() => expect(screen.queryByRole('dialog')).not.toBeInTheDocument());
+    expect(document.body.style.overflow).toBe('');
+    expect(barButton()).toHaveAccessibleName('Switch dockspace, current: Recipes, Generic Files');
+    expect(barButton()).toHaveAttribute('aria-expanded', 'false');
+    await waitFor(() => expect(barButton()).toHaveFocus());
+    expect(barButton()).toHaveTextContent('7 dockspaces');
+  });
+
+  it('returns focus to + in the list when the create dialog is cancelled, keeping the list open', async () => {
+    await renderApp('/dockspaces/d1');
+
+    fireEvent.click(barButton());
+    const list = screen.getByRole('dialog', { name: 'Dockspaces' });
+    const plus = within(list).getByRole('button', { name: 'New dockspace' });
+    plus.focus();
+    fireEvent.click(plus);
+    fireEvent.click(within(list).getByRole('menuitem', { name: 'Photos & Videos' }));
+    const dialog = screen.getByRole('dialog', { name: 'Create Photos & Videos Dockspace' });
+    fireEvent.click(within(dialog).getByRole('button', { name: 'Cancel' }));
+
+    expect(screen.queryByRole('dialog', { name: 'Create Photos & Videos Dockspace' })).not.toBeInTheDocument();
+    expect(screen.getByRole('dialog', { name: 'Dockspaces' })).toBeInTheDocument();
+    await waitFor(() => expect(plus).toHaveFocus());
+    expect(document.body.style.overflow).toBe('hidden');
+  });
+
   it('shows a loading placeholder, then an error with Try again', async () => {
     dockspacesStore.set({ data: undefined, isLoading: true });
     await renderApp('/dockspaces/d1/trash');

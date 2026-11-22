@@ -1800,7 +1800,9 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  z-index: 20;
+  /* Above the sticky header (30) and the phone switcher list (40), so the top nav, the
+     dockspace tabs and the switcher bar can't be clicked while a modal dialog is open. */
+  z-index: 45;
   padding: 1rem;
   overflow-y: auto;
   backdrop-filter: blur(4px);

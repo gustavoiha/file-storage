@@ -22,6 +22,7 @@ All open tasks have their own issues (#11-#16, sub-issues of request #5) since 2
 - 2026-11-22: T-0037 (#81) split from T-0035 code review round 1: in the gallery preview, arrow keys pressed on the video/audio controls change the item instead of seeking (already on main). Build after T-0035 (PR #80) is merged; it touches the same file.
 - 2026-11-22: T-0038 (#82) and T-0039 (#83) split from T-0030 test round 1: phone touch targets under 44px (collapsed uploads pill, shared with the files page, and the gallery selection bar buttons), and the gallery skipped-files message ("1 file were skipped because PHOTOS_VIDEOS ...", already on main). Both build after T-0030 (PR #73) is merged; they touch the same files.
 - 2026-11-22: T-0040 (#84) and T-0041 (#85) split from T-0034 test round 1, both already on main: the gallery Move to trash dialog takes no focus on open, has no Tab trap and leaves focus on the body after a confirmed trash (gallery and Find duplicates); and the gallery trash copy ("1 items", "1 selected media files") plus the Find duplicates success message shown in the red error alert. T-0040 builds after T-0030 (PR #73) and T-0034 (PR #78) are merged, T-0041 after T-0030 (can pair with T-0039).
+- 2026-11-22: T-0042 (#90) split from T-0036 review round 1: the thumbnail follow-up only fetches the first gallery page, so a batch of more than 120 uploads is only partly followed, and tiles loaded later by scrolling are not followed. Build after T-0036 (PR #89) is merged; it extends that code.
 
 - 2026-11-22 sweep: T-0032 is live, so T-0035 is dispatched to engineering (rebase on main; PRs #73, #76, #78 touch the gallery files). T-0036 stays new until T-0033 (PR #76) is merged.
 - 2026-11-22 sweep: PRs #76 (T-0033) and #80 (T-0035) are still open, so T-0036 and T-0037 stay new; nothing dispatched.
@@ -108,9 +109,10 @@ All open tasks have their own issues (#11-#16, sub-issues of request #5) since 2
 | T-0033 | #74 | #65 | Gallery shows a file uploaded from the gallery without a reload | done | Engineering |
 | T-0034 | #75 | #65 | Gallery Move to trash dialog closes without waiting for the gallery refetch | done | Engineering |
 | T-0035 | #77 | #65 | Gallery preview takes focus when it opens and keeps Tab inside | done | Deployment |
-| T-0036 | #79 | #65 | Gallery shows a new upload's thumbnail without a reload | review | Test results filtering |
+| T-0036 | #79 | #65 | Gallery shows a new upload's thumbnail without a reload | testing | Test results filtering |
 | T-0037 | #81 | #65 | Gallery preview arrow keys seek video/audio instead of changing the item | done | Review judge |
 | T-0038 | #82 | #65 | Phone touch targets at least 44px: uploads pill and gallery selection bar | new | Test results filtering |
 | T-0039 | #83 | #65 | Gallery skipped-files message: correct plural and no internal type name | new | Test results filtering |
 | T-0040 | #84 | #65 | Gallery Move to trash dialog: focus on open, Tab trap, focus after close | testing | Test results filtering |
 | T-0041 | #85 | #65 | Gallery trash messages: correct plurals, success not shown as an error | new | Test results filtering |
+| T-0042 | #90 | #65 | Gallery thumbnail follow-up covers batches larger than one page | new | Review judge |

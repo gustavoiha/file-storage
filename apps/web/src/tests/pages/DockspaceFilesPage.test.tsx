@@ -714,7 +714,7 @@ describe('DockspaceFilesPage', () => {
       expect(pill.querySelector('.dockspace-uploads__dot')).not.toBeNull();
       fireEvent.click(pill);
       expect(
-        within(screen.getByRole('region', { name: 'Uploads' })).getByText(/invalid upload paths/)
+        within(screen.getByRole('region', { name: 'Uploads' })).getByText(/had an invalid upload path and was skipped/)
       ).toHaveClass('dockspace-uploads__error');
     });
   });

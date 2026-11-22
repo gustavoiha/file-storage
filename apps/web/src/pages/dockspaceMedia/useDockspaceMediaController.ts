@@ -6,6 +6,7 @@ import { useMoveToTrash, useTrashFilesBatch, useUploadFile } from '@/hooks/useFi
 import { useDockspaceUploadDialog } from '@/hooks/useDockspaceUploadDialog';
 import { useAssignAlbumMedia, useRemoveAlbumMedia } from '@/hooks/useMedia';
 import type { MediaGridSize } from '@/pages/dockspaceMedia/mediaTypes';
+import type { MediaGridFocusHandle } from '@/pages/dockspaceMedia/VirtualizedMediaGrid';
 import { useDuplicateSelectionState } from '@/pages/dockspaceMedia/useDuplicateSelectionState';
 import { useMediaPageQueries } from '@/pages/dockspaceMedia/useMediaPageQueries';
 import { useMediaPreviewState } from '@/pages/dockspaceMedia/useMediaPreviewState';
@@ -27,6 +28,10 @@ export const useDockspaceMediaController = ({ dockspaceId }: UseDockspaceMediaCo
   const [duplicateActionMessage, setDuplicateActionMessage] = useState<string | null>(null);
   const [bulkActionMessage, setBulkActionMessage] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  // Where focus goes when the preview closes: the grid's tile for the item shown last (or its scroll box), else,
+  // when no grid is rendered, a toolbar control the workspace picks (it is always rendered above the grid).
+  const mediaGridFocusRef = useRef<MediaGridFocusHandle>(null);
+  const galleryFallbackFocusRef = useRef<{ focus: () => void }>(null);
 
   const mediaData = useMediaPageQueries({
     dockspaceId,
@@ -348,6 +353,22 @@ export const useDockspaceMediaController = ({ dockspaceId }: UseDockspaceMediaCo
     [mediaData.mediaItems, previewState]
   );
 
+  const lastShownMediaId = previewState.viewerFile?.fileNodeId ?? null;
+  const closePreviewState = previewState.closePreview;
+  const onClosePreview = useCallback(() => {
+    closePreviewState();
+    if (!lastShownMediaId) {
+      return;
+    }
+
+    // Before the preview unmounts, so focus never falls to <body> (the close button had it).
+    if (mediaGridFocusRef.current) {
+      mediaGridFocusRef.current.focusItem(lastShownMediaId);
+    } else {
+      galleryFallbackFocusRef.current?.focus();
+    }
+  }, [closePreviewState, lastShownMediaId]);
+
   return {
     mediaGridSize,
     setMediaGridSize,
@@ -367,6 +388,8 @@ export const useDockspaceMediaController = ({ dockspaceId }: UseDockspaceMediaCo
     canPreviewPrevious: previewState.canPreviewPrevious,
     canPreviewNext: previewState.canPreviewNext,
     fileInputRef,
+    mediaGridFocusRef,
+    galleryFallbackFocusRef,
     uploadDialog,
     albums: mediaData.albums,
     mediaItems: mediaData.mediaItems,
@@ -415,7 +438,7 @@ export const useDockspaceMediaController = ({ dockspaceId }: UseDockspaceMediaCo
     openPreview: onOpenPreview,
     openPreviousPreview: previewState.openPreviousPreview,
     openNextPreview: previewState.openNextPreview,
-    closePreview: previewState.closePreview
+    closePreview: onClosePreview
   };
 };
 

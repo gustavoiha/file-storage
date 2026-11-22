@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useImperativeHandle, useRef, useState } from 'react';
 import { CheckSquare, Upload, X } from 'lucide-react';
 import { Alert } from '@/components/ui/Alert';
 import { Button } from '@/components/ui/Button';
@@ -32,6 +32,8 @@ export const DockspaceMediaWorkspace = ({ dockspaceId, controller }: DockspaceMe
     bulkActionMessage,
     duplicateSelections,
     fileInputRef,
+    mediaGridFocusRef,
+    galleryFallbackFocusRef,
     uploadDialog,
     albums,
     mediaItems,
@@ -171,6 +173,25 @@ export const DockspaceMediaWorkspace = ({ dockspaceId, controller }: DockspaceMe
     toolbarRef.current?.querySelector<HTMLElement>(selector)?.focus();
   }, [showBulkActions]);
 
+  // Focus target when the preview closes and no grid is rendered (an empty album, the list emptied while the preview
+  // was open). Desktop: the Select multiple toggle. Phone: the album button, or Cancel in selection mode.
+  const selectToggleRef = useRef<HTMLButtonElement>(null);
+  useImperativeHandle(
+    galleryFallbackFocusRef,
+    () => ({
+      focus: () => {
+        if (selectToggleRef.current) {
+          selectToggleRef.current.focus();
+          return;
+        }
+
+        const selector = showBulkActions ? '.media-workspace__bulk-cancel' : `.${GALLERY_ALBUM_TRIGGER_CLASS}`;
+        toolbarRef.current?.querySelector<HTMLElement>(selector)?.focus();
+      }
+    }),
+    [showBulkActions]
+  );
+
   // Dismiss removes itself (and the card, when nothing else is in it): focus moves to the Upload button first.
   const onDismissSkippedUploads = useCallback(() => {
     uploadButtonRef.current?.focus();
@@ -298,6 +319,7 @@ export const DockspaceMediaWorkspace = ({ dockspaceId, controller }: DockspaceMe
       )}
       <div className="media-workspace__control-actions">
         <button
+          ref={selectToggleRef}
           type="button"
           className="media-grid-size-toggle__button media-workspace__icon-action"
           aria-label={isMultiSelectMode ? 'Cancel selection' : 'Select multiple'}
@@ -459,6 +481,7 @@ export const DockspaceMediaWorkspace = ({ dockspaceId, controller }: DockspaceMe
             onLoadMore={onLoadMoreMedia}
             nextPageError={mediaNextPageError}
             onRetryNextPage={onRetryNextMediaPage}
+            focusHandleRef={mediaGridFocusRef}
           />
         )}
       </section>

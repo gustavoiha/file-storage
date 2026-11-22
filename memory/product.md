@@ -34,6 +34,7 @@ All open tasks have their own issues (#11-#16, sub-issues of request #5) since 2
 - 2026-11-22 sweep: T-0038 and T-0039 dispatched to engineering. T-0041 stays new until T-0039 (same controller) and T-0040 (PR #88, same trash dialog) are merged; T-0042 stays new until T-0036 (PR #89) is merged. T-0036 and T-0040 pipelines are running (testing).
 - 2026-11-22 sweep: T-0043 dispatched to engineering (copy fix in `useDockspaceUploadDialog.ts`; rebase on main, PR #89 touches other hunks of the same file). T-0041 stays new until T-0039 (PR #91) and T-0040 (PR #88) are merged; T-0042 stays new until T-0036 (PR #89) is merged. T-0036, T-0038, T-0039 and T-0040 pipelines are running (testing).
 - 2026-11-22 sweep: PRs #88 (T-0040), #89 (T-0036) and #91 (T-0039) are still open, so T-0041, T-0042 and T-0044 stay new; nothing dispatched. T-0036, T-0038, T-0039, T-0043 (testing) and T-0040 (deploying) pipelines are running.
+- 2026-11-22 sweep: PRs #88 (T-0040) and #89 (T-0036) are merged and live, so T-0042 and T-0044 are dispatched to engineering. T-0041 stays new until T-0039 (PR #91) is merged; T-0045 stays new until T-0038 (PR #92) is merged. T-0038, T-0039 and T-0043 pipelines are running.
 
 ### Shipped
 - 2026-11-22 (prod at 974996c): T-0036 Gallery shows a new upload's thumbnail without a reload (#79, PR #89): after a gallery upload batch and its single refresh, while new image tiles still have no thumbnail the gallery re-requests its first page a bounded number of times (waits 1.5/2/3/4 s then 5 s, 13 rounds, about 55 s) and fills in the thumbnails as they arrive; it stops when all have one, the rounds run out (videos), the gallery unmounts or the dockspace changes, and a new batch restarts it. Paging and one refresh per batch are unchanged. Follow-up T-0042 (#90): batches of more than 120 uploads are only partly followed.
@@ -122,7 +123,7 @@ All open tasks have their own issues (#11-#16, sub-issues of request #5) since 2
 | T-0039 | #83 | #65 | Gallery skipped-files message: correct plural and no internal type name | deploying | Engineering |
 | T-0040 | #84 | #65 | Gallery Move to trash dialog: focus on open, Tab trap, focus after close | done | Test results filtering |
 | T-0041 | #85 | #65 | Gallery trash messages: correct plurals, success not shown as an error | new | Test results filtering |
-| T-0042 | #90 | #65 | Gallery thumbnail follow-up covers batches larger than one page | new | Review judge |
+| T-0042 | #90 | #65 | Gallery thumbnail follow-up covers batches larger than one page | engineering | Review judge |
 | T-0043 | #93 | #65 | Files upload invalid-paths message: correct singular | testing | Engineering |
-| T-0044 | #95 | #65 | Find duplicates summary focus ring: space between ring and text | new | Test results filtering |
+| T-0044 | #95 | #65 | Find duplicates summary focus ring: space between ring and text | engineering | Test results filtering |
 | T-0045 | #96 | #65 | Collapsed uploads pill: skipped files are not reported as a failed upload | new | Test results filtering |

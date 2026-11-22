@@ -54,3 +54,18 @@ describe('media grid tiles', () => {
     expect(selectedFocus.some((body) => /outline:[^;]*Highlight\s*;/.test(body))).toBe(true);
   });
 });
+
+// T-0030 test round 1.
+describe('gallery menus', () => {
+  it('gives the full-screen album (and dockspace) list a solid background colour, which forced colors keep', () => {
+    // Forced colors drop background images such as gradients; without a colour the page behind shows through.
+    const bodies = bodiesFor(layoutCss, '.dockspace-switcher-screen');
+    expect(bodies.some((body) => /background-color:\s*rgb\(/.test(body))).toBe(true);
+  });
+
+  it('keeps every Gallery options item on one line', () => {
+    // In an album, "Find duplicates" and its "All media only" hint share one row.
+    const bodies = bodiesFor(layoutCss, '.gallery-options-menu__item');
+    expect(bodies.some((body) => /white-space:\s*nowrap\s*;/.test(body))).toBe(true);
+  });
+});

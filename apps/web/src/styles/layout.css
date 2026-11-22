@@ -721,7 +721,9 @@
   z-index: 40;
   display: flex;
   flex-direction: column;
-  background: linear-gradient(160deg, rgb(14, 14, 18), rgb(4, 4, 6));
+  /* Solid colour first: forced colors drop the gradient image, and the screen must still hide the page behind it. */
+  background-color: rgb(4, 4, 6);
+  background-image: linear-gradient(160deg, rgb(14, 14, 18), rgb(4, 4, 6));
   color: var(--text);
 }
 
@@ -2673,14 +2675,16 @@ a.dockspace-card:focus-visible {
 
 /* ⋯ Gallery options (GalleryOptionsMenu). */
 .gallery-options-menu__dropdown {
-  min-width: 240px;
+  min-width: 17rem;
   z-index: 20;
 }
 
+/* One line per item: in an album, "Find duplicates" and its "All media only" hint share the row. */
 .gallery-options-menu__item {
   display: flex;
   align-items: center;
   gap: 0.55rem;
+  white-space: nowrap;
 }
 
 .gallery-options-menu__item:focus-visible {

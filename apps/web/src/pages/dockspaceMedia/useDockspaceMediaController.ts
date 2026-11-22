@@ -9,8 +9,11 @@ import {
   useRefreshMediaAfterUploads,
   useRemoveAlbumMedia
 } from '@/hooks/useMedia';
-import { formatSkippedNonMediaFilesMessage } from '@/pages/dockspaceMedia/mediaHelpers';
-import type { MediaGridSize } from '@/pages/dockspaceMedia/mediaTypes';
+import {
+  formatSkippedNonMediaFilesMessage,
+  formatTrashResultMessage
+} from '@/pages/dockspaceMedia/mediaHelpers';
+import type { DuplicateActionMessage, MediaGridSize } from '@/pages/dockspaceMedia/mediaTypes';
 import type { MediaGridFocusHandle } from '@/pages/dockspaceMedia/VirtualizedMediaGrid';
 import { useDuplicateSelectionState } from '@/pages/dockspaceMedia/useDuplicateSelectionState';
 import { useMediaPageQueries } from '@/pages/dockspaceMedia/useMediaPageQueries';
@@ -30,7 +33,7 @@ export const useDockspaceMediaController = ({ dockspaceId }: UseDockspaceMediaCo
   const [localError, setLocalError] = useState<string | null>(null);
   // Files the media input skipped (not images or videos): shown in the uploads card, not with the page's other errors.
   const [uploadSelectionError, setUploadSelectionError] = useState<string | null>(null);
-  const [duplicateActionMessage, setDuplicateActionMessage] = useState<string | null>(null);
+  const [duplicateActionMessage, setDuplicateActionMessage] = useState<DuplicateActionMessage | null>(null);
   const [bulkActionMessage, setBulkActionMessage] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   // Where focus goes when the preview closes: the grid's tile for the item shown last (or its scroll box), else,
@@ -289,12 +292,7 @@ export const useDockspaceMediaController = ({ dockspaceId }: UseDockspaceMediaCo
     try {
       setBulkActionMessage(null);
       const result = await trashFilesBatchMutation.mutateAsync(selectedMediaPaths);
-      const failedCount = result.failed.length;
-      if (failedCount > 0) {
-        setBulkActionMessage(`Moved ${result.movedPaths.length} items to trash. ${failedCount} failed.`);
-      } else {
-        setBulkActionMessage(`Moved ${result.movedPaths.length} items to trash.`);
-      }
+      setBulkActionMessage(formatTrashResultMessage(result.movedPaths.length, result.failed.length));
       resetMultiSelectionState();
     } catch (error) {
       setBulkActionMessage(
@@ -333,15 +331,16 @@ export const useDockspaceMediaController = ({ dockspaceId }: UseDockspaceMediaCo
       setDuplicateActionMessage(null);
       const result = await trashFilesBatchMutation.mutateAsync(duplicateSelectionState.selectedDuplicatePaths);
       const failedCount = result.failed.length;
-      if (failedCount > 0) {
-        setDuplicateActionMessage(`Moved ${result.movedPaths.length} items to trash. ${failedCount} failed.`);
-      } else {
-        setDuplicateActionMessage(`Moved ${result.movedPaths.length} items to trash.`);
-      }
+      setDuplicateActionMessage({
+        message: formatTrashResultMessage(result.movedPaths.length, failedCount),
+        // A clean result is a neutral confirmation, like the gallery's; one with failures stays in the error style.
+        tone: failedCount > 0 ? 'error' : 'info'
+      });
     } catch (error) {
-      setDuplicateActionMessage(
-        error instanceof Error ? error.message : 'Failed to move selected duplicates to trash.'
-      );
+      setDuplicateActionMessage({
+        message: error instanceof Error ? error.message : 'Failed to move selected duplicates to trash.',
+        tone: 'error'
+      });
     }
   }, [duplicateSelectionState.selectedDuplicatePaths, trashFilesBatchMutation]);
 

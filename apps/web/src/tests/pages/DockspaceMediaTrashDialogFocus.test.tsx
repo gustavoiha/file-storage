@@ -410,8 +410,8 @@ describe.each(['desktop', 'phone'] as const)('Find duplicates Move selected to t
     press(within(dialog).getByRole('button', { name: 'Move to trash' }));
 
     await waitFor(() => expect(trashDialog()).toBeNull());
-    expect(screen.getByRole('alert')).toHaveTextContent('Moved 1 items to trash. 1 failed.');
-    expect(screen.getByText('1 items selected for trash.')).toBeInTheDocument();
+    expect(screen.getByRole('alert')).toHaveTextContent('Moved 1 item to trash. 1 failed.');
+    expect(screen.getByText('1 item selected for trash.')).toBeInTheDocument();
     await waitFor(() => expect(opener).toHaveFocus());
   });
 

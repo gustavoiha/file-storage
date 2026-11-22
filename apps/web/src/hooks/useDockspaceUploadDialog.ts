@@ -15,6 +15,8 @@ export interface ActiveUploadFile {
   file: File;
   sourcePath: string;
   destinationPath: string;
+  /** The folder that was open when the upload was staged: the folder it goes into. */
+  folderPath: string;
   fullPath: string;
   status: UploadItemStatus;
   progress: number;
@@ -33,6 +35,8 @@ interface UseDockspaceUploadDialogParams {
     fullPath: string;
     file: File;
     onProgress?: (progress: number) => void;
+    /** The folder the upload goes into (for a folder upload, the folder holding its top folder). */
+    folderPath?: string;
   }) => Promise<unknown>;
   /**
    * When provided, a folder upload first creates every folder of the selection (one request
@@ -85,6 +89,7 @@ export const useDockspaceUploadDialog = ({
         file,
         sourcePath: file.name,
         destinationPath,
+        folderPath: currentFolderPath,
         fullPath: buildPathInFolder(currentFolderPath, destinationPath),
         status: 'pending',
         progress: 0
@@ -120,6 +125,7 @@ export const useDockspaceUploadDialog = ({
         file,
         sourcePath: destinationPath,
         destinationPath,
+        folderPath: currentFolderPath,
         fullPath: buildPathInFolder(currentFolderPath, destinationPath),
         status: 'pending',
         progress: 0
@@ -195,6 +201,7 @@ export const useDockspaceUploadDialog = ({
       void uploadFile({
         fullPath: nextUpload.fullPath,
         file: nextUpload.file,
+        folderPath: nextUpload.folderPath,
         onProgress: (progress) => {
           setActiveUploads((previous) =>
             previous.map((item) =>

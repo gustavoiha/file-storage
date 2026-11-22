@@ -13,6 +13,7 @@ const upload = (
   file: new File(['x'], fullPath.split('/').pop() ?? 'x'),
   sourcePath: fullPath,
   destinationPath: fullPath,
+  folderPath: '/',
   fullPath,
   status,
   progress

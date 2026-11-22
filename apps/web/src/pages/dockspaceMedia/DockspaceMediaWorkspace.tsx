@@ -54,6 +54,7 @@ export const DockspaceMediaWorkspace = ({ dockspaceId, controller }: DockspaceMe
     duplicateSummary,
     selectedDuplicatePaths,
     uploadErrorMessage,
+    uploadNoticeMessage,
     mediaListError,
     mediaNextPageError,
     duplicatesListError,
@@ -241,6 +242,7 @@ export const DockspaceMediaWorkspace = ({ dockspaceId, controller }: DockspaceMe
       skippedUploads={uploadDialog.skippedUploads}
       isPreparingFolders={Boolean(uploadDialog.isPreparingFolders)}
       uploadErrorMessage={uploadErrorMessage}
+      uploadNoticeMessage={uploadNoticeMessage}
       defaultCollapsed={isPhone}
       onDismissSkippedUploads={onDismissSkippedUploads}
       onRetryUpload={uploadDialog.retryUpload}

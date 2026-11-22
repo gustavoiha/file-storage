@@ -9,6 +9,11 @@ interface UploadsCardProps {
   skippedUploads: SkippedUploadFile[];
   isPreparingFolders: boolean;
   uploadErrorMessage: string | null;
+  /**
+   * A message about files that were left out on purpose (for example non-media files picked in the gallery). Shown
+   * where the error goes, but as a neutral notice: it does not count as a failed upload in the collapsed pill.
+   */
+  uploadNoticeMessage?: string | null;
   /** Start collapsed (phone). Re-applied whenever the value changes. */
   defaultCollapsed?: boolean;
   onDismissSkippedUploads: () => void;
@@ -79,6 +84,7 @@ export const UploadsCard = ({
   skippedUploads,
   isPreparingFolders,
   uploadErrorMessage,
+  uploadNoticeMessage = null,
   defaultCollapsed = false,
   onDismissSkippedUploads,
   onRetryUpload
@@ -98,14 +104,24 @@ export const UploadsCard = ({
   }, [defaultCollapsed]);
 
   const hasContent =
-    activeUploads.length > 0 || isPreparingFolders || Boolean(uploadErrorMessage) || skippedUploads.length > 0;
+    activeUploads.length > 0 ||
+    isPreparingFolders ||
+    Boolean(uploadErrorMessage) ||
+    Boolean(uploadNoticeMessage) ||
+    skippedUploads.length > 0;
 
   if (!hasContent) {
     return null;
   }
 
   const hasFailure = activeUploads.some((upload) => upload.status === 'failed') || Boolean(uploadErrorMessage);
+  const hasSkipped = Boolean(uploadNoticeMessage) || skippedUploads.length > 0;
   const summary = summarizeUploads(activeUploads, isPreparingFolders);
+  const pillLabel = [
+    `Expand uploads: ${summary}`,
+    ...(hasFailure ? ['an upload failed'] : []),
+    ...(hasSkipped ? ['files were skipped'] : [])
+  ].join(', ');
 
   if (isCollapsed) {
     return (
@@ -114,7 +130,7 @@ export const UploadsCard = ({
           type="button"
           className="dockspace-uploads__pill"
           aria-expanded="false"
-          aria-label={`Expand uploads: ${summary}${hasFailure ? ', an upload failed' : ''}`}
+          aria-label={pillLabel}
           onClick={() => setIsCollapsed(false)}
         >
           <Upload size={14} aria-hidden="true" />
@@ -152,6 +168,7 @@ export const UploadsCard = ({
         </ul>
       ) : null}
       {uploadErrorMessage ? <p className="dockspace-uploads__error">{uploadErrorMessage}</p> : null}
+      {uploadNoticeMessage ? <p className="dockspace-uploads__muted">{uploadNoticeMessage}</p> : null}
       {skippedUploads.length ? (
         <div className="dockspace-uploads__skipped">
           <div className="dockspace-uploads__line">

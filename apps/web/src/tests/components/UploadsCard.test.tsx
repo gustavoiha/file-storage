@@ -104,6 +104,67 @@ describe('UploadsCard', () => {
     expect(screen.getByRole('button', { name: 'Expand uploads: 1 upload failed, an upload failed' })).toBeInTheDocument();
   });
 
+  it('collapsed with only a skipped-files notice: no failure dot and no "an upload failed"', () => {
+    const notice = '2 files were skipped because this gallery accepts only photos and videos.';
+    render(<UploadsCard {...baseProps} defaultCollapsed uploadNoticeMessage={notice} />);
+
+    const pill = screen.getByRole('button', { name: 'Expand uploads: Uploads, files were skipped' });
+    expect(pill).toHaveTextContent('Uploads');
+    expect(pill.querySelector('.dockspace-uploads__dot')).toBeNull();
+
+    fireEvent.click(pill);
+    const card = screen.getByRole('region', { name: 'Uploads' });
+    const message = within(card).getByText(notice);
+    expect(message).toHaveClass('dockspace-uploads__muted');
+    expect(message).not.toHaveClass('dockspace-uploads__error');
+  });
+
+  it('collapsed with only skipped duplicates: says files were skipped, without a failure dot', () => {
+    render(
+      <UploadsCard
+        {...baseProps}
+        defaultCollapsed
+        skippedUploads={[{ fullPath: '/dup.jpg', duplicateType: 'NAME', reason: 'Name exists' }]}
+      />
+    );
+
+    const pill = screen.getByRole('button', { name: 'Expand uploads: Uploads, files were skipped' });
+    expect(pill.querySelector('.dockspace-uploads__dot')).toBeNull();
+  });
+
+  it('collapsed with a failed upload: shows the failure dot and says an upload failed', () => {
+    render(<UploadsCard {...baseProps} defaultCollapsed activeUploads={[upload(1, '/a.jpg', 'failed')]} />);
+
+    const pill = screen.getByRole('button', { name: 'Expand uploads: 1 upload failed, an upload failed' });
+    expect(pill.querySelector('.dockspace-uploads__dot')).not.toBeNull();
+  });
+
+  it('collapsed with an upload error message: shows the failure dot and says an upload failed', () => {
+    render(<UploadsCard {...baseProps} defaultCollapsed uploadErrorMessage="Could not create the folders" />);
+
+    const pill = screen.getByRole('button', { name: 'Expand uploads: Uploads, an upload failed' });
+    expect(pill.querySelector('.dockspace-uploads__dot')).not.toBeNull();
+
+    fireEvent.click(pill);
+    expect(screen.getByText('Could not create the folders')).toHaveClass('dockspace-uploads__error');
+  });
+
+  it('collapsed with a failed upload and skipped files: reports both, with the failure dot', () => {
+    render(
+      <UploadsCard
+        {...baseProps}
+        defaultCollapsed
+        activeUploads={[upload(1, '/a.jpg', 'uploading', 30), upload(2, '/b.jpg', 'failed')]}
+        uploadNoticeMessage="1 file was skipped because this gallery accepts only photos and videos."
+      />
+    );
+
+    const pill = screen.getByRole('button', {
+      name: 'Expand uploads: Uploading 2 of 2 · 15%, an upload failed, files were skipped'
+    });
+    expect(pill.querySelector('.dockspace-uploads__dot')).not.toBeNull();
+  });
+
   it('shows skipped duplicates with details and dismiss', () => {
     const onDismissSkippedUploads = vi.fn();
     render(

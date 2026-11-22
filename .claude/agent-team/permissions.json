@@ -4,6 +4,9 @@
     "Each workflow agent runs as a custom agent named agent-team-<role> (.claude/agents/). The PreToolUse hook",
     ".claude/skills/agent-team/scripts/permission-gate.mjs reads this file on every Bash call from those agents:",
     "  - a command matching a pattern in globalDeny or the role's deny list is blocked (the agent is told to ask the human);",
+    "  - forcePush: plain force pushes (--force, -f, +refspec, --mirror, --all, --prune) are always blocked; with",
+    "    allowWithLease, `git push --force-with-lease` is allowed when every target branch can be named and none is",
+    "    in protectedBranches (a deleted branch counts too). The gate checks this in code, not with patterns.",
     "  - allAgents.allow: read-only commands every agent-team role may run without a prompt (never 'reserved');",
     "  - a command that matches ANOTHER role's allow list but not this role's is blocked (it is reserved for that role);",
     "  - a command whose every part matches the role's allow list is approved without a prompt;",
@@ -26,10 +29,15 @@
     "Bash(*cdk destroy*)",
     "Bash(gh pr merge *--admin*)",
     "Bash(gh project delete*)",
-    "Bash(gh repo delete*)",
-    "Bash(git push --force*)",
-    "Bash(git push -f*)"
+    "Bash(gh repo delete*)"
   ],
+  "forcePush": {
+    "allowWithLease": true,
+    "protectedBranches": [
+      "main",
+      "agent-memory"
+    ]
+  },
   "allAgents": {
     "allow": [
       "Bash(git status)",

@@ -27,7 +27,8 @@ Agents comment only on their own task's issue; the request issue only shows the 
   (board + task issues), `scripts/test-deploy.sh T-XXXX infra|web` (dev, profile `file-storage-dev-agent`), `scripts/prod-deploy.sh
   diff|diff-pr N|infra|web` (prod, always from a clean origin/main worktree, profile `file-storage-prod-agent`).
 - **Per-agent permissions:** `.claude/agent-team/permissions.json` is the one place to edit them. Each role has
-  allow/deny Bash patterns; `globalDeny` applies to all. Workflow agents run as custom agents
+  allow/deny Bash patterns; `globalDeny` applies to all; `forcePush` allows `git push --force-with-lease` on any
+  branch except its `protectedBranches` (main, agent-memory) and blocks every other force push (checked in code). Workflow agents run as custom agents
   `.claude/agents/agent-team-<role>.md`; the PreToolUse hook `scripts/permission-gate.mjs` (installed in
   `.claude/settings.local.json`) approves a role's listed commands, blocks commands reserved for other roles and
   denied ones, and leaves the rest to the normal permission flow. After editing permissions.json run

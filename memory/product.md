@@ -74,4 +74,4 @@ All open tasks have their own issues (#11-#16, sub-issues of request #5) since 2
 | T-0023 | #50 | #5 | Trash page keeps focus on the row after a failed restore | done | Engineering |
 | T-0024 | #52 | #31 | Failed folder listing shows the error without the empty state | done | Engineering |
 | T-0025 | #56 | #31 | Failed folder listing stays steady during uploads and folder creates | done | Test results filtering |
-| T-0026 | #58 | #57 | Quick dockspace switcher panel (Slack-style) | engineering | Design |
+| T-0026 | #58 | #57 | Quick dockspace switcher panel (Slack-style) | review | Design |

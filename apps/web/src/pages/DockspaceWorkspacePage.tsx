@@ -36,8 +36,6 @@ export const DockspaceWorkspacePage = () => {
   const dockspacesQuery = useDockspaces();
   const hasList = Boolean(dockspacesQuery.data);
   const dockspace = dockspacesQuery.data?.find((item) => item.dockspaceId === dockspaceId);
-  const unauthorized =
-    dockspacesQuery.error instanceof ApiError && dockspacesQuery.error.statusCode === 403;
 
   // The dockspace list failed and nothing is known about this dockspace (not even its type): the page shows only the
   // error with Try again, and mounts neither the files page nor the media page. Mounting one here would add a query
@@ -46,14 +44,16 @@ export const DockspaceWorkspacePage = () => {
   // mount it again, and send GET /dockspaces in a tight loop. For the same reason the last failure is kept here until
   // the list loads, so every refetch (Try again, the switcher's Try again) keeps the error, and a focused Try again
   // button, mounted instead of showing the loader.
-  const [listFailed, setListFailed] = useState(false);
-  const currentlyFailed = !hasList && Boolean(dockspacesQuery.error);
-  if (currentlyFailed && !listFailed) {
-    setListFailed(true);
-  } else if (hasList && listFailed) {
-    setListFailed(false);
+  const [lastListError, setLastListError] = useState<unknown>(null);
+  const currentListError = hasList ? null : (dockspacesQuery.error ?? null);
+  if (currentListError !== null && currentListError !== lastListError) {
+    setLastListError(currentListError);
+  } else if (hasList && lastListError !== null) {
+    setLastListError(null);
   }
-  const showListError = !hasList && (currentlyFailed || listFailed);
+  const listError = hasList ? null : (currentListError ?? lastListError);
+  const showListError = listError !== null;
+  const unauthorized = listError instanceof ApiError && listError.statusCode === 403;
   const isRetrying = showListError && dockspacesQuery.isFetching;
 
   const retryList = () => {

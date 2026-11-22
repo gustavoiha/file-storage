@@ -68,13 +68,14 @@ const deferred = <T,>() => {
 };
 
 const renderPage = () => {
-  // The app's query client settings (router/AuthenticatedLayout.tsx).
+  // The app's query client settings (lib/queryClient.ts).
   const client = new QueryClient({ defaultOptions: { queries: { retry: false, staleTime: 10_000 } } });
-  return render(
+  const result = render(
     <QueryWrapper client={client}>
       <DockspaceWorkspacePage />
     </QueryWrapper>
   );
+  return { ...result, client };
 };
 
 /** Lets any request loop run: a loop sends hundreds of requests in this time. */
@@ -184,16 +185,33 @@ describe('DockspaceWorkspacePage when the dockspace list fails', () => {
     expect(mocks.listDockspaces).toHaveBeenCalledTimes(2);
   });
 
-  it('shows the unauthorized notice without Try again when the list is forbidden', async () => {
-    mocks.listDockspaces.mockRejectedValue(new ApiError('Forbidden', 403));
-    renderPage();
+  it('shows the unauthorized notice without Try again when the list is forbidden, through later refetches', async () => {
+    mocks.listDockspaces.mockRejectedValueOnce(new ApiError('Forbidden', 403));
+    const { client } = renderPage();
 
-    await waitFor(() => expect(mocks.listDockspaces).toHaveBeenCalledTimes(1));
+    expect(await screen.findByText('Not Authorized')).toBeInTheDocument();
     await settle();
-
+    expect(mocks.listDockspaces).toHaveBeenCalledTimes(1);
     expect(screen.queryByRole('button', { name: 'Try again' })).not.toBeInTheDocument();
     expect(screen.queryByText('Loading dockspace...')).not.toBeInTheDocument();
-    expect(mocks.listDockspaces).toHaveBeenCalledTimes(1);
+
+    // Another refetch (e.g. the switcher's Try again) clears the error while it runs: the notice stays.
+    const refetch = deferred<never>();
+    mocks.listDockspaces.mockReturnValueOnce(refetch.promise);
+    act(() => {
+      void client.refetchQueries({ queryKey: ['dockspaces'] });
+    });
+    await waitFor(() => expect(mocks.listDockspaces).toHaveBeenCalledTimes(2));
+    expect(screen.getByText('Not Authorized')).toBeInTheDocument();
+    expect(screen.queryByText("Couldn't load this dockspace.")).not.toBeInTheDocument();
+    expect(screen.queryByText('Loading dockspace...')).not.toBeInTheDocument();
+
+    await act(async () => {
+      refetch.reject(new ApiError('Forbidden', 403));
+    });
+    await settle();
+    expect(screen.getByText('Not Authorized')).toBeInTheDocument();
+    expect(mocks.listDockspaces).toHaveBeenCalledTimes(2);
   });
 });
 

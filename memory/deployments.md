@@ -421,3 +421,14 @@ Recorded 2026-11-20 by the setup session from a `cdk diff` of origin/main 5678ad
 - Known pre-existing issues still live: mixed valid/invalid upload selection clears the skipped-files notice (T-0047, #101); phone pill says "an upload failed" for skipped files (T-0045, #96); files-page phone Upload button 37.4px (T-0046, #98); trash copy plurals (T-0041, #85); batches over 120 uploads (T-0042, #90); duplicates summary focus ring (T-0044, #95).
 - Logs: $LOCAL/logs/prod-deploy-diff-pr-20261122T183547Z.log, prod-deploy-diff-20261122T183620Z.log, prod-deploy-web-20261122T183717Z.log, prod-deploy-diff-20261122T183728Z.log.
 - Prod is now at origin/main `1c18c15` for both infra and web.
+
+### 2026-11-22 — T-0044 — web
+- origin/main commit: `b472015` (PR #97 squash-merged). Run as `dockspace-prod-agent-deployer` via `prod-deploy.sh`.
+- Pre-deploy: PR #97 at `1b9e8fd` was MERGEABLE/CLEAN with merge base `923a617`; main had moved to `1c18c15` (T-0038 #92 edits other rules of `layout.css`; T-0043 #94 no overlap). The PR merged onto `1c18c15` without conflicts and passed web typecheck, tests (69 files, 559 tests) and build in a local merge-check worktree. Web only (`layout.css` padding and cancelling margin on the duplicates summary, a CSS guard test); no API, backend or infra change. `prod-deploy.sh diff-pr 97` showed 0 stacks with differences. Main since the last deploy (`1c18c15`) had no commits; `prod-deploy.sh diff` 0 stacks, so no drift.
+- Infra: not run. Post-deploy `prod-deploy.sh diff` at `b472015` shows 0 stacks with differences.
+- Web (`prod-deploy.sh web`): built and synced to the prod site bucket; invalidated `/*` on the prod distribution. Entry bundle `index-F5o-vlb0.js`, stylesheet `index-DFbfcofV.css`.
+- Shipped: #97 `b472015` (T-0044).
+- Smoke check: https://dh0djlfa46gz6.cloudfront.net/login serves `index-F5o-vlb0.js` and `index-DFbfcofV.css`, renders the sign-in form, the stylesheet (200, text/css) contains `padding:.25rem .5rem;margin:-.25rem -.5rem` on `.media-duplicates__summary`, and the console shows no errors.
+- Known pre-existing issues still live: mixed valid/invalid upload selection clears the skipped-files notice (T-0047, #101); phone pill says "an upload failed" for skipped files (T-0045, #96); files-page phone Upload button 37.4px (T-0046, #98); trash copy plurals (T-0041, #85); batches over 120 uploads (T-0042, #90).
+- Logs: $LOCAL/logs/prod-deploy-diff-pr-20261122T183941Z.log, prod-deploy-diff-20261122T184011Z.log, prod-deploy-web-20261122T184113Z.log, prod-deploy-diff-20261122T184123Z.log.
+- Prod is now at origin/main `b472015` for both infra and web.

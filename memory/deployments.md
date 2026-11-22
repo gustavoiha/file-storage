@@ -247,3 +247,14 @@ Recorded 2026-11-20 by the setup session from a `cdk diff` of origin/main 5678ad
 - Smoke check: https://dh0djlfa46gz6.cloudfront.net/login serves `index-D3ZcghLv.js`, renders the sign-in form, `DockspaceFilesPage-jRj48uU3.js` is served (200, JavaScript) and contains `will show here after Try again`, and the console shows no errors.
 - Logs: $LOCAL/logs/prod-deploy-diff-pr-20261122T101552Z.log, prod-deploy-diff-20261122T101619Z.log, prod-deploy-web-20261122T101713Z.log, prod-deploy-diff-20261122T101724Z.log.
 - Prod is now at origin/main `93aef8c` for both infra and web.
+
+### 2026-11-22 — T-0026 — web
+- origin/main commit: `97ce3a7` (PR #60 squash-merged). Run as `dockspace-prod-agent-deployer` via `prod-deploy.sh`.
+- Pre-deploy: PR #60 at `c8f0114` was MERGEABLE/CLEAN and already contained origin/main `93aef8c`, so the merged tree is the one engineering and testing checked (`git diff c8f0114 97ce3a7` empty). Web only (`DockspaceSwitcher.tsx`, `dockspaceTabsLayout.ts`, `CreateDockspaceDialog.tsx`, `CreateDockspaceForm.tsx`, `TopNav.tsx`, `AppShell.tsx`, `AuthenticatedLayout.tsx`, `router.tsx`, `queryClient.ts`, `useCurrentDockspaceId.ts`, `DockspaceWorkspacePage.tsx`, `layout.css`, tests); no API, backend or infra change. `prod-deploy.sh diff-pr 60` showed 0 stacks with differences. Main since the last deploy (`93aef8c`) had no commits; `prod-deploy.sh diff` 0 stacks, so no drift.
+- Infra: not run. Post-deploy `prod-deploy.sh diff` at `97ce3a7` shows 0 stacks with differences.
+- Web (`prod-deploy.sh web`): built and synced to the prod site bucket; invalidated `/*` on the prod distribution. Entry bundle `index-DhCqqWni.js`, `DockspaceWorkspacePage-Dw6wNQHV.js`, stylesheet `index-DQujJWNx.css`.
+- Shipped: #60 `97ce3a7` (T-0026).
+- Smoke check: https://dh0djlfa46gz6.cloudfront.net/login serves `index-DhCqqWni.js` (contains `Filter dockspaces` and `All dockspaces`), renders the sign-in form, `DockspaceWorkspacePage-Dw6wNQHV.js` is served (200, JavaScript), and the console shows no errors.
+- Known pre-existing issue still live: the files page loops `GET /dockspaces` when that request fails (T-0027, #61, also on `93aef8c`).
+- Logs: $LOCAL/logs/prod-deploy-diff-pr-20261122T105503Z.log, prod-deploy-diff-20261122T105534Z.log, prod-deploy-web-20261122T105619Z.log, prod-deploy-diff-20261122T105630Z.log.
+- Prod is now at origin/main `97ce3a7` for both infra and web.

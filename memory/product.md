@@ -31,6 +31,7 @@ All open tasks have their own issues (#11-#16, sub-issues of request #5) since 2
 - 2026-11-22 sweep: PRs #73 (T-0030), #76 (T-0033), #78 (T-0034) and #80 (T-0035) are still open, so T-0036 to T-0041 stay new; nothing dispatched.
 - 2026-11-22 sweep: all prerequisite PRs (#73, #76, #78, #80) are merged and live. T-0036, T-0037 and T-0040 dispatched to engineering (3-dispatch limit). T-0038, T-0039 and T-0041 are unblocked and queued for the next sweep (T-0039 and T-0041 change the same controller, so pair or sequence them). All gallery tasks rebase on main before their PRs.
 - 2026-11-22 sweep: T-0038 and T-0039 dispatched to engineering. T-0041 stays new until T-0039 (same controller) and T-0040 (PR #88, same trash dialog) are merged; T-0042 stays new until T-0036 (PR #89) is merged. T-0036 and T-0040 pipelines are running (testing).
+- 2026-11-22 sweep: T-0043 dispatched to engineering (copy fix in `useDockspaceUploadDialog.ts`; rebase on main, PR #89 touches other hunks of the same file). T-0041 stays new until T-0039 (PR #91) and T-0040 (PR #88) are merged; T-0042 stays new until T-0036 (PR #89) is merged. T-0036, T-0038, T-0039 and T-0040 pipelines are running (testing).
 
 ### Shipped
 - 2026-11-22 (prod at b2a20d3): T-0037 Gallery preview arrow keys seek video/audio instead of changing the item (#81, PR #87): in the full-screen preview, ArrowLeft/ArrowRight pressed on the video or audio controls (or on an input, textarea, select or iframe) are left to that element, so media seeks natively and the item does not change; elsewhere in the preview the arrows still change the item, Escape still closes, and the T-0032/T-0035 focus behaviour is unchanged.
@@ -118,4 +119,4 @@ All open tasks have their own issues (#11-#16, sub-issues of request #5) since 2
 | T-0040 | #84 | #65 | Gallery Move to trash dialog: focus on open, Tab trap, focus after close | testing | Test results filtering |
 | T-0041 | #85 | #65 | Gallery trash messages: correct plurals, success not shown as an error | new | Test results filtering |
 | T-0042 | #90 | #65 | Gallery thumbnail follow-up covers batches larger than one page | new | Review judge |
-| T-0043 | #93 | #65 | Files upload invalid-paths message: correct singular | new | Review judge |
+| T-0043 | #93 | #65 | Files upload invalid-paths message: correct singular | engineering | Engineering |

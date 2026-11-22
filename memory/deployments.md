@@ -237,3 +237,13 @@ Recorded 2026-11-20 by the setup session from a `cdk diff` of origin/main 5678ad
 - Smoke check: https://dh0djlfa46gz6.cloudfront.net/login serves `index-CFnqAWEd.js`, renders the sign-in form, `DockspaceFilesPage-CETN01Kc.js` is served (200, JavaScript) and contains `Try again`, and the console shows no errors.
 - Logs: $LOCAL/logs/prod-deploy-diff-pr-20261121T211303Z.log, prod-deploy-diff-20261121T211330Z.log, prod-deploy-web-20261121T211426Z.log, prod-deploy-diff-20261121T211438Z.log.
 - Prod is now at origin/main `acd41f7` for both infra and web.
+
+### 2026-11-22 — T-0025 — web
+- origin/main commit: `93aef8c` (PR #59 squash-merged). Run as `dockspace-prod-agent-deployer` via `prod-deploy.sh`.
+- Pre-deploy: PR #59 at `52c71d8` was MERGEABLE/CLEAN and already contained origin/main `acd41f7`, so the merged tree is the one engineering and testing checked (`git diff 52c71d8 93aef8c` empty). Web only (`DockspaceFilesPage.tsx`, `useDockspaceUploadDialog.ts`, tests). `prod-deploy.sh diff-pr 59` showed 0 stacks with differences. Main since the last deploy (`acd41f7`) had no commits; `prod-deploy.sh diff` 0 stacks, so no drift.
+- Infra: not run. Post-deploy `prod-deploy.sh diff` at `93aef8c` shows 0 stacks with differences.
+- Web (`prod-deploy.sh web`): built and synced to the prod site bucket; invalidated `/*` on the prod distribution. Entry bundle `index-D3ZcghLv.js`, `DockspaceFilesPage-jRj48uU3.js`, `useDockspaceUploadDialog-WATwgMdh.js`, stylesheet `index-KpoBk-M8.css`.
+- Shipped: #59 `93aef8c` (T-0025).
+- Smoke check: https://dh0djlfa46gz6.cloudfront.net/login serves `index-D3ZcghLv.js`, renders the sign-in form, `DockspaceFilesPage-jRj48uU3.js` is served (200, JavaScript) and contains `will show here after Try again`, and the console shows no errors.
+- Logs: $LOCAL/logs/prod-deploy-diff-pr-20261122T101552Z.log, prod-deploy-diff-20261122T101619Z.log, prod-deploy-web-20261122T101713Z.log, prod-deploy-diff-20261122T101724Z.log.
+- Prod is now at origin/main `93aef8c` for both infra and web.

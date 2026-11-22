@@ -30,7 +30,10 @@ const mockState = vi.hoisted(() => ({
   albumItems: [] as MediaFileRecord[],
   albumsData: [] as Array<{ albumId: string; name: string }>,
   // When true, the preview shows a video with native controls (which take Tab) instead of an image.
-  previewIsVideo: false
+  previewIsVideo: false,
+  // The one item whose preview holds a focusable control: a video with controls, or the "Open file in a new tab"
+  // link of a file too large to preview. Other items show only the (unfocusable) image.
+  focusableContentFor: null as { fullPath: string; control: 'video' | 'link' } | null
 }));
 
 vi.mock('@tanstack/react-router', () => ({
@@ -46,6 +49,16 @@ vi.mock('@/components/files/FilePreviewContent', () => ({
     <div data-testid="preview-content">
       {file?.fullPath ?? ''}
       {mockState.previewIsVideo ? <video data-testid="preview-video" controls /> : null}
+      {mockState.focusableContentFor?.fullPath === file?.fullPath ? (
+        mockState.focusableContentFor?.control === 'video' ? (
+          // jsdom cannot focus a <video> on its own; browsers can, through its controls.
+          <video data-testid="preview-focusable-video" controls tabIndex={0} />
+        ) : (
+          <a href="https://files.example.test/item" target="_blank" rel="noreferrer">
+            Open file in a new tab
+          </a>
+        )
+      ) : null}
     </div>
   )
 }));
@@ -172,6 +185,7 @@ describe('Gallery preview focus return', () => {
     mockState.albumItems = [];
     mockState.albumsData = [];
     mockState.previewIsVideo = false;
+    mockState.focusableContentFor = null;
   });
 
   afterEach(() => {
@@ -365,6 +379,7 @@ describe('Gallery preview focus on open and Tab trap', () => {
     mockState.albumItems = [];
     mockState.albumsData = [];
     mockState.previewIsVideo = false;
+    mockState.focusableContentFor = null;
     blurOnDisable = new MutationObserver(() => {
       const active = document.activeElement;
       if (active instanceof HTMLButtonElement && active.disabled) {
@@ -514,6 +529,60 @@ describe('Gallery preview focus on open and Tab trap', () => {
 
     await user.keyboard('{ArrowLeft}');
     expect(previousButton()).toBeDisabled();
+    expect(document.activeElement).toBe(closeButton());
+  });
+
+  it('moves focus to Close preview when the item changes while focus is on the video controls', () => {
+    mockState.focusableContentFor = { fullPath: '/photos/item-0005.jpg', control: 'video' };
+    render(<DockspaceMediaPage dockspaceId="dock-1" dockspaceName="Camera Roll" />);
+    openWithKeyboard('item-0005.jpg');
+
+    const video = screen.getByTestId('preview-focusable-video');
+    video.focus();
+    expect(document.activeElement).toBe(video);
+
+    fireEvent.keyDown(video, { key: 'ArrowRight' });
+
+    expect(shownPath()).toBe('/photos/item-0006.jpg');
+    expect(video.isConnected).toBe(false);
+    expect(document.activeElement).toBe(closeButton());
+  });
+
+  it('moves focus to Close preview when the item changes while focus is on the "Open file in a new tab" link', async () => {
+    mockState.focusableContentFor = { fullPath: '/photos/item-0005.jpg', control: 'link' };
+    const user = userEvent.setup();
+    render(<DockspaceMediaPage dockspaceId="dock-1" dockspaceName="Camera Roll" />);
+    openWithKeyboard('item-0005.jpg');
+
+    // Close, Previous, then the link inside the preview content.
+    await user.tab();
+    await user.tab();
+    const link = screen.getByRole('link', { name: 'Open file in a new tab' });
+    expect(document.activeElement).toBe(link);
+
+    await user.keyboard('{ArrowLeft}');
+
+    expect(shownPath()).toBe('/photos/item-0004.jpg');
+    expect(link.isConnected).toBe(false);
+    expect(document.activeElement).toBe(closeButton());
+
+    // Tab goes on from Close as before.
+    await user.tab();
+    expect(document.activeElement).toBe(previousButton());
+  });
+
+  it('moves focus to Close preview, not the other nav button, when the item changes from the video to the last item', () => {
+    setMediaItems(mockState.buildMediaItems(10));
+    mockState.focusableContentFor = { fullPath: '/photos/item-0008.jpg', control: 'video' };
+    render(<DockspaceMediaPage dockspaceId="dock-1" dockspaceName="Camera Roll" />);
+    openWithKeyboard('item-0008.jpg');
+
+    const video = screen.getByTestId('preview-focusable-video');
+    video.focus();
+    fireEvent.keyDown(video, { key: 'ArrowRight' });
+
+    expect(shownPath()).toBe('/photos/item-0009.jpg');
+    expect(nextButton()).toBeDisabled();
     expect(document.activeElement).toBe(closeButton());
   });
 

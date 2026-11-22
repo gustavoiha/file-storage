@@ -41,6 +41,9 @@ export const FileViewerDialog = ({
   const previousButtonRef = useRef<HTMLButtonElement>(null);
   const nextButtonRef = useRef<HTMLButtonElement>(null);
   const navStateRef = useRef({ canPrevious, canNext });
+  // The control inside the preview that had focus last, so a focus lost to <body> can be traced back to it.
+  const lastFocusedRef = useRef<Element | null>(null);
+  const shownFileId = file?.fileNodeId ?? null;
 
   // Previous or Next is disabled at either end of the gallery. When that happens to the focused button (Next onto
   // the last item), focus would fall to <body>: move it to the other nav button, else to Close.
@@ -59,7 +62,9 @@ export const FileViewerDialog = ({
 
     const active = document.activeElement;
     const disabledButton = lostNext ? nextButtonRef.current : previousButtonRef.current;
-    if (active !== disabledButton && !focusIsLost()) {
+    // A browser may blur the button it disables (focus on <body>) or keep it as the active element.
+    const hadFocus = active === disabledButton || (focusIsLost() && lastFocusedRef.current === disabledButton);
+    if (!hadFocus) {
       return;
     }
 
@@ -67,6 +72,20 @@ export const FileViewerDialog = ({
     const target = [otherButton, closeButtonRef.current].find(isFocusable);
     target?.focus();
   }, [canNext, canPrevious, isMediaFullscreen, isOpen]);
+
+  // Changing the item (arrow keys, Previous/Next) replaces the preview content. When focus was on a control inside
+  // it (video or audio controls, the "Open file in a new tab" link), that element unmounts and focus falls to <body>
+  // inside the modal: move it to Close preview. Runs after the nav effect above, which handles a focused nav
+  // button that was just disabled.
+  useEffect(() => {
+    if (!isOpen || !isMediaFullscreen || !focusIsLost()) {
+      return;
+    }
+
+    if (isFocusable(closeButtonRef.current)) {
+      closeButtonRef.current.focus();
+    }
+  }, [isMediaFullscreen, isOpen, shownFileId]);
 
   useEffect(() => {
     if (!isOpen) {
@@ -132,6 +151,9 @@ export const FileViewerDialog = ({
         open
         aria-modal="true"
         aria-label={fileName ? `Preview ${fileName}` : 'File preview'}
+        onFocus={(event) => {
+          lastFocusedRef.current = event.target;
+        }}
         onCancel={(event) => {
           event.preventDefault();
           onClose();

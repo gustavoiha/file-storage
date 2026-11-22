@@ -23,6 +23,7 @@ All open tasks have their own issues (#11-#16, sub-issues of request #5) since 2
 - 2026-11-22: T-0037 (#81) split from T-0035 code review round 1: in the gallery preview, arrow keys pressed on the video/audio controls change the item instead of seeking (already on main). Build after T-0035 (PR #80) is merged; it touches the same file.
 
 - 2026-11-22 sweep: T-0032 is live, so T-0035 is dispatched to engineering (rebase on main; PRs #73, #76, #78 touch the gallery files). T-0036 stays new until T-0033 (PR #76) is merged.
+- 2026-11-22 sweep: PRs #76 (T-0033) and #80 (T-0035) are still open, so T-0036 and T-0037 stay new; nothing dispatched.
 
 ### Shipped
 - 2026-11-22 (prod at 9c3fc64): T-0032 Gallery preview returns focus to its tile on close (#70, PR #72): every close of the full-screen preview (Escape, Close preview, the empty area around the media) moves focus to the tile of the item shown last, scrolling a virtualized tile back into view first; fallbacks are the grid scroll box, then the Select multiple toggle, so focus never ends on the page body. The ring shows for keyboard closes only (`:focus-visible`).

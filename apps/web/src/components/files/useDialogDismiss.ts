@@ -113,6 +113,10 @@ const TABBABLE_SELECTOR = [
   'input:not([disabled]):not([type="hidden"])',
   'select:not([disabled])',
   'textarea:not([disabled])',
+  // Media with native controls and embedded frames (the file preview's video, audio and PDF) take Tab too.
+  'audio[controls]',
+  'video[controls]',
+  'iframe',
   '[tabindex]:not([tabindex="-1"])'
 ].join(', ');
 

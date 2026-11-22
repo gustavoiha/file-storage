@@ -45,12 +45,20 @@ interface UseDockspaceUploadDialogParams {
    * folder. Without it, folders are created on the fly by each upload.
    */
   createFolder?: (folderPath: string) => Promise<unknown>;
+  /**
+   * Called once when the upload queue drains (nothing pending or uploading) after at least one upload
+   * succeeded since the last drain, with the number of files uploaded. Lets a page refresh an expensive
+   * listing (e.g. the paged media gallery) once per batch instead of once per file. Failed uploads left in
+   * the queue do not hold it back; a later successful retry starts a new batch.
+   */
+  onBatchComplete?: (uploadedCount: number) => void;
 }
 
 export const useDockspaceUploadDialog = ({
   currentFolderPath,
   uploadFile,
-  createFolder
+  createFolder,
+  onBatchComplete
 }: UseDockspaceUploadDialogParams) => {
   const [activeUploads, setActiveUploads] = useState<ActiveUploadFile[]>([]);
   const [skippedUploads, setSkippedUploads] = useState<SkippedUploadFile[]>([]);
@@ -58,6 +66,13 @@ export const useDockspaceUploadDialog = ({
   const [isPreparingFolders, setIsPreparingFolders] = useState(false);
   const nextUploadIdRef = useRef(1);
   const runningUploadIdsRef = useRef<Set<number>>(new Set());
+  // Uploads that succeeded since the queue last drained.
+  const uploadedSinceDrainRef = useRef(0);
+  // Bumped after every settled upload, once runningUploadIdsRef is updated, so the drain check below always
+  // runs with the final running set (a failure only changes an item's status, which may render earlier).
+  const [settledUploadCount, setSettledUploadCount] = useState(0);
+  const onBatchCompleteRef = useRef(onBatchComplete);
+  onBatchCompleteRef.current = onBatchComplete;
 
   const enqueueUploads = useCallback((nextUploads: ActiveUploadFile[]) => {
     if (!nextUploads.length) {
@@ -215,6 +230,9 @@ export const useDockspaceUploadDialog = ({
           );
         }
       })
+        .then(() => {
+          uploadedSinceDrainRef.current += 1;
+        })
         .catch((error) => {
           const duplicateType = error instanceof ApiError ? error.duplicateType : null;
           if (
@@ -251,9 +269,24 @@ export const useDockspaceUploadDialog = ({
           if (shouldRemoveFromQueue) {
             setActiveUploads((previous) => previous.filter((item) => item.id !== nextUpload.id));
           }
+          setSettledUploadCount((previous) => previous + 1);
         });
     }
   }, [activeUploads, uploadFile]);
+
+  useEffect(() => {
+    if (uploadedSinceDrainRef.current === 0 || runningUploadIdsRef.current.size > 0) {
+      return;
+    }
+
+    if (activeUploads.some((item) => item.status === 'pending' || item.status === 'uploading')) {
+      return;
+    }
+
+    const uploadedCount = uploadedSinceDrainRef.current;
+    uploadedSinceDrainRef.current = 0;
+    onBatchCompleteRef.current?.(uploadedCount);
+  }, [activeUploads, settledUploadCount]);
 
   const clearValidationError = useCallback(() => {
     setValidationError(null);

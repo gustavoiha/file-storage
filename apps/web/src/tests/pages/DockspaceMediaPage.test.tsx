@@ -43,7 +43,9 @@ const mockState = vi.hoisted(() => ({
   skippedUploads: [] as SkippedUploadFile[],
   retryUpload: vi.fn(),
   clearSkippedUploads: vi.fn(),
-  stageFiles: vi.fn()
+  stageFiles: vi.fn(),
+  refreshMediaAfterUploads: vi.fn(async () => {}),
+  uploadDialogParams: null as null | { onBatchComplete?: (uploadedCount: number) => void }
 }));
 
 vi.mock('@tanstack/react-router', () => ({
@@ -91,16 +93,19 @@ vi.mock('@/components/files/UploadStagingList', () => ({
 }));
 
 vi.mock('@/hooks/useDockspaceUploadDialog', () => ({
-  useDockspaceUploadDialog: () => ({
-    clearValidationError: vi.fn(),
-    validationError: null,
-    stageFiles: mockState.stageFiles,
-    activeUploads: mockState.activeUploads,
-    retryUpload: mockState.retryUpload,
-    skippedUploads: mockState.skippedUploads,
-    clearSkippedUploads: mockState.clearSkippedUploads,
-    isPreparingFolders: false
-  })
+  useDockspaceUploadDialog: (params: { onBatchComplete?: (uploadedCount: number) => void }) => {
+    mockState.uploadDialogParams = params;
+    return {
+      clearValidationError: vi.fn(),
+      validationError: null,
+      stageFiles: mockState.stageFiles,
+      activeUploads: mockState.activeUploads,
+      retryUpload: mockState.retryUpload,
+      skippedUploads: mockState.skippedUploads,
+      clearSkippedUploads: mockState.clearSkippedUploads,
+      isPreparingFolders: false
+    };
+  }
 }));
 
 vi.mock('@/hooks/useFiles', () => ({
@@ -140,7 +145,8 @@ vi.mock('@/hooks/useMedia', () => ({
   useRenameAlbum: () => ({ mutateAsync: vi.fn(async () => ({})), isPending: false }),
   useDeleteAlbum: () => ({ mutateAsync: vi.fn(async () => ({})), isPending: false }),
   useAssignAlbumMedia: () => ({ mutateAsync: mockState.assignAlbumMedia, isPending: false }),
-  useRemoveAlbumMedia: () => ({ mutateAsync: vi.fn(async () => ({})), isPending: false })
+  useRemoveAlbumMedia: () => ({ mutateAsync: vi.fn(async () => ({})), isPending: false }),
+  useRefreshMediaAfterUploads: () => mockState.refreshMediaAfterUploads
 }));
 
 beforeEach(() => {
@@ -165,6 +171,8 @@ beforeEach(() => {
   mockState.retryUpload.mockClear();
   mockState.clearSkippedUploads.mockClear();
   mockState.stageFiles.mockClear();
+  mockState.refreshMediaAfterUploads.mockClear();
+  mockState.uploadDialogParams = null;
   window.matchMedia = vi.fn((query: string) => ({
     matches: mockState.isPhone && query.includes('max-width: 900px'),
     media: query,
@@ -180,6 +188,16 @@ beforeEach(() => {
 describe('DockspaceMediaPage', () => {
   afterEach(() => {
     cleanup();
+  });
+
+  it('refreshes the gallery once when a batch of uploads finishes', () => {
+    render(<DockspaceMediaPage dockspaceId="dock-1" dockspaceName="Camera Roll" />);
+
+    expect(mockState.refreshMediaAfterUploads).not.toHaveBeenCalled();
+    act(() => {
+      mockState.uploadDialogParams?.onBatchComplete?.(3);
+    });
+    expect(mockState.refreshMediaAfterUploads).toHaveBeenCalledTimes(1);
   });
 
   it('virtualizes all-media grid by rendering only visible subset', () => {

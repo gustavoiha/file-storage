@@ -1,3 +1,4 @@
+import { useCallback } from 'react';
 import { useInfiniteQuery, useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useStore } from '@tanstack/react-store';
 import { authStore } from '@/lib/authStore';
@@ -48,6 +49,26 @@ export const useMediaFiles = (dockspaceId: string) => {
     getNextPageParam: (lastPage) => lastPage.nextCursor,
     enabled: Boolean(userId && dockspaceId)
   });
+};
+
+/**
+ * Returns a function that refetches the media gallery (every loaded page, one request at a time) after new files
+ * were uploaded to the dockspace. Call it once per finished upload batch, not once per file: the gallery is paged,
+ * so each call re-requests all loaded pages. Duplicate groups are refreshed per upload by useUploadFile already;
+ * albums are not affected, since a new upload belongs to no album.
+ */
+export const useRefreshMediaAfterUploads = (dockspaceId: string) => {
+  const queryClient = useQueryClient();
+  const { session } = useStore(authStore);
+  const userId = session?.userId ?? '';
+
+  return useCallback(async () => {
+    if (!userId) {
+      return;
+    }
+
+    await queryClient.invalidateQueries({ queryKey: mediaQueryKey(userId, dockspaceId) });
+  }, [dockspaceId, queryClient, userId]);
 };
 
 export const useMediaDuplicates = (

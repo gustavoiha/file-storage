@@ -317,4 +317,67 @@ describe('useDockspaceUploadDialog', () => {
       }
     ]);
   });
+
+  it('reports a finished batch once, counting only the files that were uploaded', async () => {
+    const onBatchComplete = vi.fn();
+    const uploadFile = vi.fn(async ({ fullPath }: { fullPath: string }) => {
+      if (fullPath === '/media/dup.jpg') {
+        throw new ApiError('Upload skipped due to duplicate', 409, {
+          code: 'UPLOAD_SKIPPED_DUPLICATE',
+          duplicateType: 'CONTENT_HASH',
+          fullPath,
+          reason: 'Duplicate.'
+        });
+      }
+    });
+    const { result } = renderHook(() =>
+      useDockspaceUploadDialog({
+        currentFolderPath: '/media',
+        uploadFile,
+        onBatchComplete
+      })
+    );
+
+    act(() => {
+      result.current.stageFiles([
+        new File(['a'], 'a.jpg', { type: 'image/jpeg' }),
+        new File(['b'], 'b.jpg', { type: 'image/jpeg' }),
+        new File(['c'], 'c.jpg', { type: 'image/jpeg' }),
+        new File(['d'], 'dup.jpg', { type: 'image/jpeg' }),
+        new File(['e'], 'e.jpg', { type: 'image/jpeg' })
+      ]);
+    });
+
+    await waitFor(() => expect(result.current.activeUploads).toHaveLength(0));
+    await waitFor(() => expect(onBatchComplete).toHaveBeenCalledTimes(1));
+    expect(onBatchComplete).toHaveBeenCalledWith(4);
+    expect(uploadFile).toHaveBeenCalledTimes(5);
+  });
+
+  it('does not report a batch in which every file was skipped as a duplicate', async () => {
+    const onBatchComplete = vi.fn();
+    const uploadFile = vi.fn(async ({ fullPath }: { fullPath: string }) => {
+      throw new ApiError('Upload skipped due to duplicate', 409, {
+        code: 'UPLOAD_SKIPPED_DUPLICATE',
+        duplicateType: 'NAME',
+        fullPath,
+        reason: 'Duplicate.'
+      });
+    });
+    const { result } = renderHook(() =>
+      useDockspaceUploadDialog({
+        currentFolderPath: '/media',
+        uploadFile,
+        onBatchComplete
+      })
+    );
+
+    act(() => {
+      result.current.stageFiles([new File(['a'], 'a.jpg', { type: 'image/jpeg' })]);
+    });
+
+    await waitFor(() => expect(result.current.skippedUploads).toHaveLength(1));
+    await waitFor(() => expect(result.current.activeUploads).toHaveLength(0));
+    expect(onBatchComplete).not.toHaveBeenCalled();
+  });
 });

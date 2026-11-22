@@ -1,8 +1,20 @@
-import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import {
+  type InfiniteData,
+  type QueryClient,
+  useMutation,
+  useQuery,
+  useQueryClient
+} from '@tanstack/react-query';
 import { useStore } from '@tanstack/react-store';
 import { authStore } from '@/lib/authStore';
 import { ApiError } from '@/lib/apiClient';
-import type { DirectoryChildrenRecord } from '@/lib/apiTypes';
+import type {
+  DirectoryChildrenRecord,
+  MediaDuplicateGroupRecord,
+  MediaDuplicatesResponse,
+  MediaFileRecord,
+  MediaListResponse
+} from '@/lib/apiTypes';
 import {
   createFolder,
   listFolderChildren,
@@ -155,6 +167,146 @@ export const useRenameFolder = (dockspaceId: string, folder: string) => {
   });
 };
 
+/**
+ * A duplicate group without the given files, recomputed the way the server builds it (items stay in its order, the
+ * first one is the default keeper), or null when fewer than two files are left and it is no longer a duplicate group.
+ */
+const withoutTrashedDuplicates = (
+  group: MediaDuplicateGroupRecord,
+  keep: (item: MediaFileRecord) => boolean
+): MediaDuplicateGroupRecord | null => {
+  const items = group.items.filter(keep);
+  if (items.length < 2) {
+    return null;
+  }
+
+  const totalGroupSizeBytes = items.reduce((sum, item) => sum + item.size, 0);
+  return {
+    ...group,
+    items,
+    duplicateCount: items.length - 1,
+    totalGroupSizeBytes,
+    reclaimableBytes: totalGroupSizeBytes - (items[0]?.size ?? 0),
+    defaultKeeperFileNodeId: items[0]?.fileNodeId ?? group.defaultKeeperFileNodeId
+  };
+};
+
+/** Takes trashed files out of every loaded page of the cached duplicate groups, and their totals out of the summary. */
+const removeTrashedDuplicates = (
+  data: InfiniteData<MediaDuplicatesResponse> | undefined,
+  keep: (item: MediaFileRecord) => boolean
+) => {
+  if (!data?.pages || data.pages.every((page) => page.items.every((group) => group.items.every(keep)))) {
+    return data;
+  }
+
+  let removedGroups = 0;
+  let removedDuplicateItems = 0;
+  let removedReclaimableBytes = 0;
+  const pages = data.pages.map((page) => {
+    if (page.items.every((group) => group.items.every(keep))) {
+      return page;
+    }
+
+    const groups: MediaDuplicateGroupRecord[] = [];
+    for (const group of page.items) {
+      if (group.items.every(keep)) {
+        groups.push(group);
+        continue;
+      }
+
+      const next = withoutTrashedDuplicates(group, keep);
+      removedDuplicateItems += group.duplicateCount - (next?.duplicateCount ?? 0);
+      removedReclaimableBytes += group.reclaimableBytes - (next?.reclaimableBytes ?? 0);
+      if (next) {
+        groups.push(next);
+      } else {
+        removedGroups += 1;
+      }
+    }
+
+    return { ...page, items: groups };
+  });
+
+  // The summary covers every group, loaded or not; it is read from the first page.
+  const [firstPage, ...otherPages] = pages;
+  if (!firstPage) {
+    return { ...data, pages };
+  }
+
+  return {
+    ...data,
+    pages: [
+      {
+        ...firstPage,
+        summary: {
+          groupCount: Math.max(0, firstPage.summary.groupCount - removedGroups),
+          duplicateItemCount: Math.max(0, firstPage.summary.duplicateItemCount - removedDuplicateItems),
+          reclaimableBytes: Math.max(0, firstPage.summary.reclaimableBytes - removedReclaimableBytes)
+        }
+      },
+      ...otherPages
+    ]
+  };
+};
+
+/**
+ * Takes trashed files out of the cached gallery (every loaded page), the duplicate groups and album lists at once, so
+ * they leave without waiting for a refetch. The refetch that follows cannot bring them back: the server has already
+ * trashed them, and invalidating cancels any request that was in flight when the trash succeeded.
+ */
+const removeTrashedMedia = (
+  queryClient: QueryClient,
+  userId: string,
+  dockspaceId: string,
+  isTrashed: (fullPath: string) => boolean
+) => {
+  const keep = (item: MediaFileRecord) => !isTrashed(item.fullPath);
+
+  queryClient.setQueriesData<InfiniteData<MediaListResponse>>(
+    { queryKey: ['media', userId, dockspaceId] },
+    (data) => {
+      if (!data?.pages || data.pages.every((page) => page.items.every(keep))) {
+        return data;
+      }
+
+      return {
+        ...data,
+        pages: data.pages.map((page) =>
+          page.items.every(keep) ? page : { ...page, items: page.items.filter(keep) }
+        )
+      };
+    }
+  );
+
+  queryClient.setQueriesData<InfiniteData<MediaDuplicatesResponse>>(
+    { queryKey: ['media-duplicates', userId, dockspaceId] },
+    (data) => removeTrashedDuplicates(data, keep)
+  );
+
+  queryClient.setQueriesData<MediaFileRecord[]>(
+    { queryKey: ['album-media', userId, dockspaceId] },
+    (data) => (Array.isArray(data) && !data.every(keep) ? data.filter(keep) : data)
+  );
+};
+
+/**
+ * Refreshes everything a trash changes except folder listings. Not awaited: the gallery query is paged, and its
+ * refetch requests every loaded page again, one after another, which can take seconds.
+ */
+const refetchAfterTrashInBackground = (queryClient: QueryClient, userId: string, dockspaceId: string) => {
+  for (const queryKey of [
+    trashQueryKey(userId, dockspaceId),
+    ['media', userId, dockspaceId],
+    ['media-duplicates', userId, dockspaceId],
+    ['albums', userId, dockspaceId],
+    ['album-media', userId, dockspaceId],
+    ['media-albums', userId, dockspaceId]
+  ]) {
+    void queryClient.invalidateQueries({ queryKey });
+  }
+};
+
 export const useMoveToTrash = (dockspaceId: string, folder: string) => {
   const queryClient = useQueryClient();
   const { session } = useStore(authStore);
@@ -164,20 +316,24 @@ export const useMoveToTrash = (dockspaceId: string, folder: string) => {
   return useMutation({
     mutationFn: (params: { fullPath: string; targetType?: 'file' | 'folder' }) =>
       moveToTrash(dockspaceId, params),
-    onSuccess: async () => {
+    onSuccess: async (_response, { fullPath, targetType }) => {
       if (!userId) {
         return;
       }
 
-      await Promise.all([
-        queryClient.invalidateQueries({ queryKey: ['files', userId, dockspaceId] }),
-        queryClient.invalidateQueries({ queryKey: trashQueryKey(userId, dockspaceId) }),
-        queryClient.invalidateQueries({ queryKey: ['media', userId, dockspaceId] }),
-        queryClient.invalidateQueries({ queryKey: ['media-duplicates', userId, dockspaceId] }),
-        queryClient.invalidateQueries({ queryKey: ['albums', userId, dockspaceId] }),
-        queryClient.invalidateQueries({ queryKey: ['album-media', userId, dockspaceId] }),
-        queryClient.invalidateQueries({ queryKey: ['media-albums', userId, dockspaceId] })
-      ]);
+      const folderPrefix = `${fullPath.replace(/\/+$/, '')}/`;
+      removeTrashedMedia(
+        queryClient,
+        userId,
+        dockspaceId,
+        targetType === 'folder'
+          ? (itemPath) => itemPath.startsWith(folderPrefix)
+          : (itemPath) => itemPath === fullPath
+      );
+      refetchAfterTrashInBackground(queryClient, userId, dockspaceId);
+      // The files page moves focus off the trashed row once its listing no longer has it, so this one is awaited.
+      // It is only refetched where a folder listing is on screen; in the gallery it resolves at once.
+      await queryClient.invalidateQueries({ queryKey: ['files', userId, dockspaceId] });
     }
   });
 };
@@ -237,20 +393,17 @@ export const useTrashFilesBatch = (dockspaceId: string) => {
         failed
       };
     },
-    onSuccess: async () => {
+    onSuccess: ({ movedPaths }) => {
       if (!userId) {
         return;
       }
 
-      await Promise.all([
-        queryClient.invalidateQueries({ queryKey: ['files', userId, dockspaceId] }),
-        queryClient.invalidateQueries({ queryKey: trashQueryKey(userId, dockspaceId) }),
-        queryClient.invalidateQueries({ queryKey: ['media', userId, dockspaceId] }),
-        queryClient.invalidateQueries({ queryKey: ['media-duplicates', userId, dockspaceId] }),
-        queryClient.invalidateQueries({ queryKey: ['albums', userId, dockspaceId] }),
-        queryClient.invalidateQueries({ queryKey: ['album-media', userId, dockspaceId] }),
-        queryClient.invalidateQueries({ queryKey: ['media-albums', userId, dockspaceId] })
-      ]);
+      // Nothing here is awaited: the caller closes its dialog and clears the selection as soon as the trash requests
+      // succeed. The trashed tiles leave the cached gallery now, and the refetches run in the background.
+      const moved = new Set(movedPaths);
+      removeTrashedMedia(queryClient, userId, dockspaceId, (itemPath) => moved.has(itemPath));
+      refetchAfterTrashInBackground(queryClient, userId, dockspaceId);
+      void queryClient.invalidateQueries({ queryKey: ['files', userId, dockspaceId] });
     }
   });
 };

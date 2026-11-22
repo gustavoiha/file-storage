@@ -300,3 +300,14 @@ Recorded 2026-11-20 by the setup session from a `cdk diff` of origin/main 5678ad
 - Known pre-existing issues still live: an upload from the media gallery does not refresh it (T-0033, #74); the gallery Move to trash dialog waits for the whole refetch (T-0034, #75).
 - Logs: $LOCAL/logs/prod-deploy-diff-pr-20261122T140532Z.log, prod-deploy-diff-20261122T140601Z.log, prod-deploy-web-20261122T140655Z.log, prod-deploy-diff-20261122T140706Z.log.
 - Prod is now at origin/main `3a8036d` for both infra and web.
+
+### 2026-11-22 — T-0032 — web
+- origin/main commit: `9c3fc64` (PR #72 squash-merged). Run as `dockspace-prod-agent-deployer` via `prod-deploy.sh`.
+- Pre-deploy: PR #72 at `127d8b4` was MERGEABLE/CLEAN but based on `c5dfcdf`; main had moved to `3a8036d` (T-0031, PR #71, also in `VirtualizedMediaGrid.tsx`). The merge was conflict-free, and the merged tree passed typecheck, the web tests (58 files, 417 tests) and the web build in a local merge-check worktree. Web only (`FileViewerDialog.tsx`, `DockspaceMediaWorkspace.tsx`, `VirtualizedMediaGrid.tsx`, `useDockspaceMediaController.ts`, a new test); no API, backend or infra change. `prod-deploy.sh diff-pr 72` showed 0 stacks with differences. Main since the last deploy (`3a8036d`) had no commits; `prod-deploy.sh diff` 0 stacks, so no drift.
+- Infra: not run. Post-deploy `prod-deploy.sh diff` at `9c3fc64` shows 0 stacks with differences.
+- Web (`prod-deploy.sh web`): built and synced to the prod site bucket; invalidated `/*` on the prod distribution. Entry bundle `index-BrHA_rQk.js`, `DockspaceMediaPage-B2NFaLd1.js`, stylesheet `index-DKj7lqav.css`.
+- Shipped: #72 `9c3fc64` (T-0032).
+- Smoke check: https://dh0djlfa46gz6.cloudfront.net/login serves `index-BrHA_rQk.js`, renders the sign-in form, `DockspaceMediaPage-B2NFaLd1.js` is served (200, JavaScript) and contains the focus-return code (`data-media-index`), and the console shows no errors.
+- Known pre-existing issue still live: the gallery preview does not take focus on open and has no Tab trap (T-0035, #77).
+- Logs: $LOCAL/logs/prod-deploy-diff-pr-20261122T141220Z.log, prod-deploy-diff-20261122T141246Z.log, prod-deploy-web-20261122T141343Z.log, prod-deploy-diff-20261122T141354Z.log.
+- Prod is now at origin/main `9c3fc64` for both infra and web.

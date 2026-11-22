@@ -93,13 +93,29 @@ export const useDockspaceMediaController = ({ dockspaceId }: UseDockspaceMediaCo
     selectionState.clearSelection();
   }, [selectionState]);
 
+  // Automatic loading: never while a next page is loading or after one failed (Try again resumes it).
+  // cancelRefetch: false joins a fetch already in flight instead of cancelling it and sending another request.
   const onLoadMoreMedia = useCallback(() => {
-    if (!mediaData.mediaHasNextPage || mediaData.mediaIsFetchingNextPage) {
+    if (!mediaData.mediaHasNextPage || mediaData.mediaIsFetchingNextPage || mediaData.mediaNextPageError) {
       return;
     }
 
-    void mediaData.mediaQuery.fetchNextPage();
-  }, [mediaData.mediaHasNextPage, mediaData.mediaIsFetchingNextPage, mediaData.mediaQuery.fetchNextPage]);
+    void mediaData.mediaQuery.fetchNextPage({ cancelRefetch: false });
+  }, [
+    mediaData.mediaHasNextPage,
+    mediaData.mediaIsFetchingNextPage,
+    mediaData.mediaNextPageError,
+    mediaData.mediaQuery.fetchNextPage
+  ]);
+
+  // Try again after a failed next page: one request per press.
+  const onRetryNextMediaPage = useCallback(() => {
+    if (mediaData.mediaIsFetchingNextPage) {
+      return;
+    }
+
+    void mediaData.mediaQuery.fetchNextPage({ cancelRefetch: false });
+  }, [mediaData.mediaIsFetchingNextPage, mediaData.mediaQuery.fetchNextPage]);
 
   useEffect(() => {
     if (!selectedMediaId) {
@@ -361,6 +377,7 @@ export const useDockspaceMediaController = ({ dockspaceId }: UseDockspaceMediaCo
     uploadErrorMessage,
     membershipMutationPending,
     mediaListError: mediaData.mediaListError,
+    mediaNextPageError: mediaData.mediaNextPageError,
     duplicatesListError: mediaData.duplicatesListError,
     mediaHasNextPage: mediaData.mediaHasNextPage,
     mediaIsFetchingNextPage: mediaData.mediaIsFetchingNextPage,
@@ -374,6 +391,7 @@ export const useDockspaceMediaController = ({ dockspaceId }: UseDockspaceMediaCo
     isLoadingMoreDuplicateGroups: mediaData.mediaDuplicatesQuery.isFetchingNextPage,
     onLoadMoreDuplicateGroups,
     onLoadMoreMedia,
+    onRetryNextMediaPage,
     onUploadButtonClick,
     onToggleDuplicates,
     onSelectAllMedia,

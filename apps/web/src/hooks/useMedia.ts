@@ -29,10 +29,13 @@ export const mediaAlbumsQueryKey = (userId: string, dockspaceId: string, fileNod
 export const mediaDuplicatesQueryKey = (userId: string, dockspaceId: string, pageSize: number) =>
   ['media-duplicates', userId, dockspaceId, pageSize] as const;
 
+/** Items per page of the media gallery (the API accepts up to 200). */
+export const MEDIA_PAGE_SIZE = 120;
+
 export const useMediaFiles = (dockspaceId: string) => {
   const { session } = useStore(authStore);
   const userId = session?.userId ?? '';
-  const pageSize = 60;
+  const pageSize = MEDIA_PAGE_SIZE;
 
   return useInfiniteQuery({
     queryKey: mediaQueryKey(userId, dockspaceId),

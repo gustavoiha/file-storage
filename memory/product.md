@@ -15,6 +15,7 @@ Dockspace: a self-hosted, single-tenant cloud file storage app on AWS (minimal G
 All open tasks have their own issues (#11-#16, sub-issues of request #5) since 2026-11-20. 2026-11-20 sweep: the permission and infra-hold blockers are resolved by the setup change (pre-approved prod-deploy.sh, gh pr merge for deployment, drift rules). T-0001, T-0002 and T-0006 have shipped. T-0003 and T-0004 ship with T-0001's deploy of main. Only T-0005 waits on the human (design pick).
 
 - T-0026 Quick dockspace switcher panel, Slack-style (issue #58, request #57): an always-visible switcher on the dockspace pages (drawer/sheet on phone) to change dockspace in one action without going back to the dockspace list page; the human calls it an experiment. Human picked option 3 (dockspace tabs in the top nav, "More (n)" popover; phone: bar under the top nav opening a full-screen list) on 2026-11-22; design is writing the final spec.
+- T-0027 Stop the dockspace list request loop when it fails on the files page (issue #61, request #57, origin T-0026): pre-existing bug found while testing T-0026; when `GET /dockspaces` fails, the files page refetches it in a tight loop (about 850/s) and shows "Loading dockspace..." for ever. Bound the requests and show an error with Try again. Status new.
 
 ### Shipped
 - 2026-11-22 (prod at 93aef8c): T-0025 Failed folder listing stays steady during uploads and folder creates (#56, PR #59): while the open folder's listing has failed, background refetches (after an upload, a folder create, discovery) keep the same error and Try again mounted, focus stays on Try again; a folder created or file uploaded into the failed folder no longer stays "Creating..." or vanishes: a status line says it was saved and will show after Try again (a count for several items). Try again, the empty state and T-0024 behaviour unchanged.
@@ -74,4 +75,5 @@ All open tasks have their own issues (#11-#16, sub-issues of request #5) since 2
 | T-0023 | #50 | #5 | Trash page keeps focus on the row after a failed restore | done | Engineering |
 | T-0024 | #52 | #31 | Failed folder listing shows the error without the empty state | done | Engineering |
 | T-0025 | #56 | #31 | Failed folder listing stays steady during uploads and folder creates | done | Test results filtering |
-| T-0026 | #58 | #57 | Quick dockspace switcher panel (Slack-style) | filtering | Design |
+| T-0026 | #58 | #57 | Quick dockspace switcher panel (Slack-style) | deploying | Design |
+| T-0027 | #61 | #57 | Stop the dockspace list request loop when it fails on the files page | new | Test results filtering |

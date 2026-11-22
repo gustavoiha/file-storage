@@ -443,3 +443,14 @@ Recorded 2026-11-20 by the setup session from a `cdk diff` of origin/main 5678ad
 - Known pre-existing issues still live: gallery partial trash failure shown in the info style (T-0048, #104); mixed valid/invalid upload selection clears the skipped-files notice (T-0047, #101); phone pill says "an upload failed" for skipped files (T-0045, #96); files-page phone Upload button 37.4px (T-0046, #98); batches over 120 uploads (T-0042, #90).
 - Logs: $LOCAL/logs/prod-deploy-diff-pr-20261122T184714Z.log, prod-deploy-diff-20261122T184755Z.log, prod-deploy-web-20261122T184903Z.log, prod-deploy-diff-20261122T184916Z.log.
 - Prod is now at origin/main `fa05f2e` for both infra and web.
+
+### 2026-11-22 — T-0046 — web
+- origin/main commit: `475431c` (PR #102 squash-merged). Run as `dockspace-prod-agent-deployer` via `prod-deploy.sh`.
+- Pre-deploy: PR #102 at `5944ece` was MERGEABLE/CLEAN with merge base `b433bae`; main had moved to `fa05f2e` (T-0043 #94, T-0044 #97 edits another rule of `layout.css`, T-0041 #100; no overlap). The PR merged onto `fa05f2e` without conflicts and passed typecheck, tests (web 69 files, 575 tests; backend 37 files, 178 tests) and build in a local merge-check worktree, and the squash-merged tree matches it. Web only (`layout.css` one phone-scoped `min-height`, a CSS guard test); no API, backend or infra change. `prod-deploy.sh diff-pr 102` showed 0 stacks with differences. Main since the last deploy (`fa05f2e`) had no commits; `prod-deploy.sh diff` 0 stacks, so no drift.
+- Infra: not run. Post-deploy `prod-deploy.sh diff` at `475431c` shows 0 stacks with differences.
+- Web (`prod-deploy.sh web`): built and synced to the prod site bucket; invalidated `/*` on the prod distribution. Entry bundle `index-BxETAc52.js`, `DockspaceFilesPage-CknWJ8M1.js`, stylesheet `index-Cwg07VRo.css`.
+- Shipped: #102 `475431c` (T-0046).
+- Smoke check: https://dh0djlfa46gz6.cloudfront.net/login serves `index-BxETAc52.js` and `index-Cwg07VRo.css`, renders the sign-in form, the stylesheet (200, text/css) contains `min-height:2.75rem` on `.dockspace-upload-menu--floating .dockspace-upload-menu__trigger`, and the console shows no errors.
+- Known pre-existing issues still live: gallery partial trash failure shown in the info style (T-0048, #104); mixed valid/invalid upload selection clears the skipped-files notice (T-0047, #101); phone pill says "an upload failed" for skipped files (T-0045, #96; T-0049, #106); batches over 120 uploads (T-0042, #90).
+- Logs: $LOCAL/logs/prod-deploy-diff-pr-20261122T185240Z.log, prod-deploy-diff-20261122T185307Z.log, prod-deploy-web-20261122T185405Z.log, prod-deploy-diff-20261122T185416Z.log.
+- Prod is now at origin/main `475431c` for both infra and web.

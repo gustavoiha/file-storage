@@ -476,3 +476,14 @@ Recorded 2026-11-20 by the setup session from a `cdk diff` of origin/main 5678ad
 - Known pre-existing issues still live: phone pill says "an upload failed" for skipped files, now also for mixed selections (T-0045, #96; T-0049, #106); uploads card collapse/expand drops focus (T-0050, #108); menus opened with Enter keep focus on the trigger (T-0051, #109); gallery partial trash failure shown in the info style (T-0048, #104).
 - Logs: $LOCAL/logs/prod-deploy-diff-pr-20261122T191228Z.log, prod-deploy-diff-20261122T191304Z.log, prod-deploy-web-20261122T191347Z.log, prod-deploy-diff-20261122T191359Z.log.
 - Prod is now at origin/main `accf211` for both infra and web.
+
+### 2026-11-22 — T-0048 — web
+- origin/main commit: `c941162` (PR #107 squash-merged). Run as `dockspace-prod-agent-deployer` via `prod-deploy.sh`.
+- Pre-deploy: PR #107 at `e11a2d1` was MERGEABLE/CLEAN with merge base `475431c`; main had moved to `accf211` (T-0042 #99, T-0047 #105; no file overlap with the gallery controller, helpers, types or workspace). The PR merged onto `accf211` without conflicts and passed typecheck, tests (web 69 files, 600 tests; backend 37 files, 178 tests) and build in a local merge-check worktree, and the squash-merged tree matches it. Web only (`mediaHelpers.ts`, `mediaTypes.ts`, `useDockspaceMediaController.ts`, `DockspaceMediaWorkspace.tsx`, two test files); no API, backend or infra change. `prod-deploy.sh diff-pr 107` showed 0 stacks with differences. Main since the last deploy (`accf211`) had no commits; `prod-deploy.sh diff` 0 stacks, so no drift.
+- Infra: not run. Post-deploy `prod-deploy.sh diff` at `c941162` shows 0 stacks with differences.
+- Web (`prod-deploy.sh web`): built and synced to the prod site bucket; invalidated `/*` on the prod distribution. Entry bundle `index-C1SoEEb7.js`, `DockspaceMediaPage-dLGh0tVl.js`, stylesheet `index-Cwg07VRo.css`.
+- Shipped: #107 `c941162` (T-0048).
+- Smoke check: https://dh0djlfa46gz6.cloudfront.net/login serves `index-C1SoEEb7.js`, renders the sign-in form, `DockspaceMediaPage-dLGh0tVl.js` is served (200, JavaScript) and contains the error-tone action messages, and the console shows no errors.
+- Known pre-existing issues still live: phone pill says "an upload failed" for skipped files, also for mixed selections (T-0045, #96; T-0049, #106); uploads card collapse/expand drops focus (T-0050, #108); menus opened with Enter keep focus on the trigger (T-0051, #109).
+- Logs: $LOCAL/logs/prod-deploy-diff-pr-20261122T191533Z.log, prod-deploy-diff-20261122T191622Z.log, prod-deploy-web-20261122T191707Z.log, prod-deploy-diff-20261122T191719Z.log.
+- Prod is now at origin/main `c941162` for both infra and web.

@@ -142,7 +142,7 @@ All open tasks have their own issues (#11-#16, sub-issues of request #5) since 2
 | T-0044 | #95 | #65 | Find duplicates summary focus ring: space between ring and text | done | Deployment |
 | T-0045 | #96 | #65 | Collapsed uploads pill: skipped files are not reported as a failed upload | review | Test results filtering |
 | T-0046 | #98 | #65 | Files page phone Upload button at least 44px, matching the uploads pill | done | Deployment |
-| T-0047 | #101 | #65 | Files upload: keep the skipped-files notice when some files still upload | testing | Engineering |
+| T-0047 | #101 | #65 | Files upload: keep the skipped-files notice when some files still upload | filtering | Engineering |
 | T-0048 | #104 | #65 | Gallery trash result: a partial failure shows as an error | testing | Test results filtering |
 | T-0049 | #106 | #65 | Files page uploads pill: skipped invalid-path files are a notice, not a failed upload | new | Review judge |
 | T-0050 | #108 | #65 | Uploads card keeps keyboard focus when it collapses or expands | new | Test results filtering |

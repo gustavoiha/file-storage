@@ -23,3 +23,8 @@ export const formatTimestamp = (value: string): string => {
 
   return timestampFormatter.format(date);
 };
+
+export const formatSkippedNonMediaFilesMessage = (count: number): string =>
+  count === 1
+    ? '1 file was skipped because this gallery accepts only photos and videos.'
+    : `${count} files were skipped because this gallery accepts only photos and videos.`;

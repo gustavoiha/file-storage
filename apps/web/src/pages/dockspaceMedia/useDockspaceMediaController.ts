@@ -9,6 +9,7 @@ import {
   useRefreshMediaAfterUploads,
   useRemoveAlbumMedia
 } from '@/hooks/useMedia';
+import { formatSkippedNonMediaFilesMessage } from '@/pages/dockspaceMedia/mediaHelpers';
 import type { MediaGridSize } from '@/pages/dockspaceMedia/mediaTypes';
 import type { MediaGridFocusHandle } from '@/pages/dockspaceMedia/VirtualizedMediaGrid';
 import { useDuplicateSelectionState } from '@/pages/dockspaceMedia/useDuplicateSelectionState';
@@ -221,10 +222,7 @@ export const useDockspaceMediaController = ({ dockspaceId }: UseDockspaceMediaCo
       const rejectedCount = selectedFiles.length - mediaFiles.length;
 
       if (rejectedCount > 0) {
-        const suffix = rejectedCount === 1 ? '' : 's';
-        setUploadSelectionError(
-          `${rejectedCount} file${suffix} were skipped because PHOTOS_VIDEOS accepts only image/video uploads.`
-        );
+        setUploadSelectionError(formatSkippedNonMediaFilesMessage(rejectedCount));
       } else {
         setUploadSelectionError(null);
       }

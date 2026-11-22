@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { ChevronDown, Upload } from 'lucide-react';
 import { Button } from '@/components/ui/Button';
 import type { ActiveUploadFile, SkippedUploadFile } from '@/hooks/useDockspaceUploadDialog';
@@ -85,6 +85,13 @@ export const UploadsCard = ({
 }: UploadsCardProps) => {
   const [isCollapsed, setIsCollapsed] = useState(defaultCollapsed);
   const [isSkippedExpanded, setIsSkippedExpanded] = useState(false);
+  const collapseButtonRef = useRef<HTMLButtonElement>(null);
+  // Retry turns the failed row back into a waiting one, which removes the focused Retry button: focus moves to the
+  // card's Collapse button first instead of falling to <body>.
+  const retryUpload = (uploadId: number) => {
+    collapseButtonRef.current?.focus();
+    onRetryUpload(uploadId);
+  };
 
   useEffect(() => {
     setIsCollapsed(defaultCollapsed);
@@ -126,6 +133,7 @@ export const UploadsCard = ({
           <span className="dockspace-uploads__count">{activeUploads.length} active</span>
         ) : null}
         <button
+          ref={collapseButtonRef}
           type="button"
           className="dockspace-icon-button dockspace-icon-button--ghost dockspace-uploads__toggle"
           aria-expanded="true"
@@ -139,7 +147,7 @@ export const UploadsCard = ({
       {activeUploads.length ? (
         <ul className="dockspace-uploads__list">
           {activeUploads.map((upload) => (
-            <UploadRow key={upload.id} upload={upload} onRetryUpload={onRetryUpload} />
+            <UploadRow key={upload.id} upload={upload} onRetryUpload={retryUpload} />
           ))}
         </ul>
       ) : null}

@@ -152,3 +152,73 @@ describe('DropdownMenu keyboard navigation', () => {
     expect(onKeyDown.mock.results[0]?.value).toBe(false);
   });
 });
+
+const RadioMenu = () => {
+  const [isOpen, setIsOpen] = useState(false);
+  const [current, setCurrent] = useState('Japan');
+
+  return (
+    <DropdownMenu isOpen={isOpen} onOpenChange={setIsOpen}>
+      <DropdownMenu.Trigger aria-label="Album">{current}</DropdownMenu.Trigger>
+      <DropdownMenu.Content label="Albums" initialFocus="checked">
+        {['All media', 'Japan', 'Lisbon', 'Pets'].map((name) => (
+          <DropdownMenu.RadioItem key={name} checked={current === name} onClick={() => setCurrent(name)}>
+            {name}
+          </DropdownMenu.RadioItem>
+        ))}
+      </DropdownMenu.Content>
+    </DropdownMenu>
+  );
+};
+
+describe('DropdownMenu radio items', () => {
+  afterEach(cleanup);
+
+  const radio = (name: string) => screen.getByRole('menuitemradio', { name });
+
+  it('opens with focus on the checked item and marks it with aria-checked', () => {
+    render(<RadioMenu />);
+    fireEvent.click(screen.getByRole('button', { name: 'Album' }));
+
+    expect(screen.getByRole('menu', { name: 'Albums' })).toBeInTheDocument();
+    expect(radio('Japan')).toHaveAttribute('aria-checked', 'true');
+    expect(radio('Lisbon')).toHaveAttribute('aria-checked', 'false');
+    expect(radio('Japan')).toHaveFocus();
+  });
+
+  it('moves between radio items with arrow keys, Home and End, and by first letter', () => {
+    render(<RadioMenu />);
+    fireEvent.click(screen.getByRole('button', { name: 'Album' }));
+
+    press('ArrowDown');
+    expect(radio('Lisbon')).toHaveFocus();
+    press('End');
+    expect(radio('Pets')).toHaveFocus();
+    press('Home');
+    expect(radio('All media')).toHaveFocus();
+    press('ArrowUp');
+    expect(radio('Pets')).toHaveFocus();
+    press('l');
+    expect(radio('Lisbon')).toHaveFocus();
+    press('J');
+    expect(radio('Japan')).toHaveFocus();
+    press('z');
+    expect(radio('Japan')).toHaveFocus();
+  });
+
+  it('checks the chosen item and closes; Escape closes and returns focus to the trigger', () => {
+    render(<RadioMenu />);
+    const trigger = screen.getByRole('button', { name: 'Album' });
+    fireEvent.click(trigger);
+    fireEvent.click(radio('Pets'));
+
+    expect(screen.queryByRole('menu')).not.toBeInTheDocument();
+    expect(trigger).toHaveTextContent('Pets');
+
+    fireEvent.click(trigger);
+    expect(radio('Pets')).toHaveFocus();
+    press('Escape');
+    expect(screen.queryByRole('menu')).not.toBeInTheDocument();
+    expect(trigger).toHaveFocus();
+  });
+});

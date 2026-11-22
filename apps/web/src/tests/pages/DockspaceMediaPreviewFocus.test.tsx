@@ -93,7 +93,8 @@ vi.mock('@/hooks/useMedia', () => ({
   }),
   useMediaAlbums: () => ({ data: [], isLoading: false, error: null }),
   useAssignAlbumMedia: () => ({ mutateAsync: vi.fn(), isPending: false }),
-  useRemoveAlbumMedia: () => ({ mutateAsync: vi.fn(), isPending: false })
+  useRemoveAlbumMedia: () => ({ mutateAsync: vi.fn(), isPending: false }),
+  useRefreshMediaAfterUploads: () => () => undefined
 }));
 
 const originalClientWidth = Object.getOwnPropertyDescriptor(HTMLElement.prototype, 'clientWidth');

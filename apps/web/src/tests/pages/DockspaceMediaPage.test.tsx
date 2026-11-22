@@ -1,4 +1,4 @@
-import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { act, cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { DockspaceMediaPage } from '@/pages/DockspaceMediaPage';
 import type { MediaFileRecord } from '@/lib/apiTypes';
@@ -36,7 +36,9 @@ const mockState = vi.hoisted(() => ({
   uploadFile: vi.fn(async () => ({})),
   moveToTrash: vi.fn(async () => ({})),
   trashFilesBatch: vi.fn(async () => ({ movedPaths: [], failed: [] })),
-  assignAlbumMedia: vi.fn(async () => ({}))
+  assignAlbumMedia: vi.fn(async () => ({})),
+  refreshMediaAfterUploads: vi.fn(async () => {}),
+  uploadDialogParams: null as null | { onBatchComplete?: (uploadedCount: number) => void }
 }));
 
 vi.mock('@tanstack/react-router', () => ({
@@ -65,15 +67,18 @@ vi.mock('@/components/files/UploadStagingList', () => ({
 }));
 
 vi.mock('@/hooks/useDockspaceUploadDialog', () => ({
-  useDockspaceUploadDialog: () => ({
-    clearValidationError: vi.fn(),
-    validationError: null,
-    stageFiles: vi.fn(),
-    activeUploads: [],
-    retryUpload: vi.fn(),
-    skippedUploads: [],
-    clearSkippedUploads: vi.fn()
-  })
+  useDockspaceUploadDialog: (params: { onBatchComplete?: (uploadedCount: number) => void }) => {
+    mockState.uploadDialogParams = params;
+    return {
+      clearValidationError: vi.fn(),
+      validationError: null,
+      stageFiles: vi.fn(),
+      activeUploads: [],
+      retryUpload: vi.fn(),
+      skippedUploads: [],
+      clearSkippedUploads: vi.fn()
+    };
+  }
 }));
 
 vi.mock('@/hooks/useFiles', () => ({
@@ -113,7 +118,8 @@ vi.mock('@/hooks/useMedia', () => ({
   useRenameAlbum: () => ({ mutateAsync: vi.fn(async () => ({})), isPending: false }),
   useDeleteAlbum: () => ({ mutateAsync: vi.fn(async () => ({})), isPending: false }),
   useAssignAlbumMedia: () => ({ mutateAsync: mockState.assignAlbumMedia, isPending: false }),
-  useRemoveAlbumMedia: () => ({ mutateAsync: vi.fn(async () => ({})), isPending: false })
+  useRemoveAlbumMedia: () => ({ mutateAsync: vi.fn(async () => ({})), isPending: false }),
+  useRefreshMediaAfterUploads: () => mockState.refreshMediaAfterUploads
 }));
 
 describe('DockspaceMediaPage', () => {
@@ -133,10 +139,22 @@ describe('DockspaceMediaPage', () => {
     mockState.mediaFetchNextPage.mockClear();
     mockState.trashFilesBatch.mockClear();
     mockState.assignAlbumMedia.mockClear();
+    mockState.refreshMediaAfterUploads.mockClear();
+    mockState.uploadDialogParams = null;
   });
 
   afterEach(() => {
     cleanup();
+  });
+
+  it('refreshes the gallery once when a batch of uploads finishes', () => {
+    render(<DockspaceMediaPage dockspaceId="dock-1" dockspaceName="Camera Roll" />);
+
+    expect(mockState.refreshMediaAfterUploads).not.toHaveBeenCalled();
+    act(() => {
+      mockState.uploadDialogParams?.onBatchComplete?.(3);
+    });
+    expect(mockState.refreshMediaAfterUploads).toHaveBeenCalledTimes(1);
   });
 
   it('virtualizes all-media grid by rendering only visible subset', () => {

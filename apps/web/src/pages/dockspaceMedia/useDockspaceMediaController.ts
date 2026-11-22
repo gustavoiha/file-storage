@@ -4,7 +4,11 @@ import type { MediaFileRecord } from '@/lib/apiTypes';
 import { isLikelyMediaFile } from '@/lib/fileContentType';
 import { useMoveToTrash, useTrashFilesBatch, useUploadFile } from '@/hooks/useFiles';
 import { useDockspaceUploadDialog } from '@/hooks/useDockspaceUploadDialog';
-import { useAssignAlbumMedia, useRemoveAlbumMedia } from '@/hooks/useMedia';
+import {
+  useAssignAlbumMedia,
+  useRefreshMediaAfterUploads,
+  useRemoveAlbumMedia
+} from '@/hooks/useMedia';
 import type { MediaGridSize } from '@/pages/dockspaceMedia/mediaTypes';
 import type { MediaGridFocusHandle } from '@/pages/dockspaceMedia/VirtualizedMediaGrid';
 import { useDuplicateSelectionState } from '@/pages/dockspaceMedia/useDuplicateSelectionState';
@@ -54,10 +58,15 @@ export const useDockspaceMediaController = ({ dockspaceId }: UseDockspaceMediaCo
   const uploadFileMutation = useUploadFile(dockspaceId, '/');
   const moveToTrashMutation = useMoveToTrash(dockspaceId, '/');
   const trashFilesBatchMutation = useTrashFilesBatch(dockspaceId);
+  const refreshMediaAfterUploads = useRefreshMediaAfterUploads(dockspaceId);
 
   const uploadDialog = useDockspaceUploadDialog({
     currentFolderPath: '/',
-    uploadFile: uploadFileMutation.mutateAsync
+    uploadFile: uploadFileMutation.mutateAsync,
+    // One gallery refetch when a batch of uploads finishes, not one per file (the gallery is paged).
+    onBatchComplete: () => {
+      void refreshMediaAfterUploads();
+    }
   });
 
   const selectedMediaRecords = useMemo(

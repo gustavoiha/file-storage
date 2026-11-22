@@ -15,7 +15,7 @@ Dockspace: a self-hosted, single-tenant cloud file storage app on AWS (minimal G
 All open tasks have their own issues (#11-#16, sub-issues of request #5) since 2026-11-20. 2026-11-20 sweep: the permission and infra-hold blockers are resolved by the setup change (pre-approved prod-deploy.sh, gh pr merge for deployment, drift rules). T-0001, T-0002 and T-0006 have shipped. T-0003 and T-0004 ship with T-0001's deploy of main. Only T-0005 waits on the human (design pick).
 
 - T-0027 Stop the dockspace list request loop when it fails on the files page (issue #61, request #57, origin T-0026): pre-existing bug found while testing T-0026; when `GET /dockspaces` fails, the files page refetches it in a tight loop (about 850/s) and shows "Loading dockspace..." for ever. Bound the requests and show an error with Try again. Dispatched to engineering 2026-11-22 (no design round; follows the T-0024 error pattern).
-- T-0028 Show a load error on the dockspaces and usage pages when the dockspace list fails (issue #63, request #57, origin T-0027): pre-existing; with `GET /dockspaces` failing (non-403), `/dockspaces` looks empty and the usage page says "Dockspace not found.". Show an error with Try again. Status new.
+- T-0028 Show a load error on the dockspaces and usage pages when the dockspace list fails (issue #63, request #57, origin T-0027): pre-existing; with `GET /dockspaces` failing (non-403), `/dockspaces` looks empty and the usage page says "Dockspace not found.". Show an error with Try again. Dispatched to engineering 2026-11-22 (no design round; same error pattern).
 
 ### Shipped
 - 2026-11-22 (prod at 97ce3a7): T-0026 Quick dockspace switcher, Slack-style (#58, PR #60): dockspace tabs in the top nav on every page inside a dockspace (files, media, trash, usage) with the current one marked, a "More (n)" popover with a filter when they do not fit, and "+" to create a dockspace; on phone, a bar under the top nav opens a full-screen dockspace list. Switching opens the other dockspace at its root in one action, with nothing carried over. The human calls it an experiment.
@@ -78,4 +78,4 @@ All open tasks have their own issues (#11-#16, sub-issues of request #5) since 2
 | T-0025 | #56 | #31 | Failed folder listing stays steady during uploads and folder creates | done | Test results filtering |
 | T-0026 | #58 | #57 | Quick dockspace switcher panel (Slack-style) | done | Deployment |
 | T-0027 | #61 | #57 | Stop the dockspace list request loop when it fails on the files page | deploying | Engineering |
-| T-0028 | #63 | #57 | Show a load error on the dockspaces and usage pages when the dockspace list fails | new | Test results filtering |
+| T-0028 | #63 | #57 | Show a load error on the dockspaces and usage pages when the dockspace list fails | engineering | Engineering |

@@ -333,3 +333,14 @@ Recorded 2026-11-20 by the setup session from a `cdk diff` of origin/main 5678ad
 - Known pre-existing issue still live: a tile uploaded from the gallery shows the placeholder until a reload (T-0036, #79).
 - Logs: $LOCAL/logs/prod-deploy-diff-pr-20261122T150156Z.log, prod-deploy-diff-20261122T150222Z.log, prod-deploy-web-20261122T150309Z.log, prod-deploy-diff-20261122T150319Z.log.
 - Prod is now at origin/main `4ee9866` for both infra and web.
+
+### 2026-11-22 — T-0035 — web
+- origin/main commit: `85d6c61` (PR #80 squash-merged). Run as `dockspace-prod-agent-deployer` via `prod-deploy.sh`.
+- Pre-deploy: PR #80 at `e10304c` was MERGEABLE/CLEAN but based on `9c3fc64`; main had moved to `4ee9866` (T-0034, T-0033). The merge was conflict-free, and the merged tree passed typecheck, the web tests (60 files, 445 tests) and the web build in a local merge-check worktree; that tree is identical to the squash-merged `85d6c61`. Web only (`FileViewerDialog.tsx`, `useDialogDismiss.ts`, `DockspaceMediaPreviewFocus.test.tsx`); no API, backend or infra change. `prod-deploy.sh diff-pr 80` showed 0 stacks with differences. Main since the last deploy (`4ee9866`) had no commits; `prod-deploy.sh diff` 0 stacks, so no drift.
+- Infra: not run. Post-deploy `prod-deploy.sh diff` at `85d6c61` shows 0 stacks with differences.
+- Web (`prod-deploy.sh web`): built and synced to the prod site bucket; invalidated `/*` on the prod distribution. Entry bundle `index-DIbpDIbT.js`, `DockspaceMediaPage-BvYVuSTP.js`, stylesheet `index-DKj7lqav.css`.
+- Shipped: #80 `85d6c61` (T-0035).
+- Smoke check: https://dh0djlfa46gz6.cloudfront.net/login serves `index-DIbpDIbT.js`, renders the sign-in form, `DockspaceMediaPage-BvYVuSTP.js` is served (200, JavaScript) and contains "Close preview", the entry bundle contains the `video[controls]` tabbable selector, and the console shows no errors.
+- Known pre-existing issue still live: arrow keys on the preview's video/audio controls change the item instead of seeking (T-0037, #81).
+- Logs: $LOCAL/logs/prod-deploy-diff-pr-20261122T150620Z.log, prod-deploy-diff-20261122T150650Z.log, prod-deploy-web-20261122T150734Z.log, prod-deploy-diff-20261122T150745Z.log.
+- Prod is now at origin/main `85d6c61` for both infra and web.

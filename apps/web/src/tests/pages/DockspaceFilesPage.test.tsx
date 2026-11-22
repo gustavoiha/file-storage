@@ -57,6 +57,7 @@ const mockState = vi.hoisted(() => ({
   moveFolder: vi.fn(async () => ({ status: 'MOVED', from: '/docs', to: '/archive/docs', moved: true })),
   renameFile: vi.fn(async () => {}),
   renameFolder: vi.fn(async () => {}),
+  uploadFile: vi.fn(async (): Promise<unknown> => ({})),
   isPhone: false
 }));
 
@@ -126,7 +127,7 @@ vi.mock('@/hooks/useFiles', async () => {
     useRenameFile: () => ({ mutateAsync: mockState.renameFile, isPending: false, error: null }),
     useRenameFolder: () => ({ mutateAsync: mockState.renameFolder, isPending: false, error: null }),
     useCreateFolder: () => ({ mutateAsync: vi.fn(async () => ({})), isPending: false, error: null }),
-    useUploadFile: () => ({ mutateAsync: vi.fn(async () => ({})), isPending: false, error: null })
+    useUploadFile: () => ({ mutateAsync: mockState.uploadFile, isPending: false, error: null })
   };
 });
 
@@ -186,6 +187,8 @@ beforeEach(() => {
   mockState.filesError = null;
   mockState.resultCache.clear();
   mockState.isPhone = false;
+  mockState.uploadFile.mockReset();
+  mockState.uploadFile.mockImplementation(async () => ({}));
   window.matchMedia = vi.fn((query: string) => ({
     matches: mockState.isPhone && query.includes('max-width: 900px'),
     media: query,
@@ -677,6 +680,42 @@ describe('DockspaceFilesPage', () => {
       expect(
         fileRow('/Travel/packing-list.txt').closest('.dockspace-browser')
       ).toHaveAttribute('data-has-sizes', 'true');
+    });
+  });
+
+  describe('phone uploads pill', () => {
+    const pickFiles = (files: File[]) => {
+      const input = document.querySelectorAll('input[type="file"]')[0] as HTMLInputElement;
+      act(() => {
+        fireEvent.change(input, { target: { files } });
+      });
+    };
+
+    it('shows the failure dot and says an upload failed when an upload fails', async () => {
+      mockState.isPhone = true;
+      mockState.uploadFile.mockImplementation(async () => {
+        throw new Error('Network error');
+      });
+      renderPage();
+
+      pickFiles([new File(['x'], 'notes.txt', { type: 'text/plain' })]);
+
+      const pill = await screen.findByRole('button', { name: 'Expand uploads: 1 upload failed, an upload failed' });
+      expect(pill.querySelector('.dockspace-uploads__dot')).not.toBeNull();
+    });
+
+    it('still reports files with invalid upload paths as an error', () => {
+      mockState.isPhone = true;
+      renderPage();
+
+      pickFiles([new File(['x'], '..', { type: 'text/plain' })]);
+
+      const pill = screen.getByRole('button', { name: 'Expand uploads: Uploads, an upload failed' });
+      expect(pill.querySelector('.dockspace-uploads__dot')).not.toBeNull();
+      fireEvent.click(pill);
+      expect(
+        within(screen.getByRole('region', { name: 'Uploads' })).getByText(/invalid upload paths/)
+      ).toHaveClass('dockspace-uploads__error');
     });
   });
 

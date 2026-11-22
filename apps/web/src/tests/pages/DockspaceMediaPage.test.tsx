@@ -41,6 +41,7 @@ const mockState = vi.hoisted(() => ({
   isPhone: false,
   activeUploads: [] as ActiveUploadFile[],
   skippedUploads: [] as SkippedUploadFile[],
+  validationError: null as string | null,
   retryUpload: vi.fn(),
   clearSkippedUploads: vi.fn(),
   stageFiles: vi.fn(),
@@ -97,7 +98,7 @@ vi.mock('@/hooks/useDockspaceUploadDialog', () => ({
     mockState.uploadDialogParams = params;
     return {
       clearValidationError: vi.fn(),
-      validationError: null,
+      validationError: mockState.validationError,
       stageFiles: mockState.stageFiles,
       activeUploads: mockState.activeUploads,
       retryUpload: mockState.retryUpload,
@@ -168,6 +169,7 @@ beforeEach(() => {
   mockState.isPhone = false;
   mockState.activeUploads = [];
   mockState.skippedUploads = [];
+  mockState.validationError = null;
   mockState.retryUpload.mockClear();
   mockState.clearSkippedUploads.mockClear();
   mockState.stageFiles.mockClear();
@@ -670,6 +672,62 @@ describe('DockspaceMediaPage layout (no sidebar, album menu, gallery options)', 
     ).toBeInTheDocument();
     expect(document.querySelector('.media-workspace__alerts')).toBeNull();
     expect(mockState.stageFiles).not.toHaveBeenCalled();
+  });
+
+  it('phone: skipped non-media files make the pill say files were skipped, not that an upload failed', () => {
+    mockState.isPhone = true;
+    renderPage();
+
+    const input = document.querySelector('input[type="file"]') as HTMLInputElement;
+    act(() => {
+      fireEvent.change(input, {
+        target: { files: [new File(['x'], 'notes.txt', { type: 'text/plain' })] }
+      });
+    });
+
+    const pill = screen.getByRole('button', { name: 'Expand uploads: Uploads, files were skipped' });
+    expect(pill.querySelector('.dockspace-uploads__dot')).toBeNull();
+
+    fireEvent.click(pill);
+    const card = screen.getByRole('region', { name: 'Uploads' });
+    const notice = within(card).getByText('1 file was skipped because this gallery accepts only photos and videos.');
+    expect(notice).not.toHaveClass('dockspace-uploads__error');
+  });
+
+  it('phone: a failed upload still shows the failure dot and says an upload failed', () => {
+    mockState.isPhone = true;
+    mockState.activeUploads = [upload(1, '/IMG_1.jpg', 'failed')];
+    renderPage();
+
+    const pill = screen.getByRole('button', { name: 'Expand uploads: 1 upload failed, an upload failed' });
+    expect(pill.querySelector('.dockspace-uploads__dot')).not.toBeNull();
+  });
+
+  it('phone: an upload error next to skipped non-media files is still reported as a failure', () => {
+    mockState.isPhone = true;
+    mockState.validationError = 'Could not create the folders for this upload: Access denied';
+    renderPage();
+
+    const input = document.querySelector('input[type="file"]') as HTMLInputElement;
+    act(() => {
+      fireEvent.change(input, {
+        target: { files: [new File(['x'], 'notes.txt', { type: 'text/plain' })] }
+      });
+    });
+
+    const pill = screen.getByRole('button', {
+      name: 'Expand uploads: Uploads, an upload failed, files were skipped'
+    });
+    expect(pill.querySelector('.dockspace-uploads__dot')).not.toBeNull();
+
+    fireEvent.click(pill);
+    const card = screen.getByRole('region', { name: 'Uploads' });
+    expect(within(card).getByText('Could not create the folders for this upload: Access denied')).toHaveClass(
+      'dockspace-uploads__error'
+    );
+    expect(
+      within(card).getByText('1 file was skipped because this gallery accepts only photos and videos.')
+    ).toBeInTheDocument();
   });
 
   it('names several skipped files in the plural and still uploads the photos and videos', () => {

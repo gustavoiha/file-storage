@@ -33,7 +33,7 @@ export const useDockspaceMediaController = ({ dockspaceId }: UseDockspaceMediaCo
   const [selectedMediaId, setSelectedMediaId] = useState<string | null>(null);
   const [localError, setLocalError] = useState<string | null>(null);
   // Files the media input skipped (not images or videos): shown in the uploads card, not with the page's other errors.
-  const [uploadSelectionError, setUploadSelectionError] = useState<string | null>(null);
+  const [uploadSelectionNotice, setUploadSelectionNotice] = useState<string | null>(null);
   const [duplicateActionMessage, setDuplicateActionMessage] = useState<MediaActionMessage | null>(null);
   const [bulkActionMessage, setBulkActionMessage] = useState<MediaActionMessage | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -98,8 +98,9 @@ export const useDockspaceMediaController = ({ dockspaceId }: UseDockspaceMediaCo
   const membershipMutationPending =
     assignAlbumMediaMutation.isPending || removeAlbumMediaMutation.isPending;
 
+  // Non-media files left out of a pick (uploadSelectionNotice) are a notice, not an error: the uploads card gets them
+  // separately so it does not report them as a failed upload, and neither hides the other.
   const uploadErrorMessage =
-    uploadSelectionError ??
     uploadDialog.validationError ??
     (uploadFileMutation.error instanceof ApiError &&
     uploadFileMutation.error.code === 'UPLOAD_SKIPPED_DUPLICATE'
@@ -163,7 +164,7 @@ export const useDockspaceMediaController = ({ dockspaceId }: UseDockspaceMediaCo
 
   const onUploadButtonClick = useCallback(() => {
     uploadDialog.clearValidationError();
-    setUploadSelectionError(null);
+    setUploadSelectionNotice(null);
     fileInputRef.current?.click();
   }, [uploadDialog]);
 
@@ -226,9 +227,9 @@ export const useDockspaceMediaController = ({ dockspaceId }: UseDockspaceMediaCo
       const rejectedCount = selectedFiles.length - mediaFiles.length;
 
       if (rejectedCount > 0) {
-        setUploadSelectionError(formatSkippedNonMediaFilesMessage(rejectedCount));
+        setUploadSelectionNotice(formatSkippedNonMediaFilesMessage(rejectedCount));
       } else {
-        setUploadSelectionError(null);
+        setUploadSelectionNotice(null);
       }
 
       if (mediaFiles.length > 0) {
@@ -410,6 +411,7 @@ export const useDockspaceMediaController = ({ dockspaceId }: UseDockspaceMediaCo
     selectedDuplicatePaths: duplicateSelectionState.selectedDuplicatePaths,
     unauthorized: mediaData.unauthorized,
     uploadErrorMessage,
+    uploadNoticeMessage: uploadSelectionNotice,
     membershipMutationPending,
     mediaListError: mediaData.mediaListError,
     mediaNextPageError: mediaData.mediaNextPageError,

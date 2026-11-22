@@ -85,5 +85,5 @@ All open tasks have their own issues (#11-#16, sub-issues of request #5) since 2
 | T-0028 | #63 | #57 | Show a load error on the dockspaces and usage pages when the dockspace list fails | done | Engineering |
 | T-0029 | #66 | #65 | Gallery infinite scroll: no jump on phone, load further ahead on desktop | done | Engineering |
 | T-0030 | #67 | #65 | Gallery layout: no card frame, actions in a menu, gapless grid | review | Design |
-| T-0031 | #69 | #65 | Gallery: show loading status while a background refetch delays the next page | testing | Engineering |
+| T-0031 | #69 | #65 | Gallery: show loading status while a background refetch delays the next page | filtering | Engineering |
 | T-0032 | #70 | #65 | Gallery preview returns focus to its tile on close | testing | Engineering |

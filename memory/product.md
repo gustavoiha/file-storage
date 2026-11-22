@@ -40,6 +40,7 @@ All open tasks have their own issues (#11-#16, sub-issues of request #5) since 2
 - 2026-11-22 sweep: T-0039 (PR #91) and T-0040 (PR #88) are merged and live, so T-0041 is dispatched to engineering. T-0045 and T-0046 stay new until T-0038 (PR #92, deploying) is merged. T-0038 (deploying), T-0042 (engineering), T-0043 and T-0044 (testing) pipelines are running.
 - 2026-11-22 sweep: T-0038 (PR #92) is merged and live, so T-0045 and T-0046 are dispatched to engineering (both near the phone uploads pill: T-0045 in `UploadsCard.tsx`, T-0046 in the Upload button CSS; each rebases on main). T-0047 stays new until T-0043 (PR #94, deploying) is merged. T-0041 (engineering), T-0042 (review), T-0043 (deploying) and T-0044 (testing) pipelines are running.
 - 2026-11-22 sweep: T-0043 (PR #94) is merged and live, so T-0047 is dispatched to engineering (rebase on main; T-0045 touches the same Uploads card). T-0048 stays new until T-0041 (PR #100, deploying) is merged. T-0041 (deploying), T-0042, T-0045 and T-0046 (testing) pipelines are running.
+- 2026-11-22 sweep: T-0041 (PR #100) is merged and live, so T-0048 is dispatched to engineering (rebase on main). T-0049 stays new until T-0045 (PR #103) and T-0047 (PR #105) are merged. T-0042, T-0045, T-0047 (testing) and T-0046 (deploying) pipelines are running.
 
 ### Shipped
 - 2026-11-22 (prod at fa05f2e): T-0041 Gallery trash messages: correct plurals, success not shown as an error (#85, PR #100): trash results read "Moved 1 item to trash." / "Moved N items to trash." (+ " M failed.") in the gallery and Find duplicates, the duplicates footer "1 item selected for trash.", the dialog "This will move 1 selected media file to trash.", and the Find duplicates summary and group lines "1 duplicate group found.", "1 repeated file.", "1 file, 1 byte reclaimable"; a clean Find duplicates trash result shows in the blue info alert (failures stay red). Follow-up: gallery partial failure still shows in the info style (T-0048, #104).
@@ -139,5 +140,5 @@ All open tasks have their own issues (#11-#16, sub-issues of request #5) since 2
 | T-0045 | #96 | #65 | Collapsed uploads pill: skipped files are not reported as a failed upload | testing | Test results filtering |
 | T-0046 | #98 | #65 | Files page phone Upload button at least 44px, matching the uploads pill | deploying | Deployment |
 | T-0047 | #101 | #65 | Files upload: keep the skipped-files notice when some files still upload | testing | Engineering |
-| T-0048 | #104 | #65 | Gallery trash result: a partial failure shows as an error | new | Test results filtering |
+| T-0048 | #104 | #65 | Gallery trash result: a partial failure shows as an error | engineering | Test results filtering |
 | T-0049 | #106 | #65 | Files page uploads pill: skipped invalid-path files are a notice, not a failed upload | new | Review judge |

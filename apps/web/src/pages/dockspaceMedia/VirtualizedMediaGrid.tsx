@@ -1,4 +1,4 @@
-import { useEffect, useLayoutEffect, useRef, useState } from 'react';
+import { type Ref, useEffect, useImperativeHandle, useLayoutEffect, useRef, useState } from 'react';
 import { Film, Image as ImageIcon } from 'lucide-react';
 import {
   MEDIA_GRID_GAP_PX,
@@ -16,6 +16,15 @@ import { basename } from '@/pages/dockspaceMedia/mediaHelpers';
 import type { MediaSelectionOptions, MediaGridSize } from '@/pages/dockspaceMedia/mediaTypes';
 import type { MediaFileRecord } from '@/lib/apiTypes';
 import '@/styles/ui.css';
+
+export interface MediaGridFocusHandle {
+  /**
+   * Moves focus to the tile of this item (used when the preview closes). A tile outside the rendered rows is scrolled
+   * into view first. When the item is not in the grid any more, or its tile still cannot be rendered, focus goes to
+   * the scroll box, which is always mounted.
+   */
+  focusItem: (fileNodeId: string) => void;
+}
 
 interface VirtualizedMediaGridProps {
   items: MediaFileRecord[];
@@ -37,6 +46,7 @@ interface VirtualizedMediaGridProps {
   /** Message of a failed next-page request: automatic loading stops and the end of the grid offers Try again. */
   nextPageError?: string | null;
   onRetryNextPage?: () => void;
+  focusHandleRef?: Ref<MediaGridFocusHandle>;
 }
 
 export const VirtualizedMediaGrid = ({
@@ -53,7 +63,8 @@ export const VirtualizedMediaGrid = ({
   isFetching = isFetchingNextPage,
   onLoadMore,
   nextPageError = null,
-  onRetryNextPage
+  onRetryNextPage,
+  focusHandleRef
 }: VirtualizedMediaGridProps) => {
   const containerRef = useRef<HTMLDivElement>(null);
   const [viewportWidth, setViewportWidth] = useState(0);
@@ -174,6 +185,64 @@ export const VirtualizedMediaGrid = ({
     target?.focus();
   }, [items.length, nextPageError]);
 
+  // Focus return when the preview closes (see MediaGridFocusHandle). A tile that is not rendered is scrolled into
+  // view: its index waits here until the render with its row, then the layout effect below focuses it.
+  const pendingFocusIndexRef = useRef<number | null>(null);
+  const focusTile = (index: number): boolean => {
+    const tile = containerRef.current?.querySelector<HTMLElement>(`[data-media-index="${index}"]`);
+    tile?.focus();
+    return Boolean(tile);
+  };
+
+  useImperativeHandle(focusHandleRef, () => ({
+    focusItem: (fileNodeId: string) => {
+      const container = containerRef.current;
+      if (!container) {
+        return;
+      }
+
+      pendingFocusIndexRef.current = null;
+      const index = items.findIndex((item) => item.fileNodeId === fileNodeId);
+      if (index < 0) {
+        container.focus();
+        return;
+      }
+
+      if (focusTile(index)) {
+        return;
+      }
+
+      // Put the tile's row in the middle of the scroll box.
+      const row = Math.floor(index / columnCount);
+      const maxScrollTop = Math.max(0, totalHeight - viewportHeight);
+      const targetScrollTop = Math.min(
+        maxScrollTop,
+        Math.max(0, Math.round(row * rowStridePx - (viewportHeight - rowHeightPx) / 2))
+      );
+      if (targetScrollTop === scrollTop) {
+        // The rendered rows would not change, so the tile cannot be rendered.
+        container.focus();
+        return;
+      }
+
+      container.scrollTop = targetScrollTop;
+      pendingFocusIndexRef.current = index;
+      setScrollTop(targetScrollTop);
+    }
+  }));
+
+  useLayoutEffect(() => {
+    const index = pendingFocusIndexRef.current;
+    if (index === null) {
+      return;
+    }
+
+    pendingFocusIndexRef.current = null;
+    if (!focusTile(index)) {
+      containerRef.current?.focus();
+    }
+  });
+
   const showFooter = hasNextPage || Boolean(nextPageError);
   // A background refetch also holds back the next page (it re-requests every loaded page, one after another, which
   // can take a few seconds), so the status shows during it too, not only while the next page itself loads. But only
@@ -187,7 +256,7 @@ export const VirtualizedMediaGrid = ({
     <div
       ref={containerRef}
       className="media-grid-virtual"
-      // Focus fallback after a successful Try again (see above); not in the tab order.
+      // Focus fallback after a successful Try again or a closed preview (see above); not in the tab order.
       tabIndex={-1}
       onScroll={(event) => {
         const nextScrollTop = event.currentTarget.scrollTop;

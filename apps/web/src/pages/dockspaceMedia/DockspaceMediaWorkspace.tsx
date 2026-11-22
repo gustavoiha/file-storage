@@ -31,6 +31,8 @@ export const DockspaceMediaWorkspace = ({ dockspaceId, controller }: DockspaceMe
     bulkActionMessage,
     duplicateSelections,
     fileInputRef,
+    mediaGridFocusRef,
+    galleryFallbackFocusRef,
     uploadDialog,
     albums,
     mediaItems,
@@ -216,6 +218,7 @@ export const DockspaceMediaWorkspace = ({ dockspaceId, controller }: DockspaceMe
                   <Upload size={16} />
                 </button>
                 <button
+                  ref={galleryFallbackFocusRef}
                   type="button"
                   className="media-grid-size-toggle__button media-workspace__icon-action"
                   aria-label={isMultiSelectMode ? 'Cancel selection' : 'Select multiple'}
@@ -352,6 +355,7 @@ export const DockspaceMediaWorkspace = ({ dockspaceId, controller }: DockspaceMe
                 onLoadMore={onLoadMoreMedia}
                 nextPageError={mediaNextPageError}
                 onRetryNextPage={onRetryNextMediaPage}
+                focusHandleRef={mediaGridFocusRef}
               />
             )}
           </section>

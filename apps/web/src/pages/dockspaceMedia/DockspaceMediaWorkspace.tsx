@@ -15,7 +15,10 @@ import { GalleryOptionsMenu } from '@/pages/dockspaceMedia/GalleryOptionsMenu';
 import { MEDIA_GRID_SIZE_OPTIONS } from '@/pages/dockspaceMedia/mediaGridConfig';
 import {
   formatBytes,
+  formatDuplicateGroupDetails,
+  formatDuplicateGroupsFound,
   formatDuplicatesSelectedForTrashMessage,
+  formatRepeatedFiles,
   formatTimestamp,
   formatTrashDialogDescription
 } from '@/pages/dockspaceMedia/mediaHelpers';
@@ -410,8 +413,8 @@ export const DockspaceMediaWorkspace = ({ dockspaceId, controller }: DockspaceMe
           <div className="media-duplicates">
             {/* Takes focus (tabIndex -1) after a confirmed trash that leaves Move selected to trash disabled. */}
             <div ref={duplicatesSummaryRef} className="media-duplicates__summary" tabIndex={-1}>
-              <p>{duplicateSummary.groupCount} duplicate groups found.</p>
-              <p>{duplicateSummary.duplicateItemCount} repeated files.</p>
+              <p>{formatDuplicateGroupsFound(duplicateSummary.groupCount)}</p>
+              <p>{formatRepeatedFiles(duplicateSummary.duplicateItemCount)}</p>
               <p>{formatBytes(duplicateSummary.reclaimableBytes)} reclaimable.</p>
             </div>
             {duplicateActionMessage ? (
@@ -435,7 +438,7 @@ export const DockspaceMediaWorkspace = ({ dockspaceId, controller }: DockspaceMe
                         Hash {group.contentHash.slice(0, 12)}...
                       </p>
                       <p className="media-duplicates__group-meta">
-                        {group.items.length} files, {formatBytes(group.reclaimableBytes)} reclaimable
+                        {formatDuplicateGroupDetails(group.items.length, group.reclaimableBytes)}
                       </p>
                       <ul className="media-duplicates__items">
                         {group.items.map((item) => (

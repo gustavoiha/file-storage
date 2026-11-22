@@ -416,6 +416,31 @@ describe('Move selected duplicates to trash', () => {
     expect(screen.getByText('0 items selected for trash.')).toBeInTheDocument();
   });
 
+  it('names one remaining duplicate group and repeated file in the singular (T-0041)', async () => {
+    renderPage();
+    await screen.findByRole('button', { name: 'Open item-0003.jpg' });
+    fireEvent.click(screen.getByRole('button', { name: 'Gallery options' }));
+    fireEvent.click(screen.getByRole('menuitem', { name: 'Find duplicates' }));
+    await screen.findByText('Hash aaaaaaaaaaaa...');
+
+    // Keep c-1, so only group c is left after the trash.
+    fireEvent.click(within(duplicateRow('c-1.jpg')).getByRole('checkbox'));
+    expect(screen.getByText('3 items selected for trash.')).toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: 'Move selected to trash' }));
+    fireEvent.click(
+      within(screen.getByRole('dialog', { name: 'Confirm moving items to trash' })).getByRole('button', {
+        name: 'Move to trash'
+      })
+    );
+
+    await waitFor(() => expect(screen.getByRole('alert')).toHaveTextContent(/^Moved 3 items to trash\.$/));
+    await waitFor(() => expect(screen.getByText('1 duplicate group found.')).toBeInTheDocument());
+    expect(screen.getByText('1 repeated file.')).toBeInTheDocument();
+    expect(screen.getByText('400 bytes reclaimable.')).toBeInTheDocument();
+    expect(within(duplicateGroup('cccccccccccccccc')).getByText('2 files, 400 bytes reclaimable')).toBeInTheDocument();
+    expect(screen.queryByText(/duplicate groups found|repeated files/)).not.toBeInTheDocument();
+  });
+
   it('shows a result where every file failed in the error style', async () => {
     renderPage();
     await screen.findByRole('button', { name: 'Open item-0003.jpg' });

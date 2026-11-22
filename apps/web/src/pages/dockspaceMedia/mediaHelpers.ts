@@ -15,7 +15,8 @@ export const basename = (fullPath: string): string => {
   return segments[segments.length - 1] ?? fullPath;
 };
 
-export const formatBytes = (value: number): string => `${bytesFormatter.format(value)} bytes`;
+export const formatBytes = (value: number): string =>
+  `${bytesFormatter.format(value)} ${value === 1 ? 'byte' : 'bytes'}`;
 
 export const formatTimestamp = (value: string): string => {
   const date = new Date(value);
@@ -46,3 +47,13 @@ export const formatTrashDialogDescription = (count: number, context: 'bulk' | 'd
     count,
     context === 'duplicates' ? 'selected duplicate media file' : 'selected media file'
   )} to trash.`;
+
+/** Find duplicates summary lines, e.g. "1 duplicate group found." and "3 repeated files." */
+export const formatDuplicateGroupsFound = (count: number): string =>
+  `${pluralize(count, 'duplicate group')} found.`;
+
+export const formatRepeatedFiles = (count: number): string => `${pluralize(count, 'repeated file')}.`;
+
+/** One duplicate group's line, e.g. "2 files, 100 bytes reclaimable". */
+export const formatDuplicateGroupDetails = (fileCount: number, reclaimableBytes: number): string =>
+  `${pluralize(fileCount, 'file')}, ${formatBytes(reclaimableBytes)} reclaimable`;

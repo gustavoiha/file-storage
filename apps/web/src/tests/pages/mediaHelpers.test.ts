@@ -1,6 +1,10 @@
 import { describe, expect, it } from 'vitest';
 import {
+  formatBytes,
+  formatDuplicateGroupDetails,
+  formatDuplicateGroupsFound,
   formatDuplicatesSelectedForTrashMessage,
+  formatRepeatedFiles,
   formatSkippedNonMediaFilesMessage,
   formatTrashDialogDescription,
   formatTrashResultMessage
@@ -60,5 +64,32 @@ describe('formatTrashDialogDescription', () => {
     expect(formatTrashDialogDescription(3, 'duplicates')).toBe(
       'This will move 3 selected duplicate media files to trash.'
     );
+  });
+});
+
+describe('Find duplicates summary', () => {
+  it('names one duplicate group in the singular and zero or several in the plural', () => {
+    expect(formatDuplicateGroupsFound(1)).toBe('1 duplicate group found.');
+    expect(formatDuplicateGroupsFound(0)).toBe('0 duplicate groups found.');
+    expect(formatDuplicateGroupsFound(3)).toBe('3 duplicate groups found.');
+  });
+
+  it('names one repeated file in the singular and zero or several in the plural', () => {
+    expect(formatRepeatedFiles(1)).toBe('1 repeated file.');
+    expect(formatRepeatedFiles(0)).toBe('0 repeated files.');
+    expect(formatRepeatedFiles(4)).toBe('4 repeated files.');
+  });
+
+  it('names one file and one byte in the singular in a group line', () => {
+    expect(formatDuplicateGroupDetails(1, 1)).toBe('1 file, 1 byte reclaimable');
+    expect(formatDuplicateGroupDetails(2, 100)).toBe('2 files, 100 bytes reclaimable');
+  });
+});
+
+describe('formatBytes', () => {
+  it('uses the singular for one byte and the plural otherwise, with thousands separators', () => {
+    expect(formatBytes(1)).toBe('1 byte');
+    expect(formatBytes(0)).toBe('0 bytes');
+    expect(formatBytes(1234)).toBe('1,234 bytes');
   });
 });

@@ -4,6 +4,7 @@
 // main session and other subagents keep their normal permission flow, except that commands reserved for an
 // agent-team role are blocked for other subagents.
 import { readFileSync, appendFileSync, mkdirSync } from 'node:fs'
+import { execFileSync } from 'node:child_process'
 import { dirname, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
 
@@ -17,7 +18,95 @@ export function loadConfig(path = CONFIG) {
   const expand = list => (list || []).map(p => p.replaceAll('$SKILL', SKILL))
   const roles = {}
   for (const [name, r] of Object.entries(cfg.roles || {})) roles[name] = { allow: expand(r.allow), deny: expand(r.deny) }
-  return { globalDeny: expand(cfg.globalDeny), shared: expand((cfg.allAgents || {}).allow), roles }
+  const fp = cfg.forcePush || {}
+  return {
+    globalDeny: expand(cfg.globalDeny), shared: expand((cfg.allAgents || {}).allow), roles,
+    forcePush: { allowWithLease: fp.allowWithLease === true, protectedBranches: fp.protectedBranches || ['main'] },
+  }
+}
+
+// Shell words of one simple command (quotes removed, no expansion). Words holding $, ` or a glob stay as written.
+function words(s) {
+  const out = []; let cur = ''; let q = null; let has = false
+  for (let i = 0; i < s.length; i++) {
+    const c = s[i]
+    if (q) { if (c === q) q = null; else if (c === '\\' && q === '"' && i + 1 < s.length) cur += s[++i]; else cur += c; continue }
+    if (c === "'" || c === '"') { q = c; has = true; continue }
+    if (c === '\\' && i + 1 < s.length) { cur += s[++i]; has = true; continue }
+    if (/\s/.test(c)) { if (has || cur) out.push(cur); cur = ''; has = false; continue }
+    cur += c
+  }
+  if (has || cur) out.push(cur)
+  return out
+}
+
+// Parses `git [-C dir] [-c k=v] push ...`. Returns null when the command is not a git push.
+export function parsePush(sub) {
+  const w = words(sub)
+  let i = 0
+  while (i < w.length && /^[A-Za-z_][A-Za-z0-9_]*=/.test(w[i])) i++ // VAR=value prefixes
+  if (w[i] !== 'git') return null
+  i++
+  let dir = null
+  while (i < w.length && w[i].startsWith('-')) {
+    if (w[i] === '-C') { dir = dir ? resolve(dir, w[i + 1] || '') : w[i + 1]; i += 2 }
+    else if (w[i] === '-c' || w[i] === '--git-dir' || w[i] === '--work-tree' || w[i] === '--namespace') i += 2
+    else i++
+  }
+  if (w[i] !== 'push') return null
+  const opts = []; const pos = []
+  for (i++; i < w.length; i++) {
+    const a = w[i]
+    if (a === '--') { pos.push(...w.slice(i + 1)); break }
+    if (/^[0-9]*>/.test(a) || a.startsWith('<')) { if (/^[0-9]*>>?$|^<$/.test(a)) i++; continue } // redirections
+    if (a.startsWith('-')) {
+      opts.push(a)
+      if (['--repo', '-o', '--push-option', '--receive-pack', '--exec'].includes(a)) i++
+    } else pos.push(a)
+  }
+  const has = re => opts.some(o => re.test(o))
+  return {
+    dir,
+    remote: pos[0] || null,
+    refspecs: pos.slice(1),
+    lease: has(/^--force-with-lease(=|$)/) || has(/^--force-if-includes$/),
+    force: has(/^--force$/) || has(/^-[a-zA-Z]*f[a-zA-Z]*$/) || has(/^--(mirror|all|branches|prune)$/) || pos.slice(1).some(r => r.startsWith('+')),
+    del: has(/^--delete$/) || has(/^-[a-zA-Z]*d[a-zA-Z]*$/) || pos.slice(1).some(r => r.startsWith(':')),
+  }
+}
+
+const currentBranch = dir => {
+  try { return execFileSync('git', ['-C', dir, 'symbolic-ref', '-q', '--short', 'HEAD'], { encoding: 'utf8', stdio: ['ignore', 'pipe', 'ignore'], timeout: 3000 }).trim() || null }
+  catch { return null }
+}
+
+// Force-push policy: plain --force/-f/+refspec/--mirror is denied; --force-with-lease is allowed only when every
+// target branch can be named and none is protected. Returns a deny reason or null.
+export function checkForcePush(cfg, subs, cwd, branchOf = currentBranch) {
+  let dir = cwd || process.cwd()
+  for (const s of subs) {
+    const w = words(s)
+    if (w[0] === 'cd') { dir = w[1] && !/[$`*?~]/.test(w[1]) ? resolve(dir, w[1]) : null; continue }
+    const p = parsePush(s)
+    if (!p || !(p.force || p.lease || p.del)) continue
+    const fp = cfg.forcePush
+    if (p.force) return `"${s}": plain force push (--force, -f, +refspec, --mirror, --all, --prune) is denied. Use \`git push --force-with-lease origin <your-branch>\`, never on ${fp.protectedBranches.join(' or ')}.`
+    if (p.lease && !fp.allowWithLease) return `"${s}": force push is denied by forcePush in .claude/agent-team/permissions.json. Update the branch with a merge from origin/main instead.`
+    const d = p.dir ? (dir ? resolve(dir, p.dir) : (p.dir.startsWith('/') ? p.dir : null)) : dir
+    const targets = []
+    const refs = p.refspecs.length ? p.refspecs : ['HEAD']
+    for (const r of refs) {
+      let dst = r.includes(':') ? r.slice(r.indexOf(':') + 1) : r
+      if (dst === 'HEAD' || dst === '@' || dst === '') dst = d && !/[$`]/.test(d) ? branchOf(d) : null
+      targets.push(dst)
+    }
+    const name = t => t && t.replace(/^refs\/heads\//, '')
+    if (targets.some(t => !t || /[$`*?]/.test(t)))
+      return `"${s}": cannot tell which branch this force push targets. Name it literally: \`git push --force-with-lease origin <your-branch>\`.`
+    const hit = targets.map(name).find(t => fp.protectedBranches.includes(t))
+    if (hit) return `"${s}": force push or delete on ${hit} is never allowed. Do not try another way: ask the human on the task's issue.`
+  }
+  return null
 }
 
 // "Bash(x)" -> matcher on a command string. "x *" / "x:*" = prefix, other "*" = wildcard, else exact.
@@ -60,7 +149,7 @@ export function split(command) {
 const matchesAny = (cmd, rules) => rules.some(r => { const f = compile(r); return f && f(cmd) })
 const isCd = s => /^cd(\s|$)/.test(s)
 
-export function decide(cfg, agentType, command) {
+export function decide(cfg, agentType, command, cwd) {
   const subs = split(command)
   const role = agentType && agentType.startsWith('agent-team-') ? agentType.slice('agent-team-'.length) : null
   const reservedBy = sub => Object.entries(cfg.roles).filter(([, r]) => matchesAny(sub, r.allow)).map(([n]) => n)
@@ -76,6 +165,8 @@ export function decide(cfg, agentType, command) {
   }
   const r = cfg.roles[role]
   if (!r) return { decision: 'deny', reason: `Agent type ${agentType} has no entry in .claude/agent-team/permissions.json. Ask the human to add one.` }
+  const fpDeny = checkForcePush(cfg, subs, cwd)
+  if (fpDeny) return { decision: 'deny', reason: fpDeny }
   if (matchesAny(command, cfg.globalDeny) || subs.some(s => matchesAny(s, cfg.globalDeny)))
     return { decision: 'deny', reason: `Blocked by globalDeny in .claude/agent-team/permissions.json. Do not try another way: ask the human on the task's issue.` }
   for (const s of subs) {
@@ -98,7 +189,7 @@ async function main() {
   const command = (input.tool_input && input.tool_input.command) || ''
   const agentType = input.agent_type || null
   let result
-  try { result = decide(loadConfig(), agentType, command) }
+  try { result = decide(loadConfig(), agentType, command, input.cwd) }
   catch (e) {
     // Broken config: fail closed for agent-team agents only.
     if (agentType && agentType.startsWith('agent-team-')) result = { decision: 'deny', reason: `permission-gate error (${e.message}); ask the human to fix .claude/agent-team/permissions.json.` }

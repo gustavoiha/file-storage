@@ -9,7 +9,8 @@ Read it before writing code and follow every rule.
    filtering decisions / deployment notes marked as required fixes. Read instructions for what triggered this run.
 2. Set up or reuse the task worktree (see shared rules). If a PR already exists for the task
    (`gh pr list --search "T-XXXX in:title" --state open`), keep working on its branch; rebase on origin/main
-   if it is behind and resolve conflicts.
+   if it is behind and resolve conflicts, then push with `git push --force-with-lease origin agent/T-XXXX-<slug>`
+   (branch named literally).
 3. Implement. If the task has a `## Final design`, open its final screenshots (Read the PNGs under
    `MEM/design/T-XXXX/round-final/`) and mockup HTML, and match them; compare your result with
    `$SKILL/scripts/screenshot.mjs` against a local `vite` dev or preview server. Keep changes scoped to the task. Add or update tests (vitest) for the behavior.

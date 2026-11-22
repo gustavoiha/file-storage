@@ -85,6 +85,9 @@ Follow AGENTS.md (thin Lambda handlers, shared logic in lib, domain rules in dom
   CloudFront distributions or invalidations, user pools, API ids), test-account emails, absolute local paths
   (write `$REPO/...` or `$LOCAL/...` instead, e.g. `$LOCAL/logs/prod-deploy-web-<time>.log`), or personal details of
   the human. Say "the prod site bucket" or "the dev distribution" instead of its name. The app's public URL is fine.
+- Force pushes: only `git push --force-with-lease origin <branch>` with the branch named literally (not `HEAD`
+  or a variable), and only on your task's own `agent/T-XXXX-*` branch. Never on `main` or `agent-memory`; plain
+  `--force`, `-f` and `+refspec` are blocked. The permission gate enforces this.
 - No destructive actions on shared resources (prod data, buckets, other users' data, force-push to main,
   deleting branches you did not create) unless the human approved it on the issue. When unsure, ask on
   the issue, set the task to `awaiting-human`, and return outcome `awaiting-human`.

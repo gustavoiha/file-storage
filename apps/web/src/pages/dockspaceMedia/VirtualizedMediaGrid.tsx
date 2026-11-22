@@ -61,6 +61,8 @@ export const VirtualizedMediaGrid = ({
   const [viewportHeight, setViewportHeight] = useState(0);
   const [scrollTop, setScrollTop] = useState(0);
   const scrollSpeedRef = useRef<ScrollSpeedSample | null>(null);
+  // Whether the end of the loaded items is within the load-ahead distance, as last measured by the load effect below.
+  const [isWithinLoadAhead, setIsWithinLoadAhead] = useState(false);
   const minColumnWidthPx = MEDIA_GRID_LAYOUT[gridSize].minColumnWidthPx;
 
   useEffect(() => {
@@ -124,6 +126,8 @@ export const VirtualizedMediaGrid = ({
       scrollSpeedPxPerMs: currentScrollSpeed(scrollSpeedRef.current, performance.now())
     });
 
+    setIsWithinLoadAhead(remainingPx < loadAheadPx);
+
     if (
       shouldLoadNextPage({
         remainingPx,
@@ -168,6 +172,13 @@ export const VirtualizedMediaGrid = ({
   }, [items.length, nextPageError]);
 
   const showFooter = hasNextPage || Boolean(nextPageError);
+  // A background refetch also holds back the next page (it re-requests every loaded page, one after another, which
+  // can take a few seconds), so the status shows during it too, not only while the next page itself loads. But only
+  // when the grid would ask for the next page now (the end is within the load-ahead distance): elsewhere nothing is
+  // held back, and the polite live region would announce a false "Loading more media..." on every upload, trash,
+  // album change or return to the tab.
+  const showLoadingStatus =
+    !nextPageError && (isFetchingNextPage || (hasNextPage && isFetching && isWithinLoadAhead));
 
   return (
     <div
@@ -277,7 +288,7 @@ export const VirtualizedMediaGrid = ({
             </div>
           ) : null}
           <p className="media-grid-virtual__status" role="status">
-            {isFetchingNextPage && !nextPageError ? 'Loading more media...' : ''}
+            {showLoadingStatus ? 'Loading more media...' : ''}
           </p>
         </div>
       ) : null}

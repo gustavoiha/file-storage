@@ -3125,6 +3125,18 @@ a.dockspace-card:focus-visible {
   margin: 0;
 }
 
+/* The summary takes focus (tabIndex -1) after a confirmed trash of duplicates leaves Move selected to trash disabled
+   (T-0040). Keyboard focus ring only: focus also moves here after a mouse click. */
+.media-duplicates__summary:focus {
+  outline: none;
+}
+
+.media-duplicates__summary:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+  border-radius: 6px;
+}
+
 .media-duplicates__groups {
   list-style: none;
   margin: 0;

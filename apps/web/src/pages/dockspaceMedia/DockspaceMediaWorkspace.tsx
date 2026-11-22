@@ -2,7 +2,12 @@ import { useCallback, useEffect, useImperativeHandle, useRef, useState } from 'r
 import { CheckSquare, Upload, X } from 'lucide-react';
 import { Alert } from '@/components/ui/Alert';
 import { Button } from '@/components/ui/Button';
-import { focusIsLost, useDialogDismiss } from '@/components/files/useDialogDismiss';
+import {
+  focusIsLost,
+  isFocusable,
+  useDialogDismiss,
+  useDialogTabTrap
+} from '@/components/files/useDialogDismiss';
 import { UploadsCard } from '@/components/files/UploadsCard';
 import { PHONE_LAYOUT_QUERY, useMediaQuery } from '@/hooks/useMediaQuery';
 import { GALLERY_ALBUM_TRIGGER_CLASS, GalleryAlbumMenu } from '@/pages/dockspaceMedia/GalleryAlbumMenu';
@@ -85,14 +90,41 @@ export const DockspaceMediaWorkspace = ({ dockspaceId, controller }: DockspaceMe
   const closeTrashDialog = useCallback(() => {
     setTrashDialogContext(null);
   }, []);
+  const toolbarRef = useRef<HTMLDivElement>(null);
+  const moveDuplicatesButtonRef = useRef<HTMLButtonElement>(null);
+  const duplicatesSummaryRef = useRef<HTMLDivElement>(null);
+  // Which entry point the trash dialog was last opened from: it is already null when the dialog's close focus runs.
+  const lastTrashDialogContextRef = useRef(trashDialogContext);
+  if (trashDialogContext) {
+    lastTrashDialogContextRef.current = trashDialogContext;
+  }
+
+  // Where focus goes when the trash dialog closes. Escape, Cancel and the backdrop leave the opener in place, so
+  // focus returns to it (undefined). After a confirmed trash the opener can be gone or disabled: in the gallery the
+  // selection ends and the album button replaces the selection bar; in Find duplicates Move selected to trash is
+  // disabled once nothing is left selected, so the duplicates summary (always shown with the list) takes focus.
+  const getTrashReturnFocusTarget = useCallback((): HTMLElement | undefined => {
+    if (lastTrashDialogContextRef.current === 'duplicates') {
+      if (isFocusable(moveDuplicatesButtonRef.current)) {
+        return undefined;
+      }
+
+      return duplicatesSummaryRef.current ?? undefined;
+    }
+
+    return toolbarRef.current?.querySelector<HTMLElement>(`.${GALLERY_ALBUM_TRIGGER_CLASS}`) ?? undefined;
+  }, []);
   const { onBackdropMouseDown: onAddToAlbumBackdropMouseDown } = useDialogDismiss({
     isOpen: isAddToAlbumDialogOpen,
     onClose: closeAddToAlbumDialog
   });
   const { onBackdropMouseDown: onTrashBackdropMouseDown } = useDialogDismiss({
     isOpen: isTrashDialogOpen,
-    onClose: closeTrashDialog
+    onClose: closeTrashDialog,
+    getReturnFocusTarget: getTrashReturnFocusTarget
   });
+  const addToAlbumDialogRef = useDialogTabTrap<HTMLDialogElement>(isAddToAlbumDialogOpen);
+  const trashDialogRef = useDialogTabTrap<HTMLDialogElement>(isTrashDialogOpen);
 
   useEffect(() => {
     if (showBulkActions) {
@@ -151,7 +183,6 @@ export const DockspaceMediaWorkspace = ({ dockspaceId, controller }: DockspaceMe
   }, [onMoveBulkSelectionToTrash, onTrashSelectedDuplicates, trashDialogContext]);
 
   const isPhone = useMediaQuery(PHONE_LAYOUT_QUERY);
-  const toolbarRef = useRef<HTMLDivElement>(null);
   const uploadButtonRef = useRef<HTMLButtonElement>(null);
   const selectedCountLabel = `${selectedMediaIds.length} item${selectedMediaIds.length === 1 ? '' : 's'} selected`;
 
@@ -374,7 +405,8 @@ export const DockspaceMediaWorkspace = ({ dockspaceId, controller }: DockspaceMe
         {toolbar}
         {!selectedAlbumId && duplicatesVisible ? (
           <div className="media-duplicates">
-            <div className="media-duplicates__summary">
+            {/* Takes focus (tabIndex -1) after a confirmed trash that leaves Move selected to trash disabled. */}
+            <div ref={duplicatesSummaryRef} className="media-duplicates__summary" tabIndex={-1}>
               <p>{duplicateSummary.groupCount} duplicate groups found.</p>
               <p>{duplicateSummary.duplicateItemCount} repeated files.</p>
               <p>{formatBytes(duplicateSummary.reclaimableBytes)} reclaimable.</p>
@@ -450,6 +482,7 @@ export const DockspaceMediaWorkspace = ({ dockspaceId, controller }: DockspaceMe
             <div className="media-duplicates__footer">
               <p>{selectedDuplicatePaths.length} items selected for trash.</p>
               <Button
+                ref={moveDuplicatesButtonRef}
                 type="button"
                 variant="secondary"
                 onClick={() => setTrashDialogContext('duplicates')}
@@ -507,6 +540,7 @@ export const DockspaceMediaWorkspace = ({ dockspaceId, controller }: DockspaceMe
       {isAddToAlbumDialogOpen ? (
         <div className="dockspace-dialog-backdrop" onMouseDown={onAddToAlbumBackdropMouseDown}>
           <dialog
+            ref={addToAlbumDialogRef}
             className="dockspace-dialog"
             open
             aria-modal="true"
@@ -566,6 +600,7 @@ export const DockspaceMediaWorkspace = ({ dockspaceId, controller }: DockspaceMe
       {isTrashDialogOpen ? (
         <div className="dockspace-dialog-backdrop" onMouseDown={onTrashBackdropMouseDown}>
           <dialog
+            ref={trashDialogRef}
             className="dockspace-dialog"
             open
             aria-modal="true"
@@ -590,7 +625,9 @@ export const DockspaceMediaWorkspace = ({ dockspaceId, controller }: DockspaceMe
               >
                 {isTrashFilesBatchPending ? 'Moving...' : 'Move to trash'}
               </Button>
-              <Button type="button" variant="secondary" onClick={closeTrashDialog}>
+              {/* Initial focus on Cancel: pressing Enter right after opening must not trash anything. Cancel stays
+                  enabled while the request runs, so the Tab trap always has a control to move focus to. */}
+              <Button type="button" variant="secondary" onClick={closeTrashDialog} autoFocus>
                 Cancel
               </Button>
             </div>

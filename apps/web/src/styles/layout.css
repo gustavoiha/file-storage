@@ -1039,6 +1039,17 @@
   padding: 0;
 }
 
+/* The dockspace route's stable wrapper. It is focused only when a failed dockspace list loads after Try again (the
+   button had focus and was removed), and is unfocusable again once focus leaves it. */
+.dockspace-workspace:focus {
+  outline: none;
+}
+
+.dockspace-workspace:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: -2px;
+}
+
 .dockspace-sidebar {
   grid-area: sidebar;
   position: sticky;

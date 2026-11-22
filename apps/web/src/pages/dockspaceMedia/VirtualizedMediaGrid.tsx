@@ -28,6 +28,11 @@ interface VirtualizedMediaGridProps {
   onOpenPreview: (item: MediaFileRecord) => void;
   hasNextPage: boolean;
   isFetchingNextPage: boolean;
+  /**
+   * Any request of the media query in flight (a next page or a background refetch). Defaults to isFetchingNextPage.
+   * No next page is asked for while it is true, and the grid asks again when it turns false.
+   */
+  isFetching?: boolean;
   onLoadMore: () => void;
   /** Message of a failed next-page request: automatic loading stops and the end of the grid offers Try again. */
   nextPageError?: string | null;
@@ -45,6 +50,7 @@ export const VirtualizedMediaGrid = ({
   onOpenPreview,
   hasNextPage,
   isFetchingNextPage,
+  isFetching = isFetchingNextPage,
   onLoadMore,
   nextPageError = null,
   onRetryNextPage
@@ -126,16 +132,20 @@ export const VirtualizedMediaGrid = ({
         remainingPx,
         loadAheadPx,
         hasNextPage,
-        isFetchingNextPage,
+        isFetching,
         hasNextPageError: Boolean(nextPageError)
       })
     ) {
       onLoadMore();
     }
-  }, [hasNextPage, isFetchingNextPage, nextPageError, onLoadMore, scrollTop, totalHeight, viewportHeight]);
+    // isFetching is a dependency so that the end of a background refetch, which changes nothing else here when the
+    // user reached the bottom during it and stopped scrolling, still asks for the next page.
+  }, [hasNextPage, isFetching, nextPageError, onLoadMore, scrollTop, totalHeight, viewportHeight]);
 
-  // A successful Try again removes the error (and the focused Try again button): move focus to the first tile the
-  // retry loaded, else the last tile, so it does not fall to <body>.
+  // A successful Try again (or a background refetch that succeeds) removes the error and the focused Try again
+  // button. If focus fell to <body>, move it to the first tile the retry loaded, else the old last tile (the retry
+  // loaded nothing, or the virtual window has moved), else the scroll box itself, which is always rendered: both
+  // tiles can be outside the rendered rows when the user scrolled away while the retry ran.
   const previousErrorRef = useRef<{ message: string | null; itemCount: number }>({
     message: nextPageError,
     itemCount: items.length
@@ -155,8 +165,8 @@ export const VirtualizedMediaGrid = ({
     const container = containerRef.current;
     const target =
       container?.querySelector<HTMLElement>(`[data-media-index="${previous.itemCount}"]`) ??
-      container?.querySelector<HTMLElement>(`[data-media-index="${items.length - 1}"]`) ??
-      null;
+      container?.querySelector<HTMLElement>(`[data-media-index="${previous.itemCount - 1}"]`) ??
+      container;
     target?.focus();
   }, [items.length, nextPageError]);
 
@@ -166,6 +176,8 @@ export const VirtualizedMediaGrid = ({
     <div
       ref={containerRef}
       className="media-grid-virtual"
+      // Focus fallback after a successful Try again (see above); not in the tab order.
+      tabIndex={-1}
       onScroll={(event) => {
         const nextScrollTop = event.currentTarget.scrollTop;
         scrollSpeedRef.current = nextScrollSpeedSample(scrollSpeedRef.current, nextScrollTop, performance.now());
@@ -254,15 +266,16 @@ export const VirtualizedMediaGrid = ({
               <button
                 type="button"
                 className="dockspace-link-button"
-                aria-disabled={isFetchingNextPage ? 'true' : undefined}
-                aria-busy={isFetchingNextPage ? 'true' : undefined}
+                // Busy while any request is in flight: a background refetch that succeeds also clears the error.
+                aria-disabled={isFetching ? 'true' : undefined}
+                aria-busy={isFetching ? 'true' : undefined}
                 onClick={() => {
-                  if (!isFetchingNextPage) {
+                  if (!isFetching) {
                     onRetryNextPage?.();
                   }
                 }}
               >
-                {isFetchingNextPage ? 'Trying again…' : 'Try again'}
+                {isFetching ? 'Trying again…' : 'Try again'}
               </button>
             </div>
           ) : null}

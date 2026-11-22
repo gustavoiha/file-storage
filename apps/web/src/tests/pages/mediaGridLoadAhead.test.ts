@@ -47,7 +47,7 @@ describe('shouldLoadNextPage', () => {
     remainingPx: 500,
     loadAheadPx: 1800,
     hasNextPage: true,
-    isFetchingNextPage: false,
+    isFetching: false,
     hasNextPageError: false
   };
 
@@ -57,9 +57,9 @@ describe('shouldLoadNextPage', () => {
     expect(shouldLoadNextPage({ ...base, remainingPx: 1800 })).toBe(false);
   });
 
-  it('never requests without a next page, while one is loading, or after one failed', () => {
+  it('never requests without a next page, while any request (a next page or a refetch) is in flight, or after one failed', () => {
     expect(shouldLoadNextPage({ ...base, hasNextPage: false })).toBe(false);
-    expect(shouldLoadNextPage({ ...base, isFetchingNextPage: true })).toBe(false);
+    expect(shouldLoadNextPage({ ...base, isFetching: true })).toBe(false);
     expect(shouldLoadNextPage({ ...base, hasNextPageError: true })).toBe(false);
   });
 });

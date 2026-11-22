@@ -130,15 +130,28 @@ const failPage = (cursor: string) => {
   };
 };
 
+/** The next request for `cursor` waits until the returned release function is called (later requests do not). */
+const holdNextRequest = (cursor: string | undefined) => {
+  const page = api.pages.get(cursor)!;
+  let release!: () => void;
+  const gate = new Promise<void>((resolve) => (release = resolve));
+  api.pages.set(cursor, async () => {
+    api.pages.set(cursor, page);
+    await gate;
+    return page();
+  });
+  return () => act(() => release());
+};
+
 const requestedCursors = () => api.listMedia.mock.calls.map(([, options]) => options?.cursor);
 
 const settle = () => act(async () => {
   await new Promise((resolve) => setTimeout(resolve, 20));
 });
 
-const renderPage = () =>
+const renderPage = (client = createTestQueryClient()) =>
   render(
-    <QueryWrapper client={createTestQueryClient()}>
+    <QueryWrapper client={client}>
       <DockspaceMediaPage dockspaceId="dock-1" dockspaceName="Camera Roll" />
     </QueryWrapper>
   );
@@ -244,6 +257,107 @@ describe('Media gallery paging', () => {
     await waitFor(() => expect(api.listMedia).toHaveBeenCalledTimes(8));
     expect(requestedCursors()).toEqual([undefined, 'c1', 'c2', 'c2', 'c2', 'c3', 'c4', 'c5']);
     expect(api.maxInFlight).toBe(1);
+  });
+
+  it('asks for the next page when a background refetch ends, if the bottom was reached during it', async () => {
+    servePages(20, 8);
+    const client = createTestQueryClient();
+    renderPage(client);
+    await waitFor(() => expect(api.listMedia).toHaveBeenCalledTimes(6));
+    await settle();
+
+    // A background refetch (window focus, or an invalidation after an upload) re-requests the 6 loaded pages.
+    const releaseRefetch = holdNextRequest(undefined);
+    act(() => {
+      void client.invalidateQueries({ queryKey: ['media'] });
+    });
+    await waitFor(() => expect(api.listMedia).toHaveBeenCalledTimes(7));
+
+    // The user reaches the bottom during the refetch and stops scrolling: no next page is asked for yet.
+    const scroller = document.querySelector('.media-grid-virtual') as HTMLElement;
+    fireEvent.scroll(scroller, { target: { scrollTop: 6 * 420 - 12 - BOX_HEIGHT } });
+    await settle();
+    expect(api.listMedia).toHaveBeenCalledTimes(7);
+
+    // When the refetch ends, the next page is requested with no further scroll event.
+    await releaseRefetch();
+    await waitFor(() => expect(requestedCursors()).toContain('c6'));
+    expect(requestedCursors().slice(6, 13)).toEqual([undefined, 'c1', 'c2', 'c3', 'c4', 'c5', 'c6']);
+    expect(api.maxInFlight).toBe(1);
+  });
+
+  it('keeps Try again busy during a background refetch, and a press then sends nothing', async () => {
+    servePages(20, 8);
+    const restore = failPage('c2');
+    const client = createTestQueryClient();
+    renderPage(client);
+    const tryAgain = await within(await screen.findByRole('alert')).findByRole('button', { name: 'Try again' });
+    expect(requestedCursors()).toEqual([undefined, 'c1', 'c2']);
+
+    const releaseRefetch = holdNextRequest(undefined);
+    act(() => {
+      void client.invalidateQueries({ queryKey: ['media'] });
+    });
+    await waitFor(() => expect(api.listMedia).toHaveBeenCalledTimes(4));
+
+    // The error and its button stay; the button is busy and ignores presses.
+    tryAgain.focus();
+    expect(tryAgain).toHaveAttribute('aria-disabled', 'true');
+    expect(tryAgain).toHaveTextContent('Trying again…');
+    fireEvent.click(tryAgain);
+    await settle();
+    expect(api.listMedia).toHaveBeenCalledTimes(4);
+    expect(document.activeElement).toBe(tryAgain);
+
+    // The refetch succeeds, which clears the error: automatic loading resumes with one request for the next page.
+    restore();
+    await releaseRefetch();
+    await waitFor(() => expect(requestedCursors()).toContain('c3'));
+    expect(requestedCursors().slice(3, 6)).toEqual([undefined, 'c1', 'c2']);
+    expect(api.maxInFlight).toBe(1);
+    expect(screen.queryByRole('alert')).not.toBeInTheDocument();
+  });
+
+  it('moves focus to the old last tile when a successful retry loads no new tiles', async () => {
+    servePages(3, 8);
+    const restore = failPage('c2');
+    renderPage();
+    const tryAgain = await within(await screen.findByRole('alert')).findByRole('button', { name: 'Try again' });
+
+    // The retried page comes back empty and is the last one.
+    restore();
+    api.pages.set('c2', async () => ({ items: [] }));
+    tryAgain.focus();
+    fireEvent.click(tryAgain);
+    await waitFor(() => expect(screen.queryByRole('alert')).not.toBeInTheDocument());
+    // The busy button is removed with the error, so focus would have fallen to <body>.
+    expect(document.activeElement).toBe(screen.getByRole('button', { name: 'Open item-0015.jpg' }));
+  });
+
+  it('moves focus to the scroll box when the user scrolled away from the end while the retry ran', async () => {
+    // 6 pages fill the lookahead; the 6th (c5) fails, so 5 pages = 40 tiles = 10 rows are loaded.
+    servePages(20, 8);
+    const restore = failPage('c5');
+    renderPage();
+    const tryAgain = await within(await screen.findByRole('alert')).findByRole('button', { name: 'Try again' });
+    const scroller = document.querySelector('.media-grid-virtual') as HTMLElement;
+    fireEvent.scroll(scroller, { target: { scrollTop: 10 * 210 - 12 - BOX_HEIGHT } });
+
+    restore();
+    const releaseRetry = holdNextRequest('c5');
+    tryAgain.focus();
+    fireEvent.click(tryAgain);
+    await waitFor(() => expect(tryAgain).toHaveAttribute('aria-disabled', 'true'));
+
+    // While the retry runs, the user scrolls back to the top: tiles 39 and 40 leave the rendered rows.
+    fireEvent.scroll(scroller, { target: { scrollTop: 0 } });
+    // Success removes the error with the focused button, so focus falls to <body> first.
+    await releaseRetry();
+    await waitFor(() => expect(screen.queryByRole('alert')).not.toBeInTheDocument());
+    expect(scroller.querySelector('[data-media-index="39"]')).toBeNull();
+    expect(scroller.querySelector('[data-media-index="40"]')).toBeNull();
+    expect(document.activeElement).toBe(scroller);
+    expect(scroller).toHaveAttribute('tabindex', '-1');
   });
 
   it('does not request anything when there is no next page', async () => {

@@ -118,6 +118,8 @@ export const useMediaPageQueries = ({
 
   const mediaHasNextPage = !selectedAlbumId && Boolean(mediaQuery.hasNextPage);
   const mediaIsFetchingNextPage = !selectedAlbumId && mediaQuery.isFetchingNextPage;
+  // Any request of the gallery query: a next page or a background refetch of the loaded pages.
+  const mediaIsFetching = !selectedAlbumId && mediaQuery.isFetching;
   const mediaListIsLoading =
     mediaQuery.isLoading || (Boolean(selectedAlbumId) && selectedAlbumMediaQuery.isLoading);
 
@@ -140,6 +142,7 @@ export const useMediaPageQueries = ({
     duplicatesListError,
     mediaHasNextPage,
     mediaIsFetchingNextPage,
+    mediaIsFetching,
     mediaListIsLoading
   };
 };

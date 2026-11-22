@@ -43,6 +43,7 @@ export const DockspaceMediaWorkspace = ({ dockspaceId, controller }: DockspaceMe
     duplicatesListError,
     mediaHasNextPage,
     mediaIsFetchingNextPage,
+    mediaIsFetching,
     mediaListIsLoading,
     showBulkActions,
     isAssignAlbumMediaPending,
@@ -347,6 +348,7 @@ export const DockspaceMediaWorkspace = ({ dockspaceId, controller }: DockspaceMe
                 onOpenPreview={openPreview}
                 hasNextPage={mediaHasNextPage}
                 isFetchingNextPage={mediaIsFetchingNextPage}
+                isFetching={mediaIsFetching}
                 onLoadMore={onLoadMoreMedia}
                 nextPageError={mediaNextPageError}
                 onRetryNextPage={onRetryNextMediaPage}

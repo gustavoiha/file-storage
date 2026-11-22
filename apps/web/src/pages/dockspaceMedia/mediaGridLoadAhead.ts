@@ -42,15 +42,19 @@ export const shouldLoadNextPage = ({
   remainingPx,
   loadAheadPx,
   hasNextPage,
-  isFetchingNextPage,
+  isFetching,
   hasNextPageError
 }: {
   remainingPx: number;
   loadAheadPx: number;
   hasNextPage: boolean;
-  isFetchingNextPage: boolean;
+  /**
+   * Any request of the media query in flight: a next page, or a background refetch of the loaded pages (window
+   * focus, an invalidation after an upload). A next-page request made during a refetch only joins the refetch.
+   */
+  isFetching: boolean;
   hasNextPageError: boolean;
-}): boolean => hasNextPage && !isFetchingNextPage && !hasNextPageError && remainingPx < loadAheadPx;
+}): boolean => hasNextPage && !isFetching && !hasNextPageError && remainingPx < loadAheadPx;
 
 /** Folds a scroll event into the smoothed downward scroll speed. */
 export const nextScrollSpeedSample = (

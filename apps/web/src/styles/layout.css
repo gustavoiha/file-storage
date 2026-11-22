@@ -2673,6 +2673,17 @@ a.dockspace-card:focus-visible {
   flex-shrink: 0;
 }
 
+/* The scroll box takes focus (tabIndex -1) only as the fallback after a successful Try again. */
+.media-grid-virtual:focus {
+  outline: none;
+}
+
+.media-grid-virtual:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+  border-radius: 6px;
+}
+
 /* Always present while more media can load, with room for the loading text, so showing or hiding that text never
    changes the scroll height (which would move the tiles when the list is scrolled to its end). */
 .media-grid-virtual__footer {

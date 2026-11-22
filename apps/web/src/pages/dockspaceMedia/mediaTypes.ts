@@ -1,7 +1,10 @@
 export type MediaGridSize = 'small' | 'medium' | 'large';
 
-/** Outcome of a Find duplicates action: a clean trash result is info, an error or partial failure is error. */
-export interface DuplicateActionMessage {
+/**
+ * Outcome of a gallery or Find duplicates action, shown in an alert: a clean result is info, a request error or a
+ * trash result with failed files is error.
+ */
+export interface MediaActionMessage {
   message: string;
   tone: 'error' | 'info';
 }

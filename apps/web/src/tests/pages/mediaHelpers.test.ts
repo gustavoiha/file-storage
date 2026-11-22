@@ -7,7 +7,8 @@ import {
   formatRepeatedFiles,
   formatSkippedNonMediaFilesMessage,
   formatTrashDialogDescription,
-  formatTrashResultMessage
+  formatTrashResultMessage,
+  trashResultActionMessage
 } from '@/pages/dockspaceMedia/mediaHelpers';
 
 describe('formatSkippedNonMediaFilesMessage', () => {
@@ -40,6 +41,21 @@ describe('formatTrashResultMessage', () => {
     expect(formatTrashResultMessage(3, 0)).toBe('Moved 3 items to trash.');
     expect(formatTrashResultMessage(2, 1)).toBe('Moved 2 items to trash. 1 failed.');
     expect(formatTrashResultMessage(0, 4)).toBe('Moved 0 items to trash. 4 failed.');
+  });
+});
+
+describe('trashResultActionMessage', () => {
+  it('shows a result where every file moved in the info tone', () => {
+    expect(trashResultActionMessage(1, 0)).toEqual({ message: 'Moved 1 item to trash.', tone: 'info' });
+    expect(trashResultActionMessage(3, 0)).toEqual({ message: 'Moved 3 items to trash.', tone: 'info' });
+  });
+
+  it('shows a partial failure in the error tone (T-0048)', () => {
+    expect(trashResultActionMessage(1, 1)).toEqual({ message: 'Moved 1 item to trash. 1 failed.', tone: 'error' });
+  });
+
+  it('shows a full failure in the error tone (T-0048)', () => {
+    expect(trashResultActionMessage(0, 4)).toEqual({ message: 'Moved 0 items to trash. 4 failed.', tone: 'error' });
   });
 });
 

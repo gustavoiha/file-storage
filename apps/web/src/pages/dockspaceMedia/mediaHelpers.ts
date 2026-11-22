@@ -1,4 +1,5 @@
 import { pluralize } from '@/lib/fileFormat';
+import type { MediaActionMessage } from '@/pages/dockspaceMedia/mediaTypes';
 
 const bytesFormatter = new Intl.NumberFormat('en-US');
 const timestampFormatter = new Intl.DateTimeFormat('en-US', {
@@ -37,6 +38,15 @@ export const formatTrashResultMessage = (movedCount: number, failedCount: number
   failedCount > 0
     ? `Moved ${pluralize(movedCount, 'item')} to trash. ${failedCount} failed.`
     : `Moved ${pluralize(movedCount, 'item')} to trash.`;
+
+/**
+ * Alert for a batch move to trash, in the gallery or Find duplicates: a clean result is a neutral confirmation (info);
+ * one with failed files stays in the error style.
+ */
+export const trashResultActionMessage = (movedCount: number, failedCount: number): MediaActionMessage => ({
+  message: formatTrashResultMessage(movedCount, failedCount),
+  tone: failedCount > 0 ? 'error' : 'info'
+});
 
 export const formatDuplicatesSelectedForTrashMessage = (count: number): string =>
   `${pluralize(count, 'item')} selected for trash.`;

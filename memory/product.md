@@ -154,6 +154,6 @@ All open tasks have their own issues (#11-#16, sub-issues of request #5) since 2
 | T-0047 | #101 | #65 | Files upload: keep the skipped-files notice when some files still upload | done | Engineering |
 | T-0048 | #104 | #65 | Gallery trash result: a partial failure shows as an error | done | Deployment |
 | T-0049 | #106 | #65 | Files page uploads pill: skipped invalid-path files are a notice, not a failed upload | done | Engineering |
-| T-0050 | #108 | #65 | Uploads card keeps keyboard focus when it collapses or expands | testing | Engineering |
+| T-0050 | #108 | #65 | Uploads card keeps keyboard focus when it collapses or expands | filtering | Engineering |
 | T-0051 | #109 | #65 | Menus opened from the keyboard focus their first item | done | Engineering |
 | T-0052 | #111 | #65 | Menu items use one focus ring style in every menu | testing | Engineering |

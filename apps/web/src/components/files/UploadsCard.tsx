@@ -92,6 +92,14 @@ export const UploadsCard = ({
   const [isCollapsed, setIsCollapsed] = useState(defaultCollapsed);
   const [isSkippedExpanded, setIsSkippedExpanded] = useState(false);
   const collapseButtonRef = useRef<HTMLButtonElement>(null);
+  const pillRef = useRef<HTMLButtonElement>(null);
+  // Collapse and the pill each unmount themselves when pressed. The one that replaces it takes focus after the render,
+  // so focus does not fall to <body>. Only a press sets this: a change of defaultCollapsed does not move focus.
+  const focusAfterToggleRef = useRef(false);
+  const toggleCollapsed = (collapsed: boolean) => {
+    focusAfterToggleRef.current = true;
+    setIsCollapsed(collapsed);
+  };
   // Retry turns the failed row back into a waiting one, which removes the focused Retry button: focus moves to the
   // card's Collapse button first instead of falling to <body>.
   const retryUpload = (uploadId: number) => {
@@ -102,6 +110,14 @@ export const UploadsCard = ({
   useEffect(() => {
     setIsCollapsed(defaultCollapsed);
   }, [defaultCollapsed]);
+
+  useEffect(() => {
+    if (!focusAfterToggleRef.current) {
+      return;
+    }
+    focusAfterToggleRef.current = false;
+    (isCollapsed ? pillRef : collapseButtonRef).current?.focus();
+  }, [isCollapsed]);
 
   const hasContent =
     activeUploads.length > 0 ||
@@ -127,11 +143,12 @@ export const UploadsCard = ({
     return (
       <section className="dockspace-uploads dockspace-uploads--collapsed" aria-label="Uploads" aria-live="polite">
         <button
+          ref={pillRef}
           type="button"
           className="dockspace-uploads__pill"
           aria-expanded="false"
           aria-label={pillLabel}
-          onClick={() => setIsCollapsed(false)}
+          onClick={() => toggleCollapsed(false)}
         >
           <Upload size={14} aria-hidden="true" />
           <span>{summary}</span>
@@ -154,7 +171,7 @@ export const UploadsCard = ({
           className="dockspace-icon-button dockspace-icon-button--ghost dockspace-uploads__toggle"
           aria-expanded="true"
           aria-label="Collapse uploads"
-          onClick={() => setIsCollapsed(true)}
+          onClick={() => toggleCollapsed(true)}
         >
           <ChevronDown size={16} aria-hidden="true" />
         </button>

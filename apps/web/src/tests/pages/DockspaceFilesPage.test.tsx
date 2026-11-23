@@ -1,5 +1,6 @@
 import type { ReactElement } from 'react';
 import { act, cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
+import userEvent from '@testing-library/user-event';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { ApiError } from '@/lib/apiClient';
 import type { DirectoryChildRecord } from '@/lib/apiTypes';
@@ -776,6 +777,35 @@ describe('DockspaceFilesPage', () => {
       expect(within(uploadsRegion()).getByText('1 file had an invalid upload path and was skipped.')).toHaveClass(
         'dockspace-uploads__muted'
       );
+    });
+  });
+
+  describe.each([
+    ['desktop', false],
+    ['phone', true]
+  ] as const)('uploads card focus (%s)', (_layout, isPhone) => {
+    it('Enter on Collapse uploads focuses the pill, and Enter on the pill focuses Collapse uploads', async () => {
+      const user = userEvent.setup();
+      mockState.isPhone = isPhone;
+      renderPage();
+
+      const input = document.querySelectorAll('input[type="file"]')[0] as HTMLInputElement;
+      act(() => {
+        fireEvent.change(input, { target: { files: [new File(['x'], '..', { type: 'text/plain' })] } });
+      });
+
+      const card = screen.getByRole('region', { name: 'Uploads' });
+      expect(card.closest('.dockspace-files--phone') !== null).toBe(isPhone);
+      if (isPhone) {
+        await user.click(screen.getByRole('button', { name: /^Expand uploads/ }));
+      }
+
+      screen.getByRole('button', { name: 'Collapse uploads' }).focus();
+      await user.keyboard('{Enter}');
+      expect(screen.getByRole('button', { name: /^Expand uploads/ })).toHaveFocus();
+
+      await user.keyboard('{Enter}');
+      expect(screen.getByRole('button', { name: 'Collapse uploads' })).toHaveFocus();
     });
   });
 

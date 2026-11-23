@@ -520,3 +520,14 @@ Recorded 2026-11-20 by the setup session from a `cdk diff` of origin/main 5678ad
 - Known pre-existing issues still live: uploads card collapse/expand drops focus (T-0050, #108); menu item focus ring styles differ between menus (T-0052, #111).
 - Logs: $LOCAL/logs/prod-deploy-diff-pr-20261123T140015Z.log, prod-deploy-diff-20261123T140043Z.log, prod-deploy-web-20261123T140141Z.log, prod-deploy-diff-20261123T140151Z.log.
 - Prod is now at origin/main `c7a8c71` for both infra and web.
+
+### 2026-11-23 — T-0050 — web
+- origin/main commit: `bbafdc7` (PR #113 squash-merged). Run as `dockspace-prod-agent-deployer` via `prod-deploy.sh`.
+- Pre-deploy: PR #113 at `5cdb58e` was MERGEABLE/CLEAN with merge base `7aa0938`; main had moved to `c7a8c71` (T-0049 #112; overlap only in `DockspaceFilesPage.test.tsx` and `DockspaceMediaPage.test.tsx`). The PR merged onto `c7a8c71` without conflicts and passed typecheck, tests (web 70 files, 644 tests; backend 37 files, 178 tests) and build in a local merge-check worktree; the squash-merged tree is identical to it. Web only (`UploadsCard.tsx`, `layout.css`, four test files); no API, backend or infra change. `prod-deploy.sh diff-pr 113` showed 0 stacks with differences. Main since the last deploy (`c7a8c71`) had no commits; `prod-deploy.sh diff` 0 stacks, so no drift.
+- Infra: not run. Post-deploy `prod-deploy.sh diff` at `bbafdc7` shows 0 stacks with differences.
+- Web (`prod-deploy.sh web`): built and synced to the prod site bucket; invalidated `/*` on the prod distribution. Entry bundle `index-BqwoWp4E.js`, `useDockspaceUploadDialog-CB8sHlt1.js`, stylesheet `index-WQyYc1da.css`.
+- Shipped: #113 `bbafdc7` (T-0050).
+- Smoke check: https://dh0djlfa46gz6.cloudfront.net/login serves `index-BqwoWp4E.js`, renders the sign-in form, the stylesheet has the uploads pill / Collapse uploads `:focus-visible` rule, `useDockspaceUploadDialog-CB8sHlt1.js` is served (200, JavaScript), and the console shows no errors.
+- Known pre-existing issues still live: menu item focus ring styles differ between menus (T-0052, #111).
+- Logs: $LOCAL/logs/prod-deploy-diff-pr-20261123T140411Z.log, prod-deploy-diff-20261123T140449Z.log, prod-deploy-web-20261123T140541Z.log, prod-deploy-diff-20261123T140551Z.log.
+- Prod is now at origin/main `bbafdc7` for both infra and web.

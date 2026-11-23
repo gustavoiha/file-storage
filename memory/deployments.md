@@ -531,3 +531,14 @@ Recorded 2026-11-20 by the setup session from a `cdk diff` of origin/main 5678ad
 - Known pre-existing issues still live: menu item focus ring styles differ between menus (T-0052, #111).
 - Logs: $LOCAL/logs/prod-deploy-diff-pr-20261123T140411Z.log, prod-deploy-diff-20261123T140449Z.log, prod-deploy-web-20261123T140541Z.log, prod-deploy-diff-20261123T140551Z.log.
 - Prod is now at origin/main `bbafdc7` for both infra and web.
+
+### 2026-11-23 — T-0052 — web
+- origin/main commit: `af6f391` (PR #114 squash-merged). Run as `dockspace-prod-agent-deployer` via `prod-deploy.sh`.
+- Pre-deploy: PR #114 at `ef37e69` was MERGEABLE/CLEAN with merge base `7aa0938`; main had moved to `bbafdc7` (T-0049 #112, T-0050 #113; T-0050 also edits `layout.css`). The PR merged onto `bbafdc7` without conflicts and passed typecheck, tests (web 71 files, 648 tests; backend 37 files, 178 tests) and build in a local merge-check worktree; the squash-merged tree is identical to it. Web only (`layout.css`, new `dropdownMenuItemFocus.test.ts`); no API, backend or infra change. `prod-deploy.sh diff-pr 114` showed 0 stacks with differences. Main since the last deploy (`bbafdc7`) had no commits; `prod-deploy.sh diff` 0 stacks, so no drift.
+- Infra: not run. Post-deploy `prod-deploy.sh diff` at `af6f391` shows 0 stacks with differences.
+- Web (`prod-deploy.sh web`): built and synced to the prod site bucket; invalidated `/*` on the prod distribution. Entry bundle `index-B37uQfTP.js`, stylesheet `index-DcyNZHbF.css`.
+- Shipped: #114 `af6f391` (T-0052).
+- Smoke check: https://dh0djlfa46gz6.cloudfront.net/login serves `index-B37uQfTP.js` (200, JavaScript) and `index-DcyNZHbF.css`, which contains `.dropdown-menu__item:focus-visible{outline:2px solid var(--accent);outline-offset:-2px}`; the sign-in form renders (email, password, Sign In) and the console shows no errors.
+- Known pre-existing issues still live: none recorded from the recent menu / uploads tasks.
+- Logs: $LOCAL/logs/prod-deploy-diff-pr-20261123T141200Z.log, prod-deploy-diff-20261123T141300Z.log, prod-deploy-web-20261123T141349Z.log, prod-deploy-diff-20261123T141400Z.log.
+- Prod is now at origin/main `af6f391` for both infra and web.

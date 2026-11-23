@@ -98,8 +98,10 @@ export const useDockspaceMediaController = ({ dockspaceId }: UseDockspaceMediaCo
   const membershipMutationPending =
     assignAlbumMediaMutation.isPending || removeAlbumMediaMutation.isPending;
 
-  // Non-media files left out of a pick (uploadSelectionNotice) are a notice, not an error: the uploads card gets them
-  // separately so it does not report them as a failed upload, and neither hides the other.
+  // Files left out of a pick (non-media files, invalid upload paths) are a notice, not an error: the uploads card gets
+  // them separately so it does not report them as a failed upload, and neither hides the other.
+  const uploadNoticeMessage =
+    [uploadSelectionNotice, uploadDialog.invalidPathsNotice].filter(Boolean).join(' ') || null;
   const uploadErrorMessage =
     uploadDialog.validationError ??
     (uploadFileMutation.error instanceof ApiError &&
@@ -163,7 +165,7 @@ export const useDockspaceMediaController = ({ dockspaceId }: UseDockspaceMediaCo
   }, [mediaData.albums, selectedAlbumId]);
 
   const onUploadButtonClick = useCallback(() => {
-    uploadDialog.clearValidationError();
+    uploadDialog.clearUploadMessages();
     setUploadSelectionNotice(null);
     fileInputRef.current?.click();
   }, [uploadDialog]);
@@ -411,7 +413,7 @@ export const useDockspaceMediaController = ({ dockspaceId }: UseDockspaceMediaCo
     selectedDuplicatePaths: duplicateSelectionState.selectedDuplicatePaths,
     unauthorized: mediaData.unauthorized,
     uploadErrorMessage,
-    uploadNoticeMessage: uploadSelectionNotice,
+    uploadNoticeMessage,
     membershipMutationPending,
     mediaListError: mediaData.mediaListError,
     mediaNextPageError: mediaData.mediaNextPageError,

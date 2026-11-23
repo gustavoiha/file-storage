@@ -42,6 +42,7 @@ const mockState = vi.hoisted(() => ({
   activeUploads: [] as ActiveUploadFile[],
   skippedUploads: [] as SkippedUploadFile[],
   validationError: null as string | null,
+  invalidPathsNotice: null as string | null,
   retryUpload: vi.fn(),
   clearSkippedUploads: vi.fn(),
   stageFiles: vi.fn(),
@@ -97,8 +98,9 @@ vi.mock('@/hooks/useDockspaceUploadDialog', () => ({
   useDockspaceUploadDialog: (params: { onBatchComplete?: (uploadedCount: number, uploadedPaths: string[]) => void }) => {
     mockState.uploadDialogParams = params;
     return {
-      clearValidationError: vi.fn(),
+      clearUploadMessages: vi.fn(),
       validationError: mockState.validationError,
+      invalidPathsNotice: mockState.invalidPathsNotice,
       stageFiles: mockState.stageFiles,
       activeUploads: mockState.activeUploads,
       retryUpload: mockState.retryUpload,
@@ -170,6 +172,7 @@ beforeEach(() => {
   mockState.activeUploads = [];
   mockState.skippedUploads = [];
   mockState.validationError = null;
+  mockState.invalidPathsNotice = null;
   mockState.retryUpload.mockClear();
   mockState.clearSkippedUploads.mockClear();
   mockState.stageFiles.mockClear();
@@ -728,6 +731,50 @@ describe('DockspaceMediaPage layout (no sidebar, album menu, gallery options)', 
     expect(
       within(card).getByText('1 file was skipped because this gallery accepts only photos and videos.')
     ).toBeInTheDocument();
+  });
+
+  it('phone: files skipped for invalid upload paths are a notice, next to skipped non-media files', () => {
+    mockState.isPhone = true;
+    mockState.invalidPathsNotice = '1 file had an invalid upload path and was skipped.';
+    renderPage();
+
+    const input = document.querySelector('input[type="file"]') as HTMLInputElement;
+    act(() => {
+      fireEvent.change(input, {
+        target: { files: [new File(['x'], 'notes.txt', { type: 'text/plain' })] }
+      });
+    });
+
+    const pill = screen.getByRole('button', { name: 'Expand uploads: Uploads, files were skipped' });
+    expect(pill.querySelector('.dockspace-uploads__dot')).toBeNull();
+
+    fireEvent.click(pill);
+    const card = screen.getByRole('region', { name: 'Uploads' });
+    expect(
+      within(card).getByText(
+        '1 file was skipped because this gallery accepts only photos and videos. 1 file had an invalid upload path and was skipped.'
+      )
+    ).toHaveClass('dockspace-uploads__muted');
+    expect(card.querySelector('.dockspace-uploads__error')).toBeNull();
+  });
+
+  it('phone: an upload error next to files skipped for invalid upload paths is still reported as a failure', () => {
+    mockState.isPhone = true;
+    mockState.validationError = 'Network error';
+    mockState.invalidPathsNotice = '1 file had an invalid upload path and was skipped.';
+    renderPage();
+
+    const pill = screen.getByRole('button', {
+      name: 'Expand uploads: Uploads, an upload failed, files were skipped'
+    });
+    expect(pill.querySelector('.dockspace-uploads__dot')).not.toBeNull();
+
+    fireEvent.click(pill);
+    const card = screen.getByRole('region', { name: 'Uploads' });
+    expect(within(card).getByText('Network error')).toHaveClass('dockspace-uploads__error');
+    expect(within(card).getByText('1 file had an invalid upload path and was skipped.')).toHaveClass(
+      'dockspace-uploads__muted'
+    );
   });
 
   it('names several skipped files in the plural and still uploads the photos and videos', () => {

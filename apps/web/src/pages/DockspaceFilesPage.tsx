@@ -1633,6 +1633,8 @@ export const DockspaceFilesPage = () => {
     renameFolderDialogValidationError ??
     (renameFolder.error instanceof Error ? renameFolder.error.message : null);
 
+  // Files skipped for invalid upload paths are a notice (uploadNoticeMessage), not a failed upload: only real errors
+  // go to uploadErrorMessage, and when both happen the card shows both.
   const uploadErrorMessage =
     uploadDialog.validationError ??
     (uploadFile.error instanceof ApiError && uploadFile.error.code === 'UPLOAD_SKIPPED_DUPLICATE'
@@ -1848,6 +1850,7 @@ export const DockspaceFilesPage = () => {
       skippedUploads={uploadDialog.skippedUploads}
       isPreparingFolders={uploadDialog.isPreparingFolders}
       uploadErrorMessage={uploadErrorMessage}
+      uploadNoticeMessage={uploadDialog.invalidPathsNotice}
       defaultCollapsed={isPhone}
       onDismissSkippedUploads={uploadDialog.clearSkippedUploads}
       onRetryUpload={uploadDialog.retryUpload}

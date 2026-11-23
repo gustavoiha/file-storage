@@ -1,4 +1,5 @@
 import { cleanup, fireEvent, render, screen, within } from '@testing-library/react';
+import userEvent from '@testing-library/user-event';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { UploadsCard } from '@/components/files/UploadsCard';
 import type { ActiveUploadFile } from '@/hooks/useDockspaceUploadDialog';
@@ -96,6 +97,63 @@ describe('UploadsCard', () => {
 
     fireEvent.click(pill);
     expect(screen.getByRole('button', { name: 'Collapse uploads' })).toHaveAttribute('aria-expanded', 'true');
+  });
+
+  describe.each([
+    ['desktop', false],
+    ['phone', true]
+  ] as const)('focus when collapsing and expanding (%s)', (_layout, defaultCollapsed) => {
+    const activeUploads = [upload(1, '/a.jpg', 'uploading', 40)];
+
+    const renderCard = () => {
+      render(<UploadsCard {...baseProps} defaultCollapsed={defaultCollapsed} activeUploads={activeUploads} />);
+      const section = screen.getByRole('region', { name: 'Uploads' });
+      expect(section.classList.contains('dockspace-uploads--collapsed')).toBe(defaultCollapsed);
+      if (defaultCollapsed) {
+        // Start from the expanded card, as a phone user does after opening the pill.
+        fireEvent.click(screen.getByRole('button', { name: /^Expand uploads/ }));
+      }
+    };
+
+    it.each(['{Enter}', ' '])('keyboard %j on Collapse moves focus to the pill, and on the pill back to Collapse', async (key) => {
+      const user = userEvent.setup();
+      renderCard();
+
+      screen.getByRole('button', { name: 'Collapse uploads' }).focus();
+      await user.keyboard(key);
+      const pill = screen.getByRole('button', { name: /^Expand uploads/ });
+      expect(pill).toHaveFocus();
+      expect(document.activeElement).not.toBe(document.body);
+
+      await user.keyboard(key);
+      expect(screen.getByRole('button', { name: 'Collapse uploads' })).toHaveFocus();
+
+      // A second press keeps working: focus never falls to <body> in between.
+      await user.keyboard(key);
+      expect(screen.getByRole('button', { name: /^Expand uploads/ })).toHaveFocus();
+    });
+
+    it('a click on Collapse and then on the pill moves focus the same way', async () => {
+      const user = userEvent.setup();
+      renderCard();
+
+      await user.click(screen.getByRole('button', { name: 'Collapse uploads' }));
+      expect(screen.getByRole('button', { name: /^Expand uploads/ })).toHaveFocus();
+
+      await user.click(screen.getByRole('button', { name: /^Expand uploads/ }));
+      expect(screen.getByRole('button', { name: 'Collapse uploads' })).toHaveFocus();
+    });
+  });
+
+  it('does not take focus when only defaultCollapsed changes', () => {
+    const activeUploads = [upload(1, '/a.jpg', 'uploading', 40)];
+    const { rerender } = render(<UploadsCard {...baseProps} activeUploads={activeUploads} />);
+
+    rerender(<UploadsCard {...baseProps} defaultCollapsed activeUploads={activeUploads} />);
+    expect(screen.getByRole('button', { name: /^Expand uploads/ })).not.toHaveFocus();
+
+    rerender(<UploadsCard {...baseProps} defaultCollapsed={false} activeUploads={activeUploads} />);
+    expect(screen.getByRole('button', { name: 'Collapse uploads' })).not.toHaveFocus();
   });
 
   it('starts collapsed when asked to (phone)', () => {

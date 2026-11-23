@@ -1,4 +1,5 @@
 import { act, cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
+import userEvent from '@testing-library/user-event';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { DockspaceMediaPage } from '@/pages/DockspaceMediaPage';
 import type { MediaFileRecord } from '@/lib/apiTypes';
@@ -639,6 +640,31 @@ describe('DockspaceMediaPage layout (no sidebar, album menu, gallery options)', 
     renderPage();
 
     expect(screen.getByRole('button', { name: /^Expand uploads: Uploading 1 of 1/ })).toBeInTheDocument();
+  });
+
+  describe.each([
+    ['desktop', false],
+    ['phone', true]
+  ] as const)('uploads card focus (%s)', (_layout, isPhone) => {
+    it('Enter on Collapse uploads focuses the pill, and Enter on the pill focuses Collapse uploads', async () => {
+      const user = userEvent.setup();
+      mockState.isPhone = isPhone;
+      mockState.activeUploads = [upload(1, '/IMG_1.jpg', 'uploading', 40)];
+      renderPage();
+
+      const card = screen.getByRole('region', { name: 'Uploads' });
+      expect(card.closest('.media-workspace__floating--phone') !== null).toBe(isPhone);
+      if (isPhone) {
+        await user.click(screen.getByRole('button', { name: /^Expand uploads/ }));
+      }
+
+      screen.getByRole('button', { name: 'Collapse uploads' }).focus();
+      await user.keyboard('{Enter}');
+      expect(screen.getByRole('button', { name: /^Expand uploads/ })).toHaveFocus();
+
+      await user.keyboard('{Enter}');
+      expect(screen.getByRole('button', { name: 'Collapse uploads' })).toHaveFocus();
+    });
   });
 
   it('Dismiss on skipped duplicates clears them and moves focus to the Upload button', () => {

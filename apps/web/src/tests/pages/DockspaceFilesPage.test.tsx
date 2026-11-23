@@ -704,18 +704,78 @@ describe('DockspaceFilesPage', () => {
       expect(pill.querySelector('.dockspace-uploads__dot')).not.toBeNull();
     });
 
-    it('still reports files with invalid upload paths as an error', () => {
+    const uploadsRegion = () => screen.getByRole('region', { name: 'Uploads' });
+
+    it('reports invalid upload paths in a mixed selection as a notice, not a failed upload', async () => {
+      mockState.isPhone = true;
+      let finishUpload: () => void = () => {};
+      mockState.uploadFile.mockImplementation(
+        () =>
+          new Promise((resolve) => {
+            finishUpload = () => resolve({});
+          })
+      );
+      renderPage();
+
+      pickFiles([
+        new File(['x'], '..', { type: 'text/plain' }),
+        new File(['x'], 'notes.txt', { type: 'text/plain' })
+      ]);
+
+      const uploadingPill = await screen.findByRole('button', {
+        name: 'Expand uploads: Uploading 1 of 1 · 0%, files were skipped'
+      });
+      expect(uploadingPill.querySelector('.dockspace-uploads__dot')).toBeNull();
+
+      await act(async () => {
+        finishUpload();
+      });
+
+      const pill = await screen.findByRole('button', { name: 'Expand uploads: Uploads, files were skipped' });
+      expect(pill.querySelector('.dockspace-uploads__dot')).toBeNull();
+      fireEvent.click(pill);
+      expect(within(uploadsRegion()).getByText('1 file had an invalid upload path and was skipped.')).toHaveClass(
+        'dockspace-uploads__muted'
+      );
+      expect(uploadsRegion().querySelector('.dockspace-uploads__error')).toBeNull();
+    });
+
+    it('reports a selection with only invalid upload paths as a notice', () => {
       mockState.isPhone = true;
       renderPage();
 
-      pickFiles([new File(['x'], '..', { type: 'text/plain' })]);
+      pickFiles([new File(['x'], '..', { type: 'text/plain' }), new File(['x'], '   ', { type: 'text/plain' })]);
 
-      const pill = screen.getByRole('button', { name: 'Expand uploads: Uploads, an upload failed' });
+      const pill = screen.getByRole('button', { name: 'Expand uploads: Uploads, files were skipped' });
+      expect(pill.querySelector('.dockspace-uploads__dot')).toBeNull();
+      fireEvent.click(pill);
+      expect(within(uploadsRegion()).getByText('2 files had invalid upload paths and were skipped.')).toHaveClass(
+        'dockspace-uploads__muted'
+      );
+      expect(mockState.uploadFile).not.toHaveBeenCalled();
+    });
+
+    it('still reports a failed upload as an error when files were also skipped', async () => {
+      mockState.isPhone = true;
+      mockState.uploadFile.mockImplementation(async () => {
+        throw new Error('Network error');
+      });
+      renderPage();
+
+      pickFiles([
+        new File(['x'], '..', { type: 'text/plain' }),
+        new File(['x'], 'notes.txt', { type: 'text/plain' })
+      ]);
+
+      const pill = await screen.findByRole('button', {
+        name: 'Expand uploads: 1 upload failed, an upload failed, files were skipped'
+      });
       expect(pill.querySelector('.dockspace-uploads__dot')).not.toBeNull();
       fireEvent.click(pill);
-      expect(
-        within(screen.getByRole('region', { name: 'Uploads' })).getByText(/had an invalid upload path and was skipped/)
-      ).toHaveClass('dockspace-uploads__error');
+      expect(within(uploadsRegion()).getByText('Network error')).toHaveClass('dockspace-uploads__error');
+      expect(within(uploadsRegion()).getByText('1 file had an invalid upload path and was skipped.')).toHaveClass(
+        'dockspace-uploads__muted'
+      );
     });
   });
 

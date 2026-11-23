@@ -87,7 +87,7 @@ vi.mock('@/components/files/UploadStagingList', () => ({
 
 vi.mock('@/hooks/useDockspaceUploadDialog', () => ({
   useDockspaceUploadDialog: () => ({
-    clearValidationError: vi.fn(),
+    clearUploadMessages: vi.fn(),
     validationError: null,
     stageFiles: vi.fn(),
     activeUploads: [],

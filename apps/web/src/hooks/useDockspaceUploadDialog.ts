@@ -63,7 +63,11 @@ export const useDockspaceUploadDialog = ({
 }: UseDockspaceUploadDialogParams) => {
   const [activeUploads, setActiveUploads] = useState<ActiveUploadFile[]>([]);
   const [skippedUploads, setSkippedUploads] = useState<SkippedUploadFile[]>([]);
+  // A real error (folder creation or upload failure). Kept apart from the skipped-files notice below so the uploads
+  // card can report only real errors as a failed upload, and neither message hides the other.
   const [validationError, setValidationError] = useState<string | null>(null);
+  // The notice for files left out of the latest selection because their upload paths are invalid.
+  const [invalidPathsNotice, setInvalidPathsNotice] = useState<string | null>(null);
   const [isPreparingFolders, setIsPreparingFolders] = useState(false);
   const nextUploadIdRef = useRef(1);
   const runningUploadIdsRef = useRef<Set<number>>(new Set());
@@ -111,9 +115,10 @@ export const useDockspaceUploadDialog = ({
       });
     }
 
-    // Each selection replaces the previous message: the skipped-files notice when some paths were invalid (it stays
-    // while the valid files upload), otherwise nothing.
-    setValidationError(skippedCount > 0 ? invalidUploadPathsMessage(skippedCount) : null);
+    // Each selection replaces the previous messages: the skipped-files notice when some paths were invalid (it stays
+    // while and after the valid files upload), otherwise nothing; an older error goes away.
+    setValidationError(null);
+    setInvalidPathsNotice(skippedCount > 0 ? invalidUploadPathsMessage(skippedCount) : null);
 
     enqueueUploads(nextUploads);
   }, [currentFolderPath, enqueueUploads]);
@@ -146,9 +151,10 @@ export const useDockspaceUploadDialog = ({
       });
     }
 
-    // Each selection replaces the previous message: the skipped-files notice when some paths were invalid (it stays
-    // while the valid files upload), otherwise nothing.
-    setValidationError(skippedCount > 0 ? invalidUploadPathsMessage(skippedCount) : null);
+    // Each selection replaces the previous messages: the skipped-files notice when some paths were invalid (it stays
+    // while and after the valid files upload), otherwise nothing; an older error goes away.
+    setValidationError(null);
+    setInvalidPathsNotice(skippedCount > 0 ? invalidUploadPathsMessage(skippedCount) : null);
 
     const folderPaths = createFolder
       ? leafFolderPathsForUploads(
@@ -286,8 +292,10 @@ export const useDockspaceUploadDialog = ({
     onBatchCompleteRef.current?.(uploadedPaths.length, uploadedPaths);
   }, [activeUploads, settledUploadCount]);
 
-  const clearValidationError = useCallback(() => {
+  /** Clears the error and the skipped-files notice, e.g. before a new pick. */
+  const clearUploadMessages = useCallback(() => {
     setValidationError(null);
+    setInvalidPathsNotice(null);
   }, []);
 
   const clearSkippedUploads = useCallback(() => {
@@ -314,12 +322,13 @@ export const useDockspaceUploadDialog = ({
 
   return {
     activeUploads,
-    clearValidationError,
+    clearUploadMessages,
     clearSkippedUploads,
     isPreparingFolders,
     isUploading:
       isPreparingFolders ||
       activeUploads.some((item) => item.status === 'pending' || item.status === 'uploading'),
+    invalidPathsNotice,
     retryUpload,
     skippedUploads,
     stageFolderFiles,

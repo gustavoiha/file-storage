@@ -77,6 +77,7 @@ export const UploadForm = ({ dockspaceId, folder }: UploadFormProps) => {
       </label>
       {uploadDialog.isPreparingFolders ? <p className="auth-note">Creating folders...</p> : null}
       <UploadStagingList stagedFiles={uploadDialog.activeUploads} onRetryUpload={uploadDialog.retryUpload} />
+      {uploadDialog.invalidPathsNotice ? <Alert tone="info" message={uploadDialog.invalidPathsNotice} /> : null}
       {errorMessage ? <Alert message={errorMessage} /> : null}
     </form>
   );

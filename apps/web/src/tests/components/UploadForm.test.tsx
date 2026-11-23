@@ -59,6 +59,21 @@ describe('UploadForm', () => {
     expect(createFolderMutateAsync).not.toHaveBeenCalled();
   });
 
+  it('shows files skipped for invalid upload paths as a notice, not an error', async () => {
+    render(<UploadForm dockspaceId="v1" folder="/photos" />);
+
+    const input = screen.getByLabelText('Files') as HTMLInputElement;
+    fireEvent.change(input, {
+      target: {
+        files: [new File(['x'], '..', { type: 'text/plain' }), new File(['ok'], 'ok.txt', { type: 'text/plain' })]
+      }
+    });
+
+    expect(screen.getByText('1 file had an invalid upload path and was skipped.')).toHaveClass('ui-alert--info');
+    await waitFor(() => expect(mutateAsync).toHaveBeenCalledTimes(1));
+    expect(document.querySelector('.ui-alert--error')).toBeNull();
+  });
+
   it('creates the folders of a folder selection before uploading its files', async () => {
     const { container } = render(<UploadForm dockspaceId="v1" folder="/photos" />);
 

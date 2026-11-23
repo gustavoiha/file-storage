@@ -45,6 +45,7 @@ All open tasks have their own issues (#11-#16, sub-issues of request #5) since 2
 - 2026-11-22 sweep: PRs #103 (T-0045), #105 (T-0047) and #107 (T-0048) are still open, so nothing is dispatched. T-0049 stays new until T-0045 (PR #103) and T-0047 (PR #105) are merged; T-0050 stays new until T-0045 (PR #103, same `UploadsCard.tsx`) is merged, then build it after or alongside T-0049. T-0045 (deploying), T-0047 and T-0048 (testing) pipelines are running.
 - 2026-11-22 sweep: T-0051 dispatched to engineering (shared `DropdownMenu.tsx`, independent of the open uploads PRs; rebase on main). PRs #103 (T-0045), #105 (T-0047) and #107 (T-0048) are still open, so T-0049 and T-0050 stay new (T-0049 until #103 and #105 are merged, T-0050 until #103 is merged). T-0045, T-0048 (testing) and T-0047 (deploying) pipelines are running.
 - 2026-11-22 sweep: PRs #103 (T-0045, testing) and #110 (T-0051, deploying) are still open, so nothing is dispatched. T-0049 waits for #103 (T-0047's PR #105 is merged); T-0050 waits for #103; T-0052 waits for #110. T-0045 and T-0051 pipelines are running.
+- 2026-11-23 sweep: T-0045 (PR #103) and T-0051 (PR #110) are merged and live, so T-0049, T-0050 and T-0052 are dispatched to engineering. T-0049 and T-0050 both touch the Uploads card (T-0049 the files page's notice routing, T-0050 the card's focus handling); each rebases on main before its PR. No pipelines were running.
 
 ### Shipped
 - 2026-11-22 (prod at 7aa0938): T-0045 Collapsed uploads pill: skipped files are not reported as a failed upload (#96, PR #103): in the gallery, when files were only skipped (non-media picks, duplicates), the phone collapsed uploads pill reads "Expand uploads: Uploads, files were skipped" with no red dot; a real failed upload still shows the dot and "an upload failed" (with "files were skipped" added when both). The expanded card shows the skipped notice in the same slot in muted grey, below any red error. `UploadsCard` gains a separate `uploadNoticeMessage`; the files page still passes its invalid-path notice as an error (T-0049, #106). Follow-up: T-0050 (#108) card collapse/expand drops focus.
@@ -151,7 +152,7 @@ All open tasks have their own issues (#11-#16, sub-issues of request #5) since 2
 | T-0046 | #98 | #65 | Files page phone Upload button at least 44px, matching the uploads pill | done | Deployment |
 | T-0047 | #101 | #65 | Files upload: keep the skipped-files notice when some files still upload | done | Engineering |
 | T-0048 | #104 | #65 | Gallery trash result: a partial failure shows as an error | done | Deployment |
-| T-0049 | #106 | #65 | Files page uploads pill: skipped invalid-path files are a notice, not a failed upload | new | Review judge |
-| T-0050 | #108 | #65 | Uploads card keeps keyboard focus when it collapses or expands | new | Test results filtering |
+| T-0049 | #106 | #65 | Files page uploads pill: skipped invalid-path files are a notice, not a failed upload | engineering | Engineering |
+| T-0050 | #108 | #65 | Uploads card keeps keyboard focus when it collapses or expands | engineering | Engineering |
 | T-0051 | #109 | #65 | Menus opened from the keyboard focus their first item | done | Engineering |
-| T-0052 | #111 | #65 | Menu items use one focus ring style in every menu | new | Test results filtering |
+| T-0052 | #111 | #65 | Menu items use one focus ring style in every menu | engineering | Engineering |

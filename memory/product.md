@@ -157,4 +157,4 @@ All open tasks have their own issues (#11-#16, sub-issues of request #5) since 2
 | T-0049 | #106 | #65 | Files page uploads pill: skipped invalid-path files are a notice, not a failed upload | done | Engineering |
 | T-0050 | #108 | #65 | Uploads card keeps keyboard focus when it collapses or expands | done | Engineering |
 | T-0051 | #109 | #65 | Menus opened from the keyboard focus their first item | done | Engineering |
-| T-0052 | #111 | #65 | Menu items use one focus ring style in every menu | filtering | Engineering |
+| T-0052 | #111 | #65 | Menu items use one focus ring style in every menu | deploying | Engineering |

@@ -212,7 +212,6 @@
 
 .dockspace-switcher__icon-button:focus-visible,
 .dockspace-switcher-error__retry:focus-visible,
-.dockspace-switcher__create-menu-item:focus-visible,
 .dockspace-switcher-bar__button:focus-visible,
 .dockspace-tabs__more-button:focus-visible {
   outline: 2px solid var(--accent);
@@ -1449,6 +1448,18 @@
   background: var(--bg-soft);
 }
 
+/*
+ * Every DropdownMenu item (Button, RadioItem, Link) gets the app's keyboard focus ring (T-0052): the files page
+ * Upload, Dockspace / Folder options, row Actions (also the right-click / long-press menus), Account, New dockspace,
+ * Gallery options and the album menu. Keyboard-only (:focus-visible), so a mouse click or a tap shows no ring. The
+ * outline replaces the browser default, and it is drawn inside the item (offset -2px) so a scrolling menu (album
+ * list) or the menu's edge never clips it; an outline takes no space, so sizes and spacing do not change.
+ */
+.dropdown-menu__item:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: -2px;
+}
+
 .dropdown-menu__separator {
   height: 1px;
   margin: 0.3rem 0.4rem;
@@ -2616,11 +2627,6 @@ a.dockspace-card:focus-visible {
   background: var(--bg-soft);
 }
 
-.gallery-album-menu__item:focus-visible {
-  outline: 2px solid var(--accent);
-  outline-offset: -2px;
-}
-
 .gallery-album-menu__item[aria-checked='true'] {
   font-weight: 700;
 }
@@ -2685,11 +2691,6 @@ a.dockspace-card:focus-visible {
   align-items: center;
   gap: 0.55rem;
   white-space: nowrap;
-}
-
-.gallery-options-menu__item:focus-visible {
-  outline: 2px solid var(--accent);
-  outline-offset: -2px;
 }
 
 .gallery-options-menu__item[aria-disabled='true'] {

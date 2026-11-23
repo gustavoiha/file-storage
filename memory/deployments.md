@@ -509,3 +509,14 @@ Recorded 2026-11-20 by the setup session from a `cdk diff` of origin/main 5678ad
 - Known pre-existing issues still live: files page pill says "an upload failed" for invalid-path skips (T-0049, #106); uploads card collapse/expand drops focus (T-0050, #108); menu item focus ring styles differ between menus (T-0052, #111).
 - Logs: $LOCAL/logs/prod-deploy-diff-pr-20261122T193233Z.log, prod-deploy-diff-20261122T193300Z.log, prod-deploy-web-20261122T193347Z.log, prod-deploy-diff-20261122T193357Z.log.
 - Prod is now at origin/main `7aa0938` for both infra and web.
+
+### 2026-11-23 — T-0049 — web
+- origin/main commit: `c7a8c71` (PR #112 squash-merged). Run as `dockspace-prod-agent-deployer` via `prod-deploy.sh`.
+- Pre-deploy: PR #112 at `7e7a1d0` was MERGEABLE/CLEAN with merge base `7aa0938`, which was still origin/main (no rebase needed; tested at the same head). Web only (`useDockspaceUploadDialog.ts`, `UploadForm.tsx`, `DockspaceFilesPage.tsx`, `useDockspaceMediaController.ts`, test files); no API, backend or infra change. `prod-deploy.sh diff-pr 112` showed 0 stacks with differences. Main since the last deploy (`7aa0938`) had no commits; `prod-deploy.sh diff` 0 stacks, so no drift.
+- Infra: not run. Post-deploy `prod-deploy.sh diff` at `c7a8c71` shows 0 stacks with differences.
+- Web (`prod-deploy.sh web`): built and synced to the prod site bucket; invalidated `/*` on the prod distribution. Entry bundle `index-L-dDAtx0.js`, `DockspaceFilesPage-xivVJdf3.js`, `useDockspaceUploadDialog-3dsT3moR.js`, stylesheet `index-Cwg07VRo.css`.
+- Shipped: #112 `c7a8c71` (T-0049).
+- Smoke check: https://dh0djlfa46gz6.cloudfront.net/login serves `index-L-dDAtx0.js`, renders the sign-in form, `DockspaceFilesPage-xivVJdf3.js` and `useDockspaceUploadDialog-3dsT3moR.js` are served (200, JavaScript) and the files page bundle passes `uploadNoticeMessage`, and the console shows no errors.
+- Known pre-existing issues still live: uploads card collapse/expand drops focus (T-0050, #108); menu item focus ring styles differ between menus (T-0052, #111).
+- Logs: $LOCAL/logs/prod-deploy-diff-pr-20261123T140015Z.log, prod-deploy-diff-20261123T140043Z.log, prod-deploy-web-20261123T140141Z.log, prod-deploy-diff-20261123T140151Z.log.
+- Prod is now at origin/main `c7a8c71` for both infra and web.

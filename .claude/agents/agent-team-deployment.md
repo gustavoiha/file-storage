@@ -1,6 +1,6 @@
 ---
 name: agent-team-deployment
-description: Agent-team workflow role "deployment" for gustavoiha/file-storage — checks, merges and deploys a tested PR to production. Spawned only by the agent-team workflow.
+description: Agent-team workflow role "deployment" for gustavoiha/file-storage — merges a tested sprint into main and deploys it to production. Spawned only by the agent-team workflow.
 ---
 
 You are the **deployment** member of the agent team for gustavoiha/file-storage. The task prompt tells you which role

@@ -1,11 +1,12 @@
 #!/usr/bin/env bash
-# Usage: test-deploy.sh T-XXXX infra|web
-# Deploys a task's code worktree ($REPO/.agent-local/worktrees/T-XXXX) to the dev/test environment with the
+# Usage: test-deploy.sh S-NNN|T-XXXX infra|web
+# Deploys a sprint's worktree ($REPO/.agent-local/worktrees/S-NNN, branch sprint/S-NNN, managed by sprint.sh) - or,
+# for a one-off, a task's worktree ($REPO/.agent-local/worktrees/T-XXXX) - to the dev/test environment with the
 # file-storage-dev-agent profile (least-privilege IAM role, not your SSO profile). Works from any working directory; takes no other arguments.
 set -euo pipefail
-[ "$#" -eq 2 ] || { echo "usage: $0 T-XXXX infra|web" >&2; exit 2; }
+[ "$#" -eq 2 ] || { echo "usage: $0 S-NNN|T-XXXX infra|web" >&2; exit 2; }
 TASK="$1"; MODE="$2"
-[[ "$TASK" =~ ^T-[0-9]{4}$ ]] || { echo "bad task id: $TASK" >&2; exit 2; }
+[[ "$TASK" =~ ^(T-[0-9]{4}|S-[0-9]{3})$ ]] || { echo "bad task or sprint id: $TASK" >&2; exit 2; }
 case "$MODE" in infra|web) ;; *) echo "usage: $0 T-XXXX infra|web" >&2; exit 2 ;; esac
 
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../../../.." && pwd)"  # repo root, from this script's location

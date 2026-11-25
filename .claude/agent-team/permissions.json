@@ -69,8 +69,10 @@
     "pm": {
       "allow": [
         "Bash($SKILL/scripts/memory-sync.sh *)",
-        "Bash($SKILL/scripts/github-project.sh *)",
-        "Bash($SKILL/scripts/poll-github.sh ack *)"
+        "Bash($SKILL/scripts/github-project.sh ensure)",
+        "Bash($SKILL/scripts/github-project.sh task-issue *)",
+        "Bash($SKILL/scripts/poll-github.sh ack *)",
+        "Bash($SKILL/scripts/github-project.sh stage *)"
       ],
       "deny": []
     },
@@ -86,7 +88,8 @@
       "allow": [
         "Bash($SKILL/scripts/memory-sync.sh *)",
         "Bash($SKILL/scripts/github-project.sh stage *)",
-        "Bash(node $SKILL/scripts/screenshot.mjs *)"
+        "Bash(node $SKILL/scripts/screenshot.mjs *)",
+        "Bash($SKILL/scripts/sprint.sh status *)"
       ],
       "deny": []
     },
@@ -102,15 +105,16 @@
         "Bash($SKILL/scripts/memory-sync.sh *)",
         "Bash($SKILL/scripts/github-project.sh stage *)",
         "Bash($SKILL/scripts/test-deploy.sh *)",
-        "Bash(node $SKILL/scripts/screenshot.mjs *)"
+        "Bash(node $SKILL/scripts/screenshot.mjs *)",
+        "Bash($SKILL/scripts/sprint.sh integrate *)",
+        "Bash($SKILL/scripts/sprint.sh status *)"
       ],
       "deny": []
     },
     "test-filter": {
       "allow": [
         "Bash($SKILL/scripts/memory-sync.sh *)",
-        "Bash($SKILL/scripts/github-project.sh stage *)",
-        "Bash($SKILL/scripts/github-project.sh task-issue *)"
+        "Bash($SKILL/scripts/github-project.sh stage *)"
       ],
       "deny": []
     },
@@ -122,7 +126,10 @@
         "Bash($SKILL/scripts/prod-deploy.sh diff-pr *)",
         "Bash($SKILL/scripts/prod-deploy.sh infra)",
         "Bash($SKILL/scripts/prod-deploy.sh web)",
-        "Bash(gh pr merge *)"
+        "Bash(gh pr merge *)",
+        "Bash($SKILL/scripts/sprint.sh pr *)",
+        "Bash($SKILL/scripts/sprint.sh rebase-main *)",
+        "Bash($SKILL/scripts/sprint.sh status *)"
       ],
       "deny": []
     },
@@ -136,8 +143,17 @@
     "review-judge": {
       "allow": [
         "Bash($SKILL/scripts/memory-sync.sh *)",
-        "Bash($SKILL/scripts/github-project.sh stage *)",
-        "Bash($SKILL/scripts/github-project.sh task-issue *)"
+        "Bash($SKILL/scripts/github-project.sh stage *)"
+      ],
+      "deny": []
+    },
+    "delivery-orchestrator": {
+      "allow": [
+        "Bash($SKILL/scripts/memory-sync.sh *)",
+        "Bash($SKILL/scripts/github-project.sh sprint-issue *)",
+        "Bash($SKILL/scripts/sprint.sh start *)",
+        "Bash($SKILL/scripts/sprint.sh status *)",
+        "Bash($SKILL/scripts/github-project.sh stage *)"
       ],
       "deny": []
     }

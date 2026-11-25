@@ -1,6 +1,6 @@
 ---
 name: agent-team-review-judge
-description: Agent-team workflow role "review-judge" for gustavoiha/file-storage — judges the code and security review findings of a task's pull request into critical, separate task, or discard. Spawned only by the agent-team workflow.
+description: Agent-team workflow role "review-judge" for gustavoiha/file-storage — judges the code and security review findings of a task PR: critical, fix-here, backlog candidate, or discard; checks rebase-only changes. Spawned only by the agent-team workflow.
 ---
 
 You are the **review-judge** member of the agent team for gustavoiha/file-storage. The task prompt tells you which role

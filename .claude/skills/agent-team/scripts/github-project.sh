@@ -5,12 +5,14 @@
 #   github-project.sh ensure                         create/find the Project, link the repo, ensure the Stage field
 #   github-project.sh stage <issue#> <Stage>         add the issue to the board (if needed) and set its Stage
 #   github-project.sh task-issue <T-XXXX> <request-issue#> <title> <body-file>
-#                                                    open the task's own issue, add it to the board as Backlog,
+#                                                    open the task's own issue, add it to the board as Triage,
 #                                                    link it as a sub-issue of the request issue; prints its number
+#   github-project.sh sprint-issue <S-NNN> <title> <body-file>
+#                                                    open the sprint's issue (not on the board); prints its number
 #   github-project.sh stages                         list valid Stage values
 set -euo pipefail
 OWNER=gustavoiha; REPO_SLUG=gustavoiha/file-storage; TITLE="Dockspace Agent Team"
-STAGES=("Backlog" "Design" "Awaiting human" "Engineering" "Review" "Testing" "Filtering" "Deploying" "Done" "Cancelled")
+STAGES=("Triage" "Backlog" "Ready" "Design" "Awaiting human" "Engineering" "Review" "Testing" "Filtering" "Deploying" "Done" "Cancelled")
 MARK='<!-- agent-team -->'
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../../../.." && pwd)"  # repo root, from this script's location
 CACHE=$ROOT/.agent-local/project.json
@@ -74,14 +76,28 @@ task_issue() {
   child=$(gh issue view "$n" --repo "$REPO_SLUG" --json id -q .id)
   gh api graphql -f query='mutation($p:ID!,$c:ID!){addSubIssue(input:{issueId:$p,subIssueId:$c}){issue{number}}}' \
     -f p="$parent" -f c="$child" >/dev/null || echo "warning: could not link #$n as a sub-issue of #$req" >&2
-  stage "$n" "Backlog" >/dev/null
+  stage "$n" "Triage" >/dev/null
   echo "$n"
+}
+
+sprint_issue() {
+  local sid="$1" title="$2" bodyfile="$3" tmp url existing
+  [[ "$sid" =~ ^S-[0-9]{3}$ ]] || die "sprint id expected, got '$sid'"
+  [ -f "$bodyfile" ] || die "body file not found: $bodyfile"
+  existing=$(gh issue list --repo "$REPO_SLUG" --state all --search "\"$sid:\" in:title" --json number,title -q ".[] | select(.title | startswith(\"$sid:\")) | .number" | head -1)
+  [ -z "$existing" ] || { echo "$existing"; echo "sprint issue already exists: #$existing" >&2; return 0; }
+  tmp=$(mktemp)
+  { cat "$bodyfile"; printf '\n\n---\nSprint **%s** · branch `sprint/%s` · run by the agent team\n%s\n' "$sid" "$sid" "$MARK"; } > "$tmp"
+  url=$(gh issue create --repo "$REPO_SLUG" --title "$sid: $title" --body-file "$tmp")
+  rm -f "$tmp"
+  echo "${url##*/}"
 }
 
 case "${1:-}" in
   ensure) ensure ;;
   stage) [ "$#" -eq 3 ] || die "usage: stage <issue#> <Stage>"; stage "$2" "$3" ;;
   task-issue) [ "$#" -eq 5 ] || die "usage: task-issue <T-XXXX> <request-issue#> <title> <body-file>"; task_issue "$2" "$3" "$4" "$5" ;;
+  sprint-issue) [ "$#" -eq 4 ] || die "usage: sprint-issue <S-NNN> <title> <body-file>"; sprint_issue "$2" "$3" "$4" ;;
   stages) printf '%s\n' "${STAGES[@]}" ;;
-  *) die "usage: ensure | stage <issue#> <Stage> | task-issue <T-XXXX> <request#> <title> <body-file> | stages" ;;
+  *) die "usage: ensure | stage <issue#> <Stage> | task-issue <T-XXXX> <request#> <title> <body-file> | sprint-issue <S-NNN> <title> <body-file> | stages" ;;
 esac

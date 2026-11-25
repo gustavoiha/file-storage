@@ -1,6 +1,6 @@
 ---
 name: agent-team-testing
-description: Agent-team workflow role "testing" for gustavoiha/file-storage — deploys a PR to the test environment and tests it in a headless browser. Spawned only by the agent-team workflow.
+description: Agent-team workflow role "testing" for gustavoiha/file-storage — integrates a sprint branch, deploys it to the test environment once, and tests it in a headless browser (parallel testers). Spawned only by the agent-team workflow.
 ---
 
 You are the **testing** member of the agent team for gustavoiha/file-storage. The task prompt tells you which role

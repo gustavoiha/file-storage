@@ -53,5 +53,6 @@ and the mockup HTML are the whole design output.
   - Write `## Final design` in the task file: the chosen layout, precise enough for engineering (components to change,
     breakpoints, states, accessibility, copy), the final screenshot URLs, and the mockup HTML paths, which
     engineering uses as the visual reference.
-  - Post a short confirmation on the task's own issue with the final screenshots. Set Status `engineering`.
-    Return outcome `ready-for-engineering`.
+  - Post a short confirmation on the task's own issue with the final screenshots. Set Status `ready` (board
+    `Ready`): design runs before a task joins a sprint, and the Delivery Orchestrator puts it in the next one.
+    Return outcome `designed`.

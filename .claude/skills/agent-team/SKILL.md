@@ -9,17 +9,28 @@ A long-running Workflow (`.claude/workflows/agent-team.js`) that watches GitHub 
 
 ```
 GitHub issue/comment by gustavoiha (a "request")
-   → Product Manager (tasks + roadmap in memory; one issue per task, sub-issue of the request,
-     card on the GitHub Project "Dockspace Agent Team" with a Stage column)
+   → Product Manager: drafts tasks (grouped: several small changes in one area = one task with milestones),
+     triages every task and every agent proposal against TRIAGE_CRITERIA (top of agent-team.js),
+     writes goal / why / milestones, opens the task's issue, marks it `ready` (or backlog / merge / reject)
+   → Delivery Orchestrator: dispatches ready tasks (up to maxParallelTasks), holds overlapping work,
+     resumes interrupted pipelines, tracks milestones in memory/delivery.md
    → design (3 options, human picks on the task's issue) → design-decision
    → engineering (PR "T-XXXX: …")
    → code review + security review (in parallel, findings only)
-   → review judge (critical → back to engineering; important → new task; else discard)
-   → testing (test env, headless browser)
-   → test-results filtering (critical → back to engineering; important → new task; else discard)
+   → review judge (caused by this PR: critical / fix-here → back to engineering; already on main → proposal
+     for the PM; else discard)
+   → testing: ONE test deploy + test plan, then up to maxTesters testers in parallel (test env held for the round)
+   → test-results filtering (same rules; every milestone must pass)
    → deployment (checks, squash-merge, prod deploy, notify the task's issue) → done
+     (a merge conflict alone → rebase → rebase review → back to deployment without a full test round)
 ```
 Agents comment only on their own task's issue; the request issue only shows the linked sub-issues.
+Only the PM creates tasks and marks them ready; implementation agents write proposals (`Status: proposed`, no issue)
+that the PM triages. Testing and production deploys run one task at a time; every other agent runs in parallel.
+
+- **Tuning (top of `.claude/workflows/agent-team.js`):** `TRIAGE_CRITERIA` (the PM's decision threshold, C1-C12) and
+  the limits `MAX_PARALLEL_TASKS`, `MAX_TESTERS`, `MAX_FIX_ROUNDS`, `MAX_AUTONOMOUS_DEPTH` (each also settable as
+  `args`: maxParallelTasks, maxTesters, maxFixRounds, maxAutonomousDepth).
 
 - Role prompts: `roles/*.md` (edit these to change agent behavior; no script change needed).
 - Scripts: `scripts/poll-github.sh` (blocking GitHub poller), `scripts/memory-sync.sh` (pull/commit/push memory),
@@ -62,16 +73,18 @@ Agents comment only on their own task's issue; the request issue only shows the 
    - The session was started after `.claude/agents/agent-team-*.md` existed (agent types load at session start;
      otherwise the workflow fails with "agent type 'agent-team-…' not found").
    - `gh auth status` lists the `project` scope (else `gh auth refresh -s project`), and
-     `.claude/skills/agent-team/scripts/github-project.sh ensure` succeeds.
+     `.claude/skills/agent-team/scripts/github-project.sh ensure` succeeds (the board's Stage field needs every
+     option the script lists with `stages`, including `Ready`; add missing ones in the Project settings).
 2. Run the Workflow tool with `scriptPath: .claude/workflows/agent-team.js` (or `name: "agent-team"`) and
    `args: { repo: "<absolute repo root, from git rev-parse --show-toplevel>" }` (required; the committed files hold no
-   machine-specific paths). Optional extra `args`: `{ maxAgents, maxStepsPerTask, pollsPerWatch }`. GitHub events are only marked as seen
+   machine-specific paths). Optional extra `args`: `{ maxAgents, maxStepsPerTask, pollsPerWatch, maxParallelTasks, maxTesters, maxFixRounds, maxAutonomousDepth }`. GitHub events are only marked as seen
    when the PM acks them (`poll-github.sh ack <id>…`), so nothing is lost across crashes or relaunches.
-3. All state is in memory files, so a fresh launch resumes: the first PM run sweeps the board and
-   re-dispatches tasks that were mid-pipeline. Do not use resumeFromRunId for this workflow.
+3. All state is in memory files, so a fresh launch resumes: the first PM run triages pending proposals and the
+   first Delivery Orchestrator run re-dispatches tasks that were mid-pipeline. Do not use resumeFromRunId for this workflow.
 
 The run stops itself after ~900 agents (the per-run cap is 1000) or if the GitHub watcher fails 3 times;
 relaunch then. Only one instance may run at a time (the poller cursor is shared).
 
 ## Checking state
-Read `.agent-team/memory/product.md` (task index) and the task files, or `/workflows` for live progress.
+Read `.agent-team/memory/product.md` (task index, triage log), `.agent-team/memory/delivery.md` (in flight, held,
+milestones) and the task files, or `/workflows` for live progress.

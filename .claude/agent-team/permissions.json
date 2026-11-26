@@ -74,6 +74,13 @@
       ],
       "deny": []
     },
+    "delivery-orchestrator": {
+      "allow": [
+        "Bash($SKILL/scripts/memory-sync.sh *)",
+        "Bash($SKILL/scripts/github-project.sh stage *)"
+      ],
+      "deny": []
+    },
     "design": {
       "allow": [
         "Bash($SKILL/scripts/memory-sync.sh *)",
@@ -109,8 +116,7 @@
     "test-filter": {
       "allow": [
         "Bash($SKILL/scripts/memory-sync.sh *)",
-        "Bash($SKILL/scripts/github-project.sh stage *)",
-        "Bash($SKILL/scripts/github-project.sh task-issue *)"
+        "Bash($SKILL/scripts/github-project.sh stage *)"
       ],
       "deny": []
     },
@@ -136,8 +142,7 @@
     "review-judge": {
       "allow": [
         "Bash($SKILL/scripts/memory-sync.sh *)",
-        "Bash($SKILL/scripts/github-project.sh stage *)",
-        "Bash($SKILL/scripts/github-project.sh task-issue *)"
+        "Bash($SKILL/scripts/github-project.sh stage *)"
       ],
       "deny": []
     }

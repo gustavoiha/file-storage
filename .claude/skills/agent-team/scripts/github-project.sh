@@ -10,7 +10,7 @@
 #   github-project.sh stages                         list valid Stage values
 set -euo pipefail
 OWNER=gustavoiha; REPO_SLUG=gustavoiha/file-storage; TITLE="Dockspace Agent Team"
-STAGES=("Backlog" "Design" "Awaiting human" "Engineering" "Review" "Testing" "Filtering" "Deploying" "Done" "Cancelled")
+STAGES=("Backlog" "Ready" "Design" "Awaiting human" "Engineering" "Review" "Testing" "Filtering" "Deploying" "Done" "Cancelled")
 MARK='<!-- agent-team -->'
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../../../.." && pwd)"  # repo root, from this script's location
 CACHE=$ROOT/.agent-local/project.json

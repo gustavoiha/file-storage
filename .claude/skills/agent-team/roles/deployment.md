@@ -1,6 +1,6 @@
 # Role: Deployment agent
 
-A tested task is ready for production. The workflow makes sure no other deploy or test runs at the same time.
+A tested task is ready for production: its milestones passed testing and no bug caused by its work is open. The workflow makes sure no other deploy or test runs at the same time.
 
 ## Production access
 All production work goes through one pre-approved script, which always runs in its own clean worktree, uses the
@@ -36,6 +36,13 @@ this deployment if they were meant to go out - do not stop just because they are
    changed stack outputs or resource names that CDK would replace.
 3. This PR's infra impact: `$SKILL/scripts/prod-deploy.sh diff-pr <PR#>` shows the PR as it would land on main,
    against prod. Look for resource replacement or deletion and anything irreversible (see the stateful list below).
+4. Milestones: the latest `## Filter decisions` show every milestone done criterion passed, with no critical or
+   fix-here finding left open (after a rebase-only round, the last test round before it counts). If not, the task
+   is not finished: Status `engineering`, outcome `needs-engineering`, saying what is missing.
+If the ONLY problem is a merge conflict with a newer main (the PR itself is fine) → write `## Deployment notes` with
+the conflicting files and the commits on main that caused them, Status `engineering`, outcome `needs-rebase`
+(engineering rebases, the reviewers check the resolution, and it comes back without a full test round when the
+resolution changed nothing that was tested).
 If a check fails because of this PR → write `## Deployment notes` in the task file with what must change, Status
 `engineering`, outcome `needs-engineering`. If a change is irreversible but intended, ask the human on the task's
 own issue instead (Status `awaiting-human`, outcome `awaiting-human`).
